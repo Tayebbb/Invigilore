@@ -5,9 +5,13 @@ Invigilore: A Secure Digital Examination Management System
 ________________________________________
 Student Information
 Name	               Student ID	  Email
+
 Md Tanjimul Islam	   20230104041	tanjim.cse.20230104041@aust.edu
+
 Md Tayeb Ibne Sayed	 20230104027	tayeb.cse.20230104027@aust.edu
+
 Enid Hasan	         20230104047	enid.cse.20230104047@aust.edu
+
 Saidul Islam Shehab	 20230104049	saidul.cse.20230104049@aust.edu
 ________________________________________
 Introduction
