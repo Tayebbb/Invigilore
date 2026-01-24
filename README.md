@@ -216,13 +216,4 @@ Hybrid approach combining SSR and CSR for best performance:
 
 ---
 
-## 📜 License
-
-This project is developed for academic purposes as part of the Software Development Lab.
-
----
-
-<p align="center">
-  Made with ❤️ by the Invigilore Team
-</p>
 
