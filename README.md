@@ -73,7 +73,7 @@ Each module ensures security, transparency, and ease of use, while demonstrating
 - Define exam date/time
 - Attach multiple papers (theory, MCQ, practical)
 
-> **SD Lab Value:** Demonstrates CRUD operations and entity relationships.
+
 
 ---
 
@@ -82,8 +82,6 @@ Each module ensures security, transparency, and ease of use, while demonstrating
 - Online editor for MCQs and short questions
 - Draft/final version logic
 - PDF export
-
-> **SD Value:** Form validation, version saving, and draft workflow.
 
 ---
 
@@ -94,7 +92,7 @@ Each module ensures security, transparency, and ease of use, while demonstrating
 - Moderator can request changes
 - Controller locks final paper
 
-> **SD Value:** Real-world workflow enforcement.
+
 
 ---
 
