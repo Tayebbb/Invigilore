@@ -165,7 +165,7 @@ Each module ensures security, transparency, and ease of use, while demonstrating
 |------------|---------|
 | **Node.js / Express.js** | REST API and server logic |
 | **Laravel (PHP)** | Optional backend for secure workflows |
-| **MySQL** | Relational database for exams, users, and audit logs |
+| **MSSQL** | Relational database for exams, users, and audit logs |
 
 ### Frontend Technologies
 

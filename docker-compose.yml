@@ -1,0 +1,117 @@
+# ============================================
+# Invigilore — Docker Compose Configuration
+# ============================================
+# Services: frontend (React), backend (Laravel), db (MSSQL), nginx
+
+version: "3.8"
+
+services:
+  # ──────────────────────────────────────────
+  # Frontend — React (Vite dev server)
+  # ──────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: invigilore_frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_BASE_URL=http://localhost:${NGINX_PORT:-8080}/api/v1
+    depends_on:
+      - backend
+    networks:
+      - invigilore_network
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────
+  # Backend — Laravel (PHP-FPM)
+  # ──────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: invigilore_backend
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+    environment:
+      - APP_NAME=Invigilore
+      - APP_ENV=${APP_ENV:-local}
+      - APP_KEY=${APP_KEY:-}
+      - APP_DEBUG=${APP_DEBUG:-true}
+      - APP_URL=http://localhost:${NGINX_PORT:-8080}
+      - DB_CONNECTION=sqlsrv
+      - DB_HOST=db
+      - DB_PORT=1433
+      - DB_DATABASE=${DB_DATABASE:-invigilore}
+      - DB_USERNAME=${DB_USERNAME:-sa}
+      - DB_PASSWORD=${DB_PASSWORD:-YourStrong!Passw0rd}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - invigilore_network
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────
+  # Nginx — Web Server (reverse proxy)
+  # ──────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: invigilore_nginx
+    ports:
+      - "${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+    networks:
+      - invigilore_network
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────
+  # Database — MSSQL
+  # ──────────────────────────────────────────
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: invigilore_db
+    ports:
+      - "${DB_PORT:-1433}:1433"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: ${DB_PASSWORD:-YourStrong!Passw0rd}
+      MSSQL_PID: "Express"
+      MSSQL_DATABASE: ${DB_DATABASE:-invigilore}
+    volumes:
+      - db_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${DB_PASSWORD:-YourStrong!Passw0rd}", "-Q", "SELECT 1", "-No"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - invigilore_network
+    restart: unless-stopped
+
+
+# ──────────────────────────────────────────
+# Volumes
+# ──────────────────────────────────────────
+volumes:
+  db_data:
+    driver: local
+  backend_vendor:
+    driver: local
+
+# ──────────────────────────────────────────
+# Networks
+# ──────────────────────────────────────────
+networks:
+  invigilore_network:
+    driver: bridge
