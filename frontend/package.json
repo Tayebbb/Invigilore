@@ -1,0 +1,16 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Invigilore",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "start": "echo \"Add your start script here\""
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}
