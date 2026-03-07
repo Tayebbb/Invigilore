@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Shield, Lock, Mail, User, AlertCircle, Loader2 } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
+
+import api from '../api';
+import { AxiosError } from 'axios';
 
 export default function SignUp() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [role, setRole] = useState('admin');
@@ -33,11 +37,36 @@ export default function SignUp() {
 
     setIsLoading(true);
 
-    // Simulate signup
-    setTimeout(() => {
-      // Success - redirect to home or login
-      window.location.href = '/login';
-    }, 1500);
+    try {
+      const response = await api.post('/register', {
+        name: formData.fullName,
+        email: formData.email,
+        password: formData.password,
+        password_confirmation: formData.confirmPassword,
+        role: role,
+      });
+
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<{ message?: string; error?: string; [key: string]: any }>;
+      if (axiosError.response?.data) {
+        const errData = axiosError.response.data;
+        // Collect all errors into a string or show first one
+        if (typeof errData === 'object') {
+          const msgs = Object.values(errData).flat();
+          setError(String(msgs[0]) || 'Registration failed');
+        } else {
+          setError('Registration failed');
+        }
+      } else {
+        setError('An unexpected error occurred. Please try again later.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
