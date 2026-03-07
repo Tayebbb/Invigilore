@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
 import DashboardLayout             from '../../components/layout/DashboardLayout';
 import DashboardCard               from '../../components/dashboard/DashboardCard';
 import type { SidebarNavItem }     from '../../components/layout/DashboardSidebar';
+import { getStoredUser }           from '../../auth/ProtectedRoute';
 
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 
@@ -48,32 +50,35 @@ const RECENT_ACTIVITY = [
   { text: 'System backup completed successfully',              time: 'Yesterday',  dot: 'bg-gray-500'    },
 ];
 
-// ── Placeholder user (replace with auth context) ──────────────────────────────
-const ADMIN_USER = {
-  name:    'Admin User',
-  email:   'admin@invigilore.com',
-  initial: 'A',
-  role:    'Admin' as const,
-};
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
-/**
- * AdminDashboard — /admin/dashboard
- *
- * Placeholder dashboard for the Admin role.
- * TODO: replace static data with real API calls from Laravel backend.
- */
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [activeItem, setActiveItem] = useState('Dashboard Overview');
+
+  const storedUser = getStoredUser();
+  const adminUser = {
+    name:    storedUser?.name    ?? 'Admin',
+    email:   storedUser?.email   ?? '',
+    initial: (storedUser?.name?.[0] ?? 'A').toUpperCase(),
+    role:    'Admin' as const,
+  };
+
+  function handleNavChange(label: string) {
+    if (label === 'User Management') {
+      navigate('/admin/users');
+      return;
+    }
+    setActiveItem(label);
+  }
 
   return (
     <DashboardLayout
       role="Admin"
       navItems={NAV_ITEMS}
       activeItem={activeItem}
-      onNavChange={setActiveItem}
-      user={ADMIN_USER}
+      onNavChange={handleNavChange}
+      user={adminUser}
       notificationCount={3}
       pageTitle="Admin Dashboard"
     >
@@ -94,12 +99,13 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        {/* Quick action placeholder */}
+        {/* Quick action */}
         <button
+          onClick={() => navigate('/admin/users')}
           className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-500
                      text-white rounded-xl font-semibold text-sm transition-all duration-200
                      shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40
-                     cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap flex-shrink-0"
+                     cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap shrink-0"
         >
           <Users className="w-4 h-4" />
           Add New User

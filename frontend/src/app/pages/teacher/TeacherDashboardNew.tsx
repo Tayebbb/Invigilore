@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   LayoutDashboard,
@@ -13,6 +13,7 @@ import {
   Clock,
   Users,
 } from 'lucide-react';
+import api from '../../api';
 
 import DashboardLayout             from '../../components/layout/DashboardLayout';
 import DashboardCard               from '../../components/dashboard/DashboardCard';
@@ -76,6 +77,17 @@ const TEACHER_USER = {
  */
 export default function TeacherDashboardNew() {
   const [activeItem, setActiveItem] = useState('Dashboard');
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    api.get('/questions')
+      .then(res => setQuestions(res.data))
+      .catch(() => setError('Failed to load questions'))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <DashboardLayout
@@ -258,9 +270,53 @@ export default function TeacherDashboardNew() {
               ))}
             </div>
           </motion.section>
+
+          {/* Question Bank */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.5 }}
+            className="bg-gray-900 border border-gray-800 rounded-2xl p-5"
+          >
+            <h3 className="text-sm font-semibold text-white mb-4">Question Bank</h3>
+            {loading && <div>Loading questions...</div>}
+            {error && <div>{error}</div>}
+            <table>
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>Type</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {questions.map(q => (
+                  <tr key={q.id}>
+                    <td>{q.text}</td>
+                    <td>{q.type}</td>
+                    <td>
+                      {/* Add edit/delete buttons here */}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {/* Add create question form/modal here */}
+          </motion.section>
         </div>
       </div>
 
     </DashboardLayout>
   );
+}
+
+type Question = {
+  id: number;
+  text: string;
+  type: string;
+};
+
+function QuestionBank() {
+  const [questions, setQuestions] = useState<Question[]>([]);
+  // ...existing code...
 }

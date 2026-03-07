@@ -10,6 +10,7 @@ import TeacherDashboard       from "./pages/TeacherDashboard";
 import AdminDashboard         from "./pages/admin/AdminDashboard";
 import TeacherDashboardNew    from "./pages/teacher/TeacherDashboardNew";
 import StudentDashboard       from "./pages/student/StudentDashboard";
+import UserManagement         from "./pages/admin/UserManagement";
 
 // Auth guard
 import ProtectedRoute         from "./auth/ProtectedRoute";
@@ -60,6 +61,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
         <TeacherDashboardNew />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/users",
+    element: (
+      <ProtectedRoute allowedRoles={["admin"]}>
+        <UserManagement />
       </ProtectedRoute>
     ),
   },
