@@ -3,8 +3,6 @@
 # ============================================
 # Services: frontend (React), backend (Laravel), db (MSSQL), nginx
 
-version: "3.8"
-
 services:
   # ──────────────────────────────────────────
   # Frontend — React (Vite dev server)
