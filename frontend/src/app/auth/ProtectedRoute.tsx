@@ -1,4 +1,5 @@
-import { Navigate, type ReactNode } from 'react-router';
+import { type ReactNode } from 'react';
+import { Navigate } from 'react-router';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

@@ -26,28 +26,26 @@ export default function Login() {
         password: formData.password,
       });
 
-      const { access_token, user } = response.data;
+      if (response.data.access_token) {
+        localStorage.setItem('token', response.data.access_token);
 
-      if (access_token) {
-        localStorage.setItem('token', access_token);
+        // Store user info for ProtectedRoute and dashboard display
+        const apiUser = response.data.user;
+        const roleName: string = apiUser?.role?.name ?? 'student';
+        localStorage.setItem('invigilore_user', JSON.stringify({
+          name:  apiUser.name,
+          email: apiUser.email,
+          role:  roleName,
+        }));
 
-        // Store user for ProtectedRoute / auth checks
-        const roleName = (user?.role?.name ?? user?.role ?? role).toLowerCase();
-        localStorage.setItem(
-          'invigilore_user',
-          JSON.stringify({ name: user?.name, email: user?.email, role: roleName }),
-        );
-
-        // Navigate to the role-specific dashboard
-        const dashboardMap: Record<string, string> = {
-          admin: '/admin/dashboard',
+        const dashboardPaths: Record<string, string> = {
+          admin:   '/admin/dashboard',
           teacher: '/teacher/dashboard',
           student: '/student/dashboard',
         };
-        const dest = dashboardMap[roleName] || '/dashboard';
 
         setTimeout(() => {
-          navigate(dest);
+          navigate(dashboardPaths[roleName] ?? '/dashboard');
         }, 500);
       }
     } catch (err: any) {

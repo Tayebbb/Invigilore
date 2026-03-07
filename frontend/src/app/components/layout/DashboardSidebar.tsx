@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router';
 import { Shield, X, LayoutDashboard, LogOut, type LucideIcon } from 'lucide-react';
+import api from '../../api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -41,8 +42,13 @@ function SidebarContent({
 }: Omit<DashboardSidebarProps, 'mobileOpen'>) {
   const navigate = useNavigate();
 
-  function handleLogout() {
-    // TODO: clear auth token / session when auth is wired up
+  async function handleLogout() {
+    try {
+      await api.post('/logout');
+    } catch {
+      // token may already be expired — clear locally regardless
+    }
+    localStorage.removeItem('token');
     localStorage.removeItem('invigilore_user');
     navigate('/login');
   }

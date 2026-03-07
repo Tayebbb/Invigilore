@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import api from '../api';
@@ -210,8 +210,8 @@ export default function TeacherDashboard() {
 
           {/* Left: Logo + Center Nav */}
           <div className="flex items-center gap-6">
-            <Link to="/dashboard" className="flex items-center gap-2.5 group flex-shrink-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-all duration-200 group-hover:scale-105">
+            <Link to="/dashboard" className="flex items-center gap-2.5 group shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-linear-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/40 transition-all duration-200 group-hover:scale-105">
                 <ClipboardCheck className="w-5 h-5 text-white" />
               </div>
               <span className="text-lg font-bold text-white tracking-tight">ExamFlow</span>
@@ -265,7 +265,7 @@ export default function TeacherDashboard() {
                 onClick={() => setProfileOpen(!profileOpen)}
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-800 transition-all duration-200 cursor-pointer ml-1"
               >
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                <div className="w-7 h-7 rounded-full bg-linear-to-br from-blue-500 to-violet-500 flex items-center justify-center text-xs font-bold text-white shrink-0">
                   {user?.name?.[0]?.toUpperCase() || 'U'}
                 </div>
                 <span className="hidden sm:block text-sm text-gray-300 font-medium">
@@ -373,7 +373,7 @@ export default function TeacherDashboard() {
 
       {/* ── Page Content ──────────────────────────────────────────────────── */}
       <div className="pt-16">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
 
           {/* Welcome Banner */}
           <motion.div
@@ -390,7 +390,7 @@ export default function TeacherDashboard() {
                 Create exams, manage students, and monitor results in real time.
               </p>
             </div>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap flex-shrink-0">
+            <button className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap shrink-0">
               <FilePlus className="w-4 h-4" />
               Create New Exam
             </button>
@@ -410,7 +410,7 @@ export default function TeacherDashboard() {
                   className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-gray-700 hover:shadow-xl hover:shadow-black/20 transition-all duration-300 group cursor-default"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconStyle}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconStyle}`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     <TrendingUp className="w-4 h-4 text-gray-700 group-hover:text-emerald-400 transition-colors duration-300" />
@@ -508,7 +508,7 @@ export default function TeacherDashboard() {
                         <ul className="space-y-1.5">
                           {option.features.map((feat) => (
                             <li key={feat} className="flex items-center gap-2 text-xs text-gray-400">
-                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                               {feat}
                             </li>
                           ))}
@@ -621,7 +621,7 @@ export default function TeacherDashboard() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.35 }}
-              className="xl:w-72 flex-shrink-0 space-y-4"
+              className="xl:w-72 shrink-0 space-y-4"
             >
               {/* Upcoming Exams */}
               <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
@@ -635,7 +635,7 @@ export default function TeacherDashboard() {
                       key={exam.name}
                       className="flex items-start gap-3 p-3 rounded-xl bg-gray-800/50 hover:bg-gray-800 border border-transparent hover:border-gray-700 transition-all duration-200 cursor-pointer group"
                     >
-                      <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${exam.dot}`} />
+                      <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${exam.dot}`} />
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors truncate">
                           {exam.name}
@@ -663,15 +663,15 @@ export default function TeacherDashboard() {
                   ))}
                 </div>
                 <div className="mt-4 flex items-center gap-2 pt-3 border-t border-gray-800">
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse flex-shrink-0" />
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shrink-0" />
                   <span className="text-xs text-gray-500">Live monitoring active</span>
                 </div>
               </div>
 
               {/* Pro Tip */}
-              <div className="bg-gradient-to-br from-blue-600/10 to-violet-600/10 border border-blue-500/20 rounded-2xl p-5">
+              <div className="bg-linear-to-br from-blue-600/10 to-violet-600/10 border border-blue-500/20 rounded-2xl p-5">
                 <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
                     <Zap className="w-4 h-4 text-blue-400" />
                   </div>
                   <div>
