@@ -53,8 +53,8 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # COPY . /var/www/html
 
 # Copy Laravel backend code
-COPY server/ /var/www/html
-COPY client/ /var/www/html/client
+COPY backend/ /var/www/html
+COPY frontend/ /var/www/html/frontend
 
 # Set working directory
 WORKDIR /var/www/html
@@ -73,8 +73,8 @@ RUN echo "APP_NAME=${APP_NAME}" >> .env && \
     echo "DB_CONNECTION=${DB_CONNECTION}" >> .env && \
     echo "DB_HOST=${DB_HOST}" >> .env && \
     echo "DB_DATABASE=${DB_DATABASE}" >> .env && \
-    echo "DB_DATABASE=${DB_USERNAME}" >> .env && \
-    echo "DB_DATABASE=${DB_PASSWORD}" >> .env && \
+    echo "DB_USERNAME=${DB_USERNAME}" >> .env && \
+    echo "DB_PASSWORD=${DB_PASSWORD}" >> .env && \
     echo "DB_PORT=${DB_PORT}" >> .env
 
 # Set permissions for Laravel storage and cache
@@ -83,10 +83,10 @@ RUN chown -R www-data:www-data /var/www/html && chmod -R 775 /var/www/html/stora
 # RUN ls -a
 # RUN echo "hello wrld"
 
-RUN cd client && npm install && npm run build
+RUN cd frontend && npm install && npm run build
 
 # # Move React build to Laravel public directory
-RUN cp -r client/dist/* public/
+RUN cp -r frontend/dist/* public/
 
 # # Expose port 80 for Apache
 EXPOSE 80
