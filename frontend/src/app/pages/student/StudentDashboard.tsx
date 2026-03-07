@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   LayoutDashboard,
@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Star,
 } from 'lucide-react';
+import api from '../../api';
 
 import DashboardLayout             from '../../components/layout/DashboardLayout';
 import DashboardCard               from '../../components/dashboard/DashboardCard';
@@ -109,6 +110,21 @@ const STUDENT_USER = {
  */
 export default function StudentDashboard() {
   const [activeItem, setActiveItem] = useState('Dashboard');
+  const [exams, setExams] = useState<Exam[]>([]);
+  const [results, setResults] = useState<Result[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    api.get('/exams')
+      .then(res => setExams(res.data))
+      .catch(() => setError('Failed to load exams'))
+      .finally(() => setLoading(false));
+    api.get('/results')
+      .then(res => setResults(res.data))
+      .catch(() => setError('Failed to load results'));
+  }, []);
 
   return (
     <DashboardLayout
@@ -275,6 +291,34 @@ export default function StudentDashboard() {
         </div>
       </motion.section>
 
+      {/* ── Student Exam Interface ────────────────────────────────────────────── */}
+      <section className="mt-6">
+        <h2>Available Exams</h2>
+        <ul>
+          {exams.map(exam => (
+            <li key={exam.id}>{exam.name} - {exam.subject}</li>
+          ))}
+        </ul>
+        <h2>My Results</h2>
+        <ul>
+          {results.map(result => (
+            <li key={result.id}>{result.exam_name}: {result.score}</li>
+          ))}
+        </ul>
+        {/* Add exam attempt UI here */}
+      </section>
+
     </DashboardLayout>
   );
 }
+
+type Exam = {
+  id: number;
+  name: string;
+  subject: string;
+};
+type Result = {
+  id: number;
+  exam_name: string;
+  score: string;
+};
