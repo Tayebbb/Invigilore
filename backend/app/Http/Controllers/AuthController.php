@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -17,6 +18,10 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'name'     => 'required|string|between:2,100',
+            'email'    => 'required|string|email|max:100|unique:users',
+            'password' => 'required|string|confirmed|min:8',
+            'role'     => 'required|string|in:student,teacher,admin',
             'name' => 'required|string|between:2,100',
             'email' => 'required|string|email|max:100|unique:users',
             'password' => 'required|string|confirmed|min:8',
@@ -27,6 +32,14 @@ class AuthController extends Controller
             return response()->json($validator->errors(), 400);
         }
 
+        $role = Role::where('name', $request->role)->firstOrFail();
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+            'role_id'  => $role->id,
+        ]);
         $user = User::create(array_merge(
             $validator->validated(),
             ['password' => Hash::make($request->password)]
@@ -73,6 +86,7 @@ class AuthController extends Controller
      */
     public function me()
     {
+        return response()->json(auth('api')->user()->load('role'));
         return response()->json(auth('api')->user());
     }
 
@@ -101,6 +115,7 @@ class AuthController extends Controller
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_in' => auth('api')->factory()->getTTL() * 60,
+            'user' => auth('api')->user()->load('role')
             'user' => auth('api')->user()
         ]);
     }
