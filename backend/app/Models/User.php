@@ -53,6 +53,8 @@ class User extends Authenticatable implements JWTSubject
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
+    }
+
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.
      *

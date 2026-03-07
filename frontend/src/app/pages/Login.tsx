@@ -26,11 +26,28 @@ export default function Login() {
         password: formData.password,
       });
 
-      if (response.data.access_token) {
-        localStorage.setItem('token', response.data.access_token);
-        // Add a small delay for better user experience
+      const { access_token, user } = response.data;
+
+      if (access_token) {
+        localStorage.setItem('token', access_token);
+
+        // Store user for ProtectedRoute / auth checks
+        const roleName = (user?.role?.name ?? user?.role ?? role).toLowerCase();
+        localStorage.setItem(
+          'invigilore_user',
+          JSON.stringify({ name: user?.name, email: user?.email, role: roleName }),
+        );
+
+        // Navigate to the role-specific dashboard
+        const dashboardMap: Record<string, string> = {
+          admin: '/admin/dashboard',
+          teacher: '/teacher/dashboard',
+          student: '/student/dashboard',
+        };
+        const dest = dashboardMap[roleName] || '/dashboard';
+
         setTimeout(() => {
-          navigate('/dashboard');
+          navigate(dest);
         }, 500);
       }
     } catch (err: any) {
