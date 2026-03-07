@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
+import api from '../api';
 import {
   ClipboardCheck,
   LayoutDashboard,
@@ -139,11 +140,42 @@ const statusConfig: Record<string, { classes: string }> = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TeacherDashboard() {
+  const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState('Dashboard');
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<number | null>(null);
+  const [user, setUser] = useState<{name: string, email: string, role: string} | null>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchUser = async () => {
+      try {
+        const response = await api.get('/me');
+        setUser(response.data);
+      } catch (err) {
+        // Will be redirected by interceptor or we can handle it here
+      }
+    };
+    fetchUser();
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/logout');
+    } catch(e) {
+      console.error(e);
+    } finally {
+      localStorage.removeItem('token');
+      navigate('/login');
+    }
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -234,9 +266,11 @@ export default function TeacherDashboard() {
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg hover:bg-gray-800 transition-all duration-200 cursor-pointer ml-1"
               >
                 <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-                  J
+                  {user?.name?.[0]?.toUpperCase() || 'U'}
                 </div>
-                <span className="hidden sm:block text-sm text-gray-300 font-medium">Prof. Jane</span>
+                <span className="hidden sm:block text-sm text-gray-300 font-medium">
+                  {user?.name || 'User'}
+                </span>
                 <ChevronDown
                   className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${
                     profileOpen ? 'rotate-180' : ''
@@ -254,8 +288,8 @@ export default function TeacherDashboard() {
                     className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
                   >
                     <div className="p-3.5 border-b border-gray-800">
-                      <p className="text-sm font-semibold text-white">Prof. Jane Smith</p>
-                      <p className="text-xs text-gray-500 mt-0.5">jane.smith@oxford.ac.uk</p>
+                      <p className="text-sm font-semibold text-white">{user?.name || 'Loading...'}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{user?.email || ''}</p>
                     </div>
                     <div className="p-1.5">
                       {profileMenuItems.map((item) => {
@@ -272,13 +306,13 @@ export default function TeacherDashboard() {
                       })}
                     </div>
                     <div className="p-1.5 border-t border-gray-800">
-                      <Link
-                        to="/login"
-                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-150 cursor-pointer"
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-150 cursor-pointer"
                       >
                         <LogOut className="w-4 h-4" />
                         Sign Out
-                      </Link>
+                      </button>
                     </div>
                   </motion.div>
                 )}
@@ -286,13 +320,13 @@ export default function TeacherDashboard() {
             </div>
 
             {/* Logout shortcut — desktop */}
-            <Link
-              to="/login"
+            <button
+              onClick={handleLogout}
               className="hidden lg:flex w-9 h-9 rounded-lg items-center justify-center text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 cursor-pointer"
               title="Sign out"
             >
               <LogOut className="w-4 h-4" />
-            </Link>
+            </button>
 
             {/* Mobile hamburger */}
             <button
@@ -350,7 +384,7 @@ export default function TeacherDashboard() {
           >
             <div>
               <h1 className="text-2xl font-bold text-white mb-1">
-                Welcome back, Teacher 👋
+                Welcome back, {user?.name || 'Loading...'} 👋
               </h1>
               <p className="text-gray-400 text-sm">
                 Create exams, manage students, and monitor results in real time.
