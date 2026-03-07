@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Shield, Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
+import api from '../api';
 
 export default function Login() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState('admin');
   const [rememberMe, setRememberMe] = useState(false);
@@ -18,16 +20,30 @@ export default function Login() {
     setError('');
     setIsLoading(true);
 
-    // Simulate login
-    setTimeout(() => {
-      if (formData.email === 'demo@invigilore.com' && formData.password === 'password') {
-        // Success - redirect to teacher dashboard
-        window.location.href = '/dashboard';
+    try {
+      const response = await api.post('/login', {
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (response.data.access_token) {
+        localStorage.setItem('token', response.data.access_token);
+        // Add a small delay for better user experience
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 500);
+      }
+    } catch (err: any) {
+      if (err.response?.data?.error) {
+        setError(err.response.data.error);
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
       } else {
         setError('Invalid credentials. Please try again.');
-        setIsLoading(false);
       }
-    }, 1500);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
