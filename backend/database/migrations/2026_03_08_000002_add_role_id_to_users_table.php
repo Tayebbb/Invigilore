@@ -9,10 +9,16 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            // Drop the old enum column and add the FK
-            $table->dropColumn('role');
-            $table->foreignId('role_id')->nullable()->constrained('roles')->nullOnDelete();
+            if (Schema::hasColumn('users', 'role')) {
+                $table->dropColumn('role');
+            }
         });
+
+        if (! Schema::hasColumn('users', 'role_id')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->foreignId('role_id')->nullable()->constrained('roles')->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void

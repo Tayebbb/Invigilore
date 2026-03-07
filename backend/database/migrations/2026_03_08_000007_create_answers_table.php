@@ -8,20 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('roles')) {
-            return;
-        }
-
-        Schema::create('roles', function (Blueprint $table) {
+        Schema::create('answers', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique();
-            $table->string('description')->nullable();
+            $table->foreignId('attempt_id')->constrained('exam_attempts')->cascadeOnDelete();
+            $table->foreignId('question_id')->constrained('questions')->cascadeOnDelete();
+            $table->text('answer');
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('roles');
+        Schema::dropIfExists('answers');
     }
 };
