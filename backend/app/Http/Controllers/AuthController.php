@@ -21,11 +21,7 @@ class AuthController extends Controller
             'name'     => 'required|string|between:2,100',
             'email'    => 'required|string|email|max:100|unique:users',
             'password' => 'required|string|confirmed|min:8',
-            'role'     => 'required|string|in:student,teacher,admin',
-            'name' => 'required|string|between:2,100',
-            'email' => 'required|string|email|max:100|unique:users',
-            'password' => 'required|string|confirmed|min:8',
-            'role' => 'required|in:student,teacher,admin',
+            'role'     => 'required|in:student,teacher,admin',
         ]);
 
         if ($validator->fails()) {
@@ -40,17 +36,14 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
             'role_id'  => $role->id,
         ]);
-        $user = User::create(array_merge(
-            $validator->validated(),
-            ['password' => Hash::make($request->password)]
-        ));
 
         $token = auth('api')->login($user);
 
         return response()->json([
-            'message' => 'User registered successfully',
-            'token' => $token,
-            'user' => $user
+            'message'      => 'User registered successfully',
+            'access_token' => $token,
+            'token_type'   => 'bearer',
+            'user'         => $user->load('role'),
         ], 201);
     }
 
@@ -87,7 +80,6 @@ class AuthController extends Controller
     public function me()
     {
         return response()->json(auth('api')->user()->load('role'));
-        return response()->json(auth('api')->user());
     }
 
     /**
@@ -113,10 +105,9 @@ class AuthController extends Controller
     {
         return response()->json([
             'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => auth('api')->factory()->getTTL() * 60,
-            'user' => auth('api')->user()->load('role')
-            'user' => auth('api')->user()
+            'token_type'   => 'bearer',
+            'expires_in'   => auth('api')->factory()->getTTL() * 60,
+            'user'         => auth('api')->user()->load('role'),
         ]);
     }
 }

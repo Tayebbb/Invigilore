@@ -28,9 +28,24 @@ export default function Login() {
 
       if (response.data.access_token) {
         localStorage.setItem('token', response.data.access_token);
-        // Add a small delay for better user experience
+
+        // Store user info for ProtectedRoute and dashboard display
+        const apiUser = response.data.user;
+        const roleName: string = apiUser?.role?.name ?? 'student';
+        localStorage.setItem('invigilore_user', JSON.stringify({
+          name:  apiUser.name,
+          email: apiUser.email,
+          role:  roleName,
+        }));
+
+        const dashboardPaths: Record<string, string> = {
+          admin:   '/admin/dashboard',
+          teacher: '/teacher/dashboard',
+          student: '/student/dashboard',
+        };
+
         setTimeout(() => {
-          navigate('/dashboard');
+          navigate(dashboardPaths[roleName] ?? '/dashboard');
         }, 500);
       }
     } catch (err: any) {
