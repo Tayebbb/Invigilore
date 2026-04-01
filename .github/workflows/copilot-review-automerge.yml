@@ -47,6 +47,12 @@ jobs:
           if git rebase origin/main; then
             echo "✅ Rebase succeeded — no conflicts."
           else
+            # Check if there are any conflicted files
+            if [ -z "$(git diff --name-only --diff-filter=U)" ]; then
+              echo "✅ No conflicts to resolve. Skipping auto-resolve."
+              git rebase --abort
+              exit 0
+            fi
             echo "⚠️  Conflicts found — auto-resolving (keeping PR branch version)..."
             git diff --name-only --diff-filter=U | xargs -I{} git checkout --theirs {}
             git diff --name-only --diff-filter=U | xargs git add
