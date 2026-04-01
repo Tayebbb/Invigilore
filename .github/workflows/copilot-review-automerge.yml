@@ -50,7 +50,7 @@ jobs:
             echo "⚠️  Conflicts found — auto-resolving (keeping PR branch version)..."
             git diff --name-only --diff-filter=U | xargs -I{} git checkout --theirs {}
             git diff --name-only --diff-filter=U | xargs git add
-            git rebase --continue --no-edit || {
+            git rebase --continue || {
               echo "❌ Could not auto-resolve all conflicts. Aborting."
               git rebase --abort
               exit 1
