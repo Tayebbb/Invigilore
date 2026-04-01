@@ -6,89 +6,105 @@ on:
     branches:
       - main
 
-# Fix Node.js 20 deprecation warning
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GIT_EDITOR: true
+  GIT_SEQUENCE_EDITOR: true
 
 jobs:
   resolve-and-merge:
     name: Resolve Conflicts & Merge
     runs-on: ubuntu-latest
 
+    # This workflow can only push back to branches in the same repository.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
     permissions:
       contents: write
       pull-requests: write
 
     steps:
-      # ── 1. Checkout with full history for rebase ──────────────────
-      - name: Checkout repository
+      - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── 2. Configure Git identity ─────────────────────────────────
       - name: Configure Git identity
         run: |
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config core.editor true
+          git config sequence.editor true
 
-      # ── 3. Rebase PR branch onto main (auto-resolve conflicts) ────
-      - name: Rebase & resolve conflicts
+      - name: Rebase onto main and auto-resolve real conflicts
         run: |
+          set -euo pipefail
+
           PR_BRANCH="${{ github.head_ref }}"
-          echo "🔀 Rebasing $PR_BRANCH onto main..."
+          echo "Rebasing ${PR_BRANCH} onto origin/main..."
 
           git fetch origin main
-          git checkout "$PR_BRANCH"
-          git fetch origin "$PR_BRANCH"
-          git reset --hard "origin/$PR_BRANCH"
+          git checkout "${PR_BRANCH}"
 
           if git rebase origin/main; then
-            echo "✅ Rebase succeeded — no conflicts."
+            echo "Rebase succeeded with no conflicts."
           else
-            # Check if there are any conflicted files
-            if [ -z "$(git diff --name-only --diff-filter=U)" ]; then
-              echo "✅ No conflicts to resolve. Skipping auto-resolve."
-              git rebase --abort
-              exit 0
-            fi
-            echo "⚠️  Conflicts found — auto-resolving (keeping PR branch version)..."
-            git diff --name-only --diff-filter=U | xargs -I{} git checkout --theirs {}
-            git diff --name-only --diff-filter=U | xargs git add
-            git rebase --continue || {
-              echo "❌ Could not auto-resolve all conflicts. Aborting."
-              git rebase --abort
-              exit 1
-            }
-            echo "✅ Conflicts resolved."
+            echo "Rebase stopped. Checking for actual conflicted files..."
+
+            while true; do
+              CONFLICT_FILES="$(git diff --name-only --diff-filter=U || true)"
+
+              if [ -z "$CONFLICT_FILES" ]; then
+                echo "Rebase failed, but no conflicted files were found. Aborting."
+                git rebase --abort || true
+                exit 1
+              fi
+
+              echo "Auto-resolving these files by keeping the PR branch version:"
+              echo "$CONFLICT_FILES"
+
+              while IFS= read -r file; do
+                [ -z "$file" ] && continue
+                git checkout --theirs -- "$file"
+                git add -- "$file"
+              done <<< "$CONFLICT_FILES"
+
+              if git rebase --continue; then
+                echo "Rebase continued successfully."
+                break
+              fi
+
+              echo "Rebase is still in progress. Checking for more conflicts..."
+            done
           fi
 
-          git push origin "$PR_BRANCH" --force-with-lease
-          echo "✅ Branch pushed."
+          git push origin "${PR_BRANCH}" --force-with-lease
+          echo "Branch pushed successfully."
 
-      # ── 4. Merge the PR ───────────────────────────────────────────
       - name: Merge pull request
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr_number = context.payload.pull_request.number;
+
             try {
               await github.rest.pulls.merge({
                 owner: context.repo.owner,
-                repo:  context.repo.repo,
+                repo: context.repo.repo,
                 pull_number: pr_number,
                 merge_method: 'squash',
-                commit_title:   `Auto-merged PR #${pr_number}: ${context.payload.pull_request.title}`,
+                commit_title: `Auto-merged PR #${pr_number}: ${context.payload.pull_request.title}`,
                 commit_message: 'Automatically merged via GitHub Actions.',
               });
-              console.log(`🎉 PR #${pr_number} merged successfully!`);
+
+              console.log(`PR #${pr_number} merged successfully.`);
             } catch (err) {
-              core.setFailed(`❌ Merge failed: ${err.message}`);
+              core.setFailed(`Merge failed: ${err.message}`);
             }
 
-      # ── 5. Delete feature branch after merge ─────────────────────
       - name: Delete merged branch
         if: success()
         uses: actions/github-script@v7
@@ -98,10 +114,10 @@ jobs:
             try {
               await github.rest.git.deleteRef({
                 owner: context.repo.owner,
-                repo:  context.repo.repo,
-                ref:   `heads/${{ github.head_ref }}`,
+                repo: context.repo.repo,
+                ref: `heads/${{ github.head_ref }}`
               });
-              console.log(`🗑️  Branch '${{ github.head_ref }}' deleted.`);
+              console.log(`Branch '${{ github.head_ref }}' deleted.`);
             } catch (err) {
-              console.log(`⚠️  Could not delete branch: ${err.message}`);
+              console.log(`Could not delete branch: ${err.message}`);
             }
