@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router';
-import { Shield, X, LayoutDashboard, LogOut, type LucideIcon } from 'lucide-react';
+import { X, LayoutDashboard, LogOut, type LucideIcon } from 'lucide-react';
 import api from '../../api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -58,10 +58,7 @@ function SidebarContent({
 
       {/* ── Logo ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-gray-800">
-        <div className="w-9 h-9 rounded-xl bg-linear-to-br from-blue-500 to-blue-700
-                        flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
-          <Shield className="w-5 h-5 text-white" />
-        </div>
+        <img src="/logo.png" alt="Invigilore" className="w-9 h-9 rounded-xl shadow-lg shadow-blue-500/20 shrink-0" />
         <div className="min-w-0">
           <span className="text-base font-bold text-white tracking-tight block leading-none">
             Invigilore

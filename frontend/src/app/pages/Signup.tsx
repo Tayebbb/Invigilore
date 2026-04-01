@@ -47,9 +47,24 @@ export default function SignUp() {
         role: 'student',
       });
 
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        navigate('/dashboard');
+      if (response.data.access_token) {
+        localStorage.setItem('token', response.data.access_token);
+
+        const apiUser = response.data.user;
+        const roleName: string = apiUser?.role?.name ?? 'student';
+        localStorage.setItem('invigilore_user', JSON.stringify({
+          name:  apiUser.name,
+          email: apiUser.email,
+          role:  roleName,
+        }));
+
+        const dashboardPaths: Record<string, string> = {
+          admin:   '/admin/dashboard',
+          teacher: '/teacher/dashboard',
+          student: '/student/dashboard',
+        };
+
+        navigate(dashboardPaths[roleName] ?? '/dashboard');
       }
     } catch (err) {
       const axiosError = err as AxiosError<{ message?: string; error?: string; [key: string]: any }>;
