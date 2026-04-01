@@ -38,9 +38,7 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Left - Logo */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-lg bg-linear-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md shadow-blue-500/20 group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all duration-200 group-hover:scale-105">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
+            <img src="/logo.png" alt="Invigilore" className="w-9 h-9 rounded-lg shadow-md shadow-blue-500/20 group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all duration-200 group-hover:scale-105" />
             <span className="text-xl font-semibold text-white">
               Invigilore
             </span>
