@@ -4,13 +4,13 @@ import { Link } from 'react-router';
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden pt-20 pb-20 bg-gray-950">
+    <section className="relative min-h-screen flex items-start overflow-hidden pt-4 md:pt-6 pb-20 bg-gray-950">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-gradient-to-b from-gray-900 to-gray-950"></div>
       <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.1) 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
 
       {/* Main Content - higher z-index to ensure visibility */}
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-12 md:py-20 grid md:grid-cols-2 gap-6 md:gap-12 lg:gap-16 items-center">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 md:py-10 grid md:grid-cols-2 gap-6 md:gap-12 lg:gap-16 items-center">
         {/* Left Content */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
