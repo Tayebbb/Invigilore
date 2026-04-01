@@ -1,0 +1,172 @@
+name: Copilot Review & Auto Merge
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - main
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 1 — Request GitHub Copilot as a reviewer on the PR
+  # ─────────────────────────────────────────────────────────────────
+  request-copilot-review:
+    name: Assign Copilot Reviewer
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Request Copilot code review
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.pulls.requestReviewers({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              // 'copilot-pull-request-reviewer' is the GitHub Copilot reviewer bot slug
+              reviewers: ['copilot-pull-request-reviewer'],
+            });
+            console.log(`✅ Copilot review requested on PR #${context.payload.pull_request.number}`);
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 2 — Wait for Copilot to finish its review, then merge
+  # Runs after JOB 1 completes
+  # ─────────────────────────────────────────────────────────────────
+  resolve-conflicts-and-merge:
+    name: Resolve Conflicts & Merge
+    runs-on: ubuntu-latest
+    needs: request-copilot-review   # waits for Job 1
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      # ── 1. Checkout with full history so we can rebase ───────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history needed for rebase/merge conflict resolution
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 2. Configure git identity for conflict-resolution commits ─
+      - name: Configure Git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ── 3. Wait for Copilot review to complete (polls every 30s) ──
+      - name: Wait for Copilot review
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr_number = context.payload.pull_request.number;
+            const maxAttempts = 20;   // 20 × 30s = 10 minutes max wait
+            const sleepMs     = 30000;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              console.log(`⏳ Attempt ${attempt}/${maxAttempts} — checking Copilot review status...`);
+
+              const { data: reviews } = await github.rest.pulls.listReviews({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                pull_number: pr_number,
+              });
+
+              const copilotReview = reviews.find(r =>
+                r.user.login === 'copilot-pull-request-reviewer' &&
+                (r.state === 'APPROVED' || r.state === 'CHANGES_REQUESTED' || r.state === 'COMMENTED')
+              );
+
+              if (copilotReview) {
+                console.log(`✅ Copilot review found — state: ${copilotReview.state}`);
+
+                if (copilotReview.state === 'CHANGES_REQUESTED') {
+                  // Copilot flagged issues — fail the workflow so a human can check
+                  core.setFailed('❌ Copilot requested changes. Please review before merging.');
+                }
+                break;   // APPROVED or COMMENTED → continue to merge
+              }
+
+              if (attempt === maxAttempts) {
+                console.log('⚠️  Copilot review timed out — proceeding with merge anyway.');
+              } else {
+                await new Promise(r => setTimeout(r, sleepMs));
+              }
+            }
+
+      # ── 4. Attempt rebase onto main to resolve conflicts ──────────
+      - name: Rebase PR branch onto main (resolve conflicts)
+        id: rebase
+        run: |
+          PR_BRANCH="${{ github.head_ref }}"
+          echo "🔀 Rebasing $PR_BRANCH onto main..."
+
+          git fetch origin main
+          git checkout "$PR_BRANCH"
+          git fetch origin "$PR_BRANCH"
+          git reset --hard "origin/$PR_BRANCH"
+
+          # Try a clean rebase
+          if git rebase origin/main; then
+            echo "✅ Rebase succeeded — no conflicts."
+          else
+            echo "⚠️  Conflicts detected — attempting automatic resolution (ours strategy)..."
+            # Accept the PR branch's version for every conflicted file
+            git diff --name-only --diff-filter=U | xargs -I{} git checkout --theirs {}
+            git diff --name-only --diff-filter=U | xargs git add
+            git rebase --continue --no-edit || {
+              echo "❌ Could not auto-resolve all conflicts. Aborting."
+              git rebase --abort
+              exit 1
+            }
+            echo "✅ Conflicts resolved automatically."
+          fi
+
+          # Push the rebased branch back
+          git push origin "$PR_BRANCH" --force-with-lease
+          echo "✅ Branch pushed."
+
+      # ── 5. Merge the PR via GitHub API ────────────────────────────
+      - name: Merge pull request
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr_number = context.payload.pull_request.number;
+
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                pull_number: pr_number,
+                merge_method: 'squash',   // options: merge | squash | rebase
+                commit_title:   `Auto-merged PR #${pr_number}: ${context.payload.pull_request.title}`,
+                commit_message: 'Reviewed by GitHub Copilot and merged automatically via GitHub Actions.',
+              });
+              console.log(`🎉 PR #${pr_number} merged successfully!`);
+            } catch (err) {
+              core.setFailed(`❌ Merge failed: ${err.message}`);
+            }
+
+      # ── 6. Delete the feature branch after merge ──────────────────
+      - name: Delete merged branch
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                ref:   `heads/${{ github.head_ref }}`,
+              });
+              console.log(`🗑️  Branch '${{ github.head_ref }}' deleted.`);
+            } catch (err) {
+              console.log(`⚠️  Could not delete branch: ${err.message}`);
+            }
