@@ -1,37 +1,48 @@
-# Laravel 12 PHP 8.4 Dockerfile
 FROM php:8.4-fpm
 
-# Install system dependencies
+# Install system dependencies required by Laravel and SQL Server drivers
 RUN apt-get update && apt-get install -y \
     git \
     curl \
-    libpng-dev \
+    unzip \
+    libzip-dev \
     libonig-dev \
     libxml2-dev \
-    zip \
-    unzip \
-    nodejs \
-    npm \
-    unixodbc \
-    unixodbc-dev
+    gnupg2 \
+    ca-certificates \
+    apt-transport-https \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install PHP extensions (remove pdo_sqlsrv - use ODBC instead)
-RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd
+# Install Microsoft ODBC Driver 18 and unixODBC for sqlsrv support
+RUN set -eux; \
+    curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/microsoft.gpg; \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" > /etc/apt/sources.list.d/microsoft-prod.list; \
+    apt-get update; \
+    ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev; \
+    rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Install only essential PHP extensions for this app to keep builds stable
+RUN docker-php-ext-install mbstring bcmath zip
+# RUN pecl install sqlsrv pdo_sqlsrv && docker-php-ext-enable sqlsrv pdo_sqlsrv
+
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
 WORKDIR /var/www/html
 
-# Copy composer
-COPY --from=composer:2.5 /usr/bin/composer /usr/bin/composer
+# Copy only composer manifests first to optimize build layer caching
+COPY composer.json composer.lock ./
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# Copy app files
+# Copy application source
 COPY . .
 
-# Install composer dependencies
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
-
-# Permissions
-RUN chown -R www-data:www-data /var/www/html
+# Set writable permissions for Laravel runtime directories
+RUN mkdir -p storage bootstrap/cache && \
+    chown -R www-data:www-data storage bootstrap/cache && \
+    chmod -R 775 storage bootstrap/cache
 
 EXPOSE 9000
-CMD ["php-fpm"]
+
+# Ensure dependencies exist even when vendor is mounted as an empty volume first run
+CMD ["sh", "-lc", "if [ ! -f vendor/autoload.php ]; then composer install --no-interaction --prefer-dist; fi; php-fpm"]

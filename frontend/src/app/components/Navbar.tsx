@@ -1,9 +1,28 @@
-import { useState } from 'react';
-import { Menu, X } from 'lucide-react';
-import { Link } from 'react-router';
+import { useState, useEffect } from 'react';
+import { Shield, Menu, X, LogOut } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { getStoredUser } from '../auth/ProtectedRoute';
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
+
+  // Check if user is logged in
+  useEffect(() => {
+    const user = getStoredUser();
+    setIsLoggedIn(!!user);
+  }, []);
+
+  const handleLogout = () => {
+    // Clear auth data from localStorage
+    localStorage.removeItem('token');
+    localStorage.removeItem('invigilore_user');
+    setIsLoggedIn(false);
+    setIsMobileMenuOpen(false);
+    // Redirect to home page
+    navigate('/', { replace: true });
+  };
 
   const navLinks = [
     { label: 'Features', href: '#features' },
@@ -40,18 +59,30 @@ export function Navbar() {
 
           {/* Right - CTA Button (Desktop & Tablet) */}
           <div className="hidden md:flex items-center gap-3">
-            <Link
-              to="/login"
-              className="px-5 py-2.5 text-sm font-semibold text-gray-300 hover:text-white transition-colors duration-200"
-            >
-              Login
-            </Link>
-            <Link
-              to="/signup"
-              className="px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-500 focus:ring-4 focus:ring-blue-600/20 transition-all duration-200 shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-95 cursor-pointer"
-            >
-              Sign Up
-            </Link>
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                className="px-5 py-2.5 text-sm font-semibold text-gray-300 hover:text-white transition-colors duration-200 flex items-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="px-5 py-2.5 text-sm font-semibold text-gray-300 hover:text-white transition-colors duration-200"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-6 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-500 focus:ring-4 focus:ring-blue-600/20 transition-all duration-200 shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 hover:scale-[1.02] active:scale-95 cursor-pointer"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -84,20 +115,32 @@ export function Navbar() {
               </a>
             ))}
             <div className="pt-3 border-t border-gray-800 space-y-2">
-              <Link
-                to="/login"
-                className="block px-4 py-2.5 text-gray-300 text-sm font-semibold text-center rounded-lg hover:bg-gray-800 hover:text-white transition-all duration-200 cursor-pointer"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Login
-              </Link>
-              <Link
-                to="/signup"
-                className="block px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold text-center rounded-lg hover:bg-blue-500 transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-95"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Sign Up
-              </Link>
+              {isLoggedIn ? (
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-2.5 text-gray-300 text-sm font-semibold text-center rounded-lg hover:bg-gray-800 hover:text-white transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </button>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className="block px-4 py-2.5 text-gray-300 text-sm font-semibold text-center rounded-lg hover:bg-gray-800 hover:text-white transition-all duration-200 cursor-pointer"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="block px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold text-center rounded-lg hover:bg-blue-500 transition-all duration-200 cursor-pointer hover:scale-[1.02] active:scale-95"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
