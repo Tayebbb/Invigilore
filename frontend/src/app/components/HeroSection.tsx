@@ -4,43 +4,13 @@ import { Link } from 'react-router';
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden pt-20 bg-gray-950">
+    <section className="relative min-h-screen flex items-start overflow-hidden pt-4 md:pt-6 pb-20 bg-gray-950">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-gradient-to-b from-gray-900 to-gray-950"></div>
       <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(59, 130, 246, 0.1) 1px, transparent 0)', backgroundSize: '40px 40px' }}></div>
-      
-      {/* Floating Icons */}
-      <motion.div
-        className="absolute top-32 left-[10%]"
-        animate={{ y: [0, -20, 0] }}
-        transition={{ duration: 4, repeat: Infinity }}
-      >
-        <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shadow-lg shadow-blue-500/10">
-          <Shield className="w-8 h-8 text-blue-400" />
-        </div>
-      </motion.div>
 
-      <motion.div
-        className="absolute top-48 right-[15%]"
-        animate={{ y: [0, 20, 0] }}
-        transition={{ duration: 5, repeat: Infinity }}
-      >
-        <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shadow-lg shadow-emerald-500/10">
-          <Lock className="w-7 h-7 text-emerald-400" />
-        </div>
-      </motion.div>
-
-      <motion.div
-        className="absolute bottom-32 left-[20%]"
-        animate={{ y: [0, -15, 0] }}
-        transition={{ duration: 4.5, repeat: Infinity }}
-      >
-        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shadow-lg shadow-blue-500/10">
-          <Clock className="w-6 h-6 text-blue-400" />
-        </div>
-      </motion.div>
-
-      <div className="relative max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-16 items-center">
+      {/* Main Content - higher z-index to ensure visibility */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 md:py-10 grid md:grid-cols-2 gap-6 md:gap-12 lg:gap-16 items-center">
         {/* Left Content */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -49,12 +19,12 @@ export function HeroSection() {
           className="space-y-8"
         >
           <div className="inline-block">
-            <div className="px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20">
-              <span className="text-sm text-blue-400 font-medium">Next-Generation Exam Platform</span>
+            <div className="px-3 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center gap-2">
+              <span className="text-xs sm:text-sm text-blue-400 font-medium">Next-Generation Exam Platform</span>
             </div>
           </div>
 
-          <h1 className="text-5xl md:text-6xl font-bold leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mt-4">
             <span className="text-white">Secure. </span>
             <span className="text-white">Transparent. </span>
             <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
@@ -62,27 +32,28 @@ export function HeroSection() {
             </span>
           </h1>
 
-          <p className="text-xl text-gray-400 leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl text-gray-400 leading-relaxed max-w-xl mt-4">
             The most advanced digital examination management platform. Monitor exams in real-time, ensure integrity with AI-powered proctoring, and maintain complete audit trails.
           </p>
 
-          <div className="flex flex-wrap items-center gap-4">
+          {/* CTA Buttons - clean layout with no overlaps */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-6 relative z-20">
             <Link
               to="/signup"
-              className="group inline-flex items-center gap-3 px-8 py-4 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-500 transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-95 cursor-pointer"
+              className="group flex items-center justify-center gap-2 px-6 py-2.5 sm:py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-500 transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 hover:scale-[1.02] active:scale-95 cursor-pointer text-sm sm:text-base"
             >
               Get Started
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
 
-            <button className="group inline-flex items-center gap-3 px-8 py-4 bg-gray-800 border border-gray-700 text-white rounded-xl font-semibold hover:bg-gray-700 hover:border-gray-600 transition-all duration-200 cursor-pointer">
-              <Play className="w-5 h-5 text-blue-400" />
+            <button className="group flex items-center justify-center gap-2 px-6 py-2.5 sm:py-3 bg-gray-800 border border-gray-700 text-white rounded-lg font-semibold hover:bg-gray-700 hover:border-gray-600 transition-all duration-200 cursor-pointer text-sm sm:text-base">
+              <Play className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               Watch Demo
             </button>
           </div>
 
-          {/* Trust Indicators */}
-          <div className="flex flex-wrap items-center gap-8 pt-4">
+          {/* Trust Indicators - improved mobile layout */}
+          <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4 sm:gap-8 pt-4">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
               <span className="text-sm text-gray-400">ISO 27001 Certified</span>
@@ -103,7 +74,7 @@ export function HeroSection() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="relative"
+          className="relative hidden sm:block"
         >
           <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
             {/* Dashboard Mockup */}
