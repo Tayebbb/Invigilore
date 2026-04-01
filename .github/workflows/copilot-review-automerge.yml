@@ -6,18 +6,9 @@ on:
     branches:
       - main
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  GIT_EDITOR: true
-  GIT_SEQUENCE_EDITOR: true
-
 jobs:
   resolve-and-merge:
-    name: Resolve Conflicts & Merge
     runs-on: ubuntu-latest
-
-    # This workflow can only push back to branches in the same repository.
-    if: github.event.pull_request.head.repo.full_name == github.repository
 
     permissions:
       contents: write
@@ -29,59 +20,41 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure Git identity
+      - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config core.editor true
           git config sequence.editor true
 
-      - name: Rebase onto main and auto-resolve real conflicts
+      - name: Rebase onto main and auto-resolve conflicts
         run: |
           set -euo pipefail
 
           PR_BRANCH="${{ github.head_ref }}"
-          echo "Rebasing ${PR_BRANCH} onto origin/main..."
-
           git fetch origin main
-          git checkout "${PR_BRANCH}"
+          git checkout "$PR_BRANCH"
 
-          if git rebase origin/main; then
-            echo "Rebase succeeded with no conflicts."
-          else
-            echo "Rebase stopped. Checking for actual conflicted files..."
+          git rebase origin/main || true
 
-            while true; do
-              CONFLICT_FILES="$(git diff --name-only --diff-filter=U || true)"
+          # Loop until rebase fully done
+          while git rev-parse --verify REBASE_HEAD >/dev/null 2>&1; do
+            CONFLICTS=$(git diff --name-only --diff-filter=U || true)
 
-              if [ -z "$CONFLICT_FILES" ]; then
-                echo "Rebase failed, but no conflicted files were found. Aborting."
-                git rebase --abort || true
-                exit 1
-              fi
+            if [ -n "$CONFLICTS" ]; then
+              echo "Auto-resolving conflicts by keeping PR branch version:"
+              echo "$CONFLICTS"
+              echo "$CONFLICTS" | xargs -I{} git checkout --theirs {}
+              echo "$CONFLICTS" | xargs git add
+            fi
 
-              echo "Auto-resolving these files by keeping the PR branch version:"
-              echo "$CONFLICT_FILES"
+            # Continue rebase with automatic message
+            git rebase --continue -m "Auto-resolved merge conflicts" || true
+          done
 
-              while IFS= read -r file; do
-                [ -z "$file" ] && continue
-                git checkout --theirs -- "$file"
-                git add -- "$file"
-              done <<< "$CONFLICT_FILES"
-
-              if git rebase --continue; then
-                echo "Rebase continued successfully."
-                break
-              fi
-
-              echo "Rebase is still in progress. Checking for more conflicts..."
-            done
-          fi
-
-          git push origin "${PR_BRANCH}" --force-with-lease
-          echo "Branch pushed successfully."
+          git push origin "$PR_BRANCH" --force-with-lease
+          echo "✅ Branch pushed successfully."
 
       - name: Merge pull request
         uses: actions/github-script@v7
@@ -89,7 +62,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const pr_number = context.payload.pull_request.number;
-
             try {
               await github.rest.pulls.merge({
                 owner: context.repo.owner,
@@ -99,7 +71,6 @@ jobs:
                 commit_title: `Auto-merged PR #${pr_number}: ${context.payload.pull_request.title}`,
                 commit_message: 'Automatically merged via GitHub Actions.',
               });
-
               console.log(`PR #${pr_number} merged successfully.`);
             } catch (err) {
               core.setFailed(`Merge failed: ${err.message}`);
