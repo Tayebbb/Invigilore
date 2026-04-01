@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navbar } from '../components/Navbar';
 import { HeroSection } from '../components/HeroSection';
 import { FeaturesSection } from '../components/FeaturesSection';
@@ -9,6 +10,14 @@ import { CTASection } from '../components/CTASection';
 import { Footer } from '../components/Footer';
 
 export default function Home() {
+  // Set page title dynamically
+  useEffect(() => {
+    document.title = 'InvigiLORE - Secure Examination Management Platform';
+    return () => {
+      document.title = 'InvigiLORE';
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       <Navbar />
