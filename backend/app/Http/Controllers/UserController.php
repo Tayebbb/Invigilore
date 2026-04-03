@@ -44,7 +44,13 @@ class UserController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $role = Role::where('name', $request->role)->firstOrFail();
+        $role = Role::where('name', $request->role)->first();
+
+        if (!$role) {
+            return response()->json([
+                'error' => 'Selected role is not available. Please seed roles and try again.',
+            ], 422);
+        }
 
         $user = User::create([
             'name'     => $request->name,
@@ -82,7 +88,14 @@ class UserController extends Controller
         if ($request->filled('password')) $user->password = Hash::make($request->password);
 
         if ($request->filled('role')) {
-            $role = Role::where('name', $request->role)->firstOrFail();
+            $role = Role::where('name', $request->role)->first();
+
+            if (!$role) {
+                return response()->json([
+                    'error' => 'Selected role is not available. Please seed roles and try again.',
+                ], 422);
+            }
+
             $user->role_id = $role->id;
         }
 

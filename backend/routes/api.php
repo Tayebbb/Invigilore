@@ -32,12 +32,17 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/exams/{exam}',   [ExamController::class, 'show']);
         Route::put('/exams/{exam}',   [ExamController::class, 'update']);
         Route::delete('/exams/{exam}',[ExamController::class, 'destroy']);
+    });
 
-        Route::get('/questions',          [QuestionController::class, 'index']);
-        Route::post('/questions',         [QuestionController::class, 'store']);
-        Route::get('/questions/{question}',   [QuestionController::class, 'show']);
-        Route::put('/questions/{question}',   [QuestionController::class, 'update']);
-        Route::delete('/questions/{question}',[QuestionController::class, 'destroy']);
+    // Admin-only question bank routes
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/questions', [QuestionController::class, 'index']);
+        Route::post('/questions', [QuestionController::class, 'store']);
+        Route::get('/questions/{question}', [QuestionController::class, 'show']);
+        Route::put('/questions/{question}', [QuestionController::class, 'update']);
+        Route::delete('/questions/{question}', [QuestionController::class, 'destroy']);
+
+        Route::get('/exams/{exam}/generate-questions', [QuestionController::class, 'generateQuestions']);
     });
 
     // Admin, Teacher, Student routes

@@ -28,7 +28,13 @@ class AuthController extends Controller
             return response()->json($validator->errors(), 400);
         }
 
-        $role = Role::where('name', $request->role)->firstOrFail();
+        $role = Role::where('name', $request->role)->first();
+
+        if (!$role) {
+            return response()->json([
+                'error' => 'Selected role is not available. Please seed roles and try again.',
+            ], 422);
+        }
 
         $user = User::create([
             'name'     => $request->name,
