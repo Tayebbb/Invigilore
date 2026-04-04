@@ -10,6 +10,12 @@ import TeacherDashboard       from "./pages/TeacherDashboard";
 import AdminDashboard         from "./pages/admin/AdminDashboard";
 import TeacherDashboardNew    from "./pages/teacher/TeacherDashboardNew";
 import StudentDashboard       from "./pages/student/StudentDashboard";
+import StudentExamAttemptPage from "./pages/student/StudentExamAttemptPage";
+import StudentResultsPage     from "./pages/student/StudentResultsPage";
+import StudentSubmissionHistoryPage from "./pages/student/StudentSubmissionHistoryPage";
+import StudentProfilePage     from "./pages/student/StudentProfilePage";
+import StudentAccountSettingsPage from "./pages/student/StudentAccountSettingsPage";
+import StudentHelpSupportPage from "./pages/student/StudentHelpSupportPage";
 import UserManagement         from "./pages/admin/UserManagement";
 
 // Auth guard
@@ -77,6 +83,54 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["student"]}>
         <StudentDashboard />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/exams/:examId/attempt",
+    element: (
+      <ProtectedRoute allowedRoles={["student"]}>
+        <StudentExamAttemptPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/results",
+    element: (
+      <ProtectedRoute allowedRoles={["student"]}>
+        <StudentResultsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/submissions",
+    element: (
+      <ProtectedRoute allowedRoles={["student"]}>
+        <StudentSubmissionHistoryPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/profile",
+    element: (
+      <ProtectedRoute allowedRoles={["student"]}>
+        <StudentProfilePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/account-settings",
+    element: (
+      <ProtectedRoute allowedRoles={["student"]}>
+        <StudentAccountSettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/help-support",
+    element: (
+      <ProtectedRoute allowedRoles={["student"]}>
+        <StudentHelpSupportPage />
       </ProtectedRoute>
     ),
   },
