@@ -37,29 +37,31 @@ class UserController extends Controller
             'name'     => 'required|string|between:2,100',
             'email'    => 'required|string|email|max:100|unique:users',
             'password' => 'required|string|min:8',
-            'role'     => 'sometimes|in:student,teacher,admin',
+            'role'     => 'sometimes|in:teacher,student,admin',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $roleName = $request->string('role')->toString() ?: 'student';
+        $roleName = $request->string('role')->toString() ?: 'teacher';
+        if (!in_array($roleName, ['teacher', 'student', 'admin'])) {
+            return response()->json([
+                'error' => 'Only teacher, student, or admin accounts can be created by the System Administrator.',
+            ], 422);
+        }
         $role = Role::where('name', $roleName)->first();
-
         if (!$role) {
             return response()->json([
                 'error' => 'Selected role is not available. Please seed roles and try again.',
             ], 422);
         }
-
         $user = User::create([
             'name'     => $request->name,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
             'role_id'  => $role->id,
         ]);
-
         return response()->json([
             'id'    => $user->id,
             'name'  => $user->name,
@@ -77,7 +79,7 @@ class UserController extends Controller
             'name'     => 'sometimes|string|between:2,100',
             'email'    => 'sometimes|string|email|max:100|unique:users,email,' . $user->id,
             'password' => 'sometimes|string|min:8',
-            'role'     => 'sometimes|in:student,teacher,admin',
+            'role'     => 'sometimes|in:teacher,student,admin',
         ]);
 
         if ($validator->fails()) {
@@ -89,14 +91,17 @@ class UserController extends Controller
         if ($request->filled('password')) $user->password = Hash::make($request->password);
 
         if ($request->filled('role')) {
+            if (!in_array($request->role, ['teacher', 'student', 'admin'])) {
+                return response()->json([
+                    'error' => 'Only teacher, student, or admin accounts can be managed by the System Administrator.',
+                ], 422);
+            }
             $role = Role::where('name', $request->role)->first();
-
             if (!$role) {
                 return response()->json([
                     'error' => 'Selected role is not available. Please seed roles and try again.',
                 ], 422);
             }
-
             $user->role_id = $role->id;
         }
 

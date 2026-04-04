@@ -20,6 +20,8 @@ import {
   Lock,
   User,
   ChevronDown,
+  ShieldAlert,
+  FileText,
 } from 'lucide-react';
 
 import DashboardLayout         from '../../components/layout/DashboardLayout';
@@ -42,21 +44,21 @@ interface ApiUser {
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard Overview', icon: LayoutDashboard },
   { label: 'User Management',    icon: Users           },
-  { label: 'Exam Monitoring',    icon: Activity        },
-  { label: 'Exam Management',    icon: ClipboardList   },
-  { label: 'Question Bank',      icon: BookOpen        },
-  { label: 'System Monitoring',  icon: Activity        },
-  { label: 'Reports & Analytics',icon: BarChart3       },
-  { label: 'Settings',           icon: Settings        },
+  // { label: 'Role Assignment',   icon: UserPlus      }, // Add if role assignment UI exists
+  { label: 'System Settings',    icon: Settings        },
+  { label: 'Security Policies',  icon: ShieldAlert     },
+  { label: 'System Backups',     icon: FileText        },
+  { label: 'Audit Logs',         icon: BarChart3       },
+  { label: 'System Incidents',   icon: AlertCircle     },
 ];
 
-const ROLE_OPTIONS = ['admin', 'teacher', 'student'] as const;
+const ROLE_OPTIONS = ['teacher', 'student', 'admin'] as const;
 type RoleOption = typeof ROLE_OPTIONS[number];
 
 const roleColors: Record<string, string> = {
-  admin:   'bg-purple-500/15 text-purple-400 border border-purple-500/30',
-  teacher: 'bg-blue-500/15   text-blue-400   border border-blue-500/30',
+  teacher: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
   student: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  admin: 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
 };
 
 // ── Create User Modal ─────────────────────────────────────────────────────────
@@ -67,7 +69,7 @@ interface CreateUserModalProps {
 }
 
 function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
-  const [form, setForm]       = useState({ name: '', email: '', password: '', role: 'student' as RoleOption });
+  const [form, setForm]       = useState({ name: '', email: '', password: '', role: 'faculty' as RoleOption });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
@@ -261,7 +263,7 @@ export default function UserManagement() {
     name:    currentUser.name,
     email:   currentUser.email,
     initial: currentUser.initial,
-    role:    'Admin' as const,
+    role:    'System Administrator' as const,
   };
 
   function showToast(msg: string, type: 'success' | 'error') {
@@ -300,7 +302,7 @@ export default function UserManagement() {
 
   function handleNavChange(label: string) {
     if (label === 'Dashboard Overview') { navigate('/admin/dashboard'); return; }
-    if (label === 'Exam Monitoring' || label === 'Exam Management' || label === 'System Monitoring') { navigate('/admin/monitoring'); return; }
+    // Add navigation for other allowed features as implemented
     // Stay on this page for User Management
   }
 
@@ -325,7 +327,7 @@ export default function UserManagement() {
           <div>
             <h2 className="text-2xl font-bold text-white mb-1">User Management</h2>
             <p className="text-gray-400 text-sm">
-              Create and manage admin, teacher, and student accounts.
+              Create and manage teacher, student, and admin accounts.
             </p>
           </div>
           <button

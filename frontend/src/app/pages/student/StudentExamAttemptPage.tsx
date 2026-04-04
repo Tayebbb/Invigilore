@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { AlertCircle, Clock } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle } from 'lucide-react';
 import api from '../../api';
 import type { StudentAttemptPayload } from './studentTypes';
 
@@ -23,6 +23,8 @@ export default function StudentExamAttemptPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
 
   const autosaveTimer = useRef<number | null>(null);
 
@@ -59,10 +61,24 @@ export default function StudentExamAttemptPage() {
   }, [examId]);
 
   useEffect(() => {
+    if (remaining <= 0 && attempt && !autoSubmitted) {
+      // Auto-submit when time runs out
+      setAutoSubmitted(true);
+      setSubmitting(true);
+      api.post(`/student/attempts/${attempt.attemptId}/submit`)
+        .then(() => {
+          setShowSubmitSuccess(true);
+        })
+        .catch(() => {
+          setError('Exam was auto-submitted due to timeout, but an error occurred. Please contact support.');
+        })
+        .finally(() => setSubmitting(false));
+      return;
+    }
     if (remaining <= 0) return;
     const timer = window.setInterval(() => setRemaining((prev) => Math.max(0, prev - 1)), 1000);
     return () => window.clearInterval(timer);
-  }, [remaining > 0]);
+  }, [remaining, attempt, autoSubmitted]);
 
   useEffect(() => {
     if (!attempt) return;
@@ -90,10 +106,14 @@ export default function StudentExamAttemptPage() {
 
   const saveAnswer = async (questionId: number, value: string) => {
     if (!attempt) return;
-    await api.post(`/student/attempts/${attempt.attemptId}/answers`, {
-      question_id: questionId,
-      selected_answer: value,
-    });
+    try {
+      await api.post(`/student/attempts/${attempt.attemptId}/answers`, {
+        question_id: questionId,
+        selected_answer: value,
+      });
+    } catch {
+      setError('Failed to save answer. Please check your connection.');
+    }
   };
 
   const scheduleSave = (questionId: number, value: string) => {
@@ -117,10 +137,11 @@ export default function StudentExamAttemptPage() {
     if (!confirmed) return;
 
     setSubmitting(true);
+    setError('');
 
     try {
       await api.post(`/student/attempts/${attempt.attemptId}/submit`);
-      navigate('/student/submissions');
+      setShowSubmitSuccess(true);
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Submission failed');
     } finally {
@@ -128,8 +149,26 @@ export default function StudentExamAttemptPage() {
     }
   };
 
+
   if (loading) {
     return <div className="min-h-screen bg-gray-950 p-8 text-gray-200">Loading secure exam session...</div>;
+  }
+
+  if (showSubmitSuccess) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-8 text-gray-100">
+        <div className="mx-auto max-w-2xl rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-6 flex flex-col items-center">
+          <CheckCircle className="h-8 w-8 text-emerald-400 mb-2" />
+          <div className="text-lg font-semibold mb-2">Exam Submitted Successfully</div>
+          <div className="mb-4 text-sm text-gray-300">
+            {autoSubmitted
+              ? 'Your exam was automatically submitted because the time limit expired.'
+              : 'Thank you for completing your exam. Your responses have been recorded.'}
+          </div>
+          <button className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white" onClick={() => navigate('/student/submissions')}>Go to Submission History</button>
+        </div>
+      </div>
+    );
   }
 
   if (error || !attempt || !currentQuestion) {
@@ -205,6 +244,13 @@ export default function StudentExamAttemptPage() {
                   <span>{option}</span>
                 </label>
               ))}
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
+              <AlertCircle className="h-4 w-4" />
+              {error}
             </div>
           )}
 
