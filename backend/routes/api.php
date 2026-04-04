@@ -62,8 +62,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy']);
     });
 
-    // Admin-only routes
+
+    // System Administrator (IT-only) Admin routes
     Route::middleware('role:admin')->group(function () {
+        // User (faculty) management
         Route::get('/admin/users',          [UserController::class, 'index']);
         Route::post('/admin/users',         [UserController::class, 'store']);
         Route::put('/admin/users/{user}',   [UserController::class, 'update']);

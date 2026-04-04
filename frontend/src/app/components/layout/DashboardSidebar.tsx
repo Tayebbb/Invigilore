@@ -4,6 +4,8 @@ import { X, LayoutDashboard, LogOut, type LucideIcon } from 'lucide-react';
 import api from '../../api';
 import { getHomeRouteByRole } from '../../navigation/roleRoutes';
 import { clearStoredAuthUser } from '../../utils/authUser';
+import { Badge } from '../ui/badge';
+import { cn } from '../ui/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -61,23 +63,26 @@ function SidebarContent({
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground">
 
       {/* ── Logo ──────────────────────────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => navigate(homeRoute)}
-        className="flex items-center gap-3 px-4 py-5 border-b border-gray-800 text-left transition-colors duration-200 hover:bg-gray-800/40"
+        className="flex items-center gap-3 px-4 py-5 border-b border-sidebar-border text-left transition-colors duration-200 hover:bg-sidebar-accent/10"
         aria-label="Go to home dashboard"
       >
-        <img src="/logo.png" alt="Invigilore" className="w-9 h-9 rounded-xl shadow-lg shadow-blue-500/20 shrink-0" />
+        <img src="/logo.png" alt="Invigilore" className="w-9 h-9 rounded-xl shadow-lg shadow-sidebar-primary/20 shrink-0" />
         <div className="min-w-0">
-          <span className="text-base font-bold text-white tracking-tight block leading-none">
+          <span className="text-base font-bold text-sidebar-foreground tracking-tight block leading-none">
             Invigilore
           </span>
-          <span className={`mt-1 inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${roleChip[role] ?? roleChip.Student}`}>
+          <Badge
+            className={cn('mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full', roleChip[role] ?? roleChip.Student)}
+            variant="secondary"
+          >
             {role}
-          </span>
+          </Badge>
         </div>
       </button>
 
@@ -90,19 +95,19 @@ function SidebarContent({
             <button
               key={item.label}
               onClick={() => { onSelect(item.label); onMobileClose(); }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                          transition-all duration-200 cursor-pointer group
-                          ${isActive
-                            ? 'bg-blue-600/15 text-blue-400'
-                            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}`}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group focus-visible:ring-2 focus-visible:ring-sidebar-ring',
+                isActive
+                  ? 'bg-sidebar-primary/10 text-sidebar-primary'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent/10 hover:text-sidebar-primary'
+              )}
             >
               <Icon className="w-4 h-4 shrink-0" />
               <span className="flex-1 text-left">{item.label}</span>
               {item.badge && (
-                <span className="ml-auto text-[10px] font-bold bg-blue-500 text-white
-                                 px-1.5 py-0.5 rounded-full leading-none">
+                <Badge className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-sidebar-primary text-sidebar-primary-foreground" variant="secondary">
                   {item.badge}
-                </span>
+                </Badge>
               )}
             </button>
           );
@@ -110,12 +115,10 @@ function SidebarContent({
       </nav>
 
       {/* ── Bottom: logout ────────────────────────────────────────────────── */}
-      <div className="px-3 py-4 border-t border-gray-800">
+      <div className="px-3 py-4 border-t border-sidebar-border">
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                     text-gray-500 hover:text-red-400 hover:bg-red-500/10
-                     transition-all duration-200 cursor-pointer"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-red-400"
         >
           <LogOut className="w-4 h-4 shrink-0" />
           Sign Out
@@ -144,8 +147,7 @@ export default function DashboardSidebar({
   return (
     <>
       {/* ── Desktop sidebar ──────────────────────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-gray-900
-                        border-r border-gray-800 fixed inset-y-0 left-0 z-40">
+      <aside className="hidden lg:flex flex-col w-64 shrink-0 bg-sidebar border-r border-sidebar-border fixed inset-y-0 left-0 z-40">
         <SidebarContent
           role={role}
           navItems={navItems}
@@ -177,15 +179,12 @@ export default function DashboardSidebar({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-gray-900
-                         border-r border-gray-800 flex flex-col"
+              className="lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-sidebar border-r border-sidebar-border flex flex-col"
             >
               {/* Close button */}
               <button
                 onClick={onMobileClose}
-                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center
-                           rounded-lg text-gray-400 hover:text-white hover:bg-gray-800
-                           transition-all cursor-pointer"
+                className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <X className="w-4 h-4" />
               </button>

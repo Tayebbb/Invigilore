@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { Search } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import type { StudentSubmission } from './studentTypes';
 
@@ -18,7 +19,10 @@ export default function StudentSubmissionHistoryPage() {
       setLoading(true);
       try {
         const res = await api.get('/student/submissions');
-        setRows(res.data?.data ?? []);
+        const data = extractApiData(res);
+        setRows(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        setRows([]);
       } finally {
         setLoading(false);
       }

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
+import api from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import {
   LayoutDashboard,
   Users,
@@ -14,6 +16,7 @@ import {
   Zap,
   Clock,
   AlertCircle,
+  ShieldAlert,
 } from 'lucide-react';
 
 import DashboardLayout             from '../../components/layout/DashboardLayout';
@@ -23,35 +26,19 @@ import useCurrentUser              from '../../hooks/useCurrentUser';
 
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 
+
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard Overview', icon: LayoutDashboard },
   { label: 'User Management',    icon: Users           },
-  { label: 'Exam Monitoring',    icon: Activity        },
-  { label: 'Exam Management',    icon: ClipboardList   },
-  { label: 'Question Bank',      icon: BookOpen        },
-  { label: 'System Monitoring',  icon: Activity        },
-  { label: 'Reports & Analytics',icon: BarChart3       },
-  { label: 'Settings',           icon: Settings        },
-];
-
-// ── Placeholder data ──────────────────────────────────────────────────────────
-
-const KPI_CARDS = [
-  { icon: GraduationCap, title: 'Total Students',  value: '1 240', subtitle: '+32 this week',  color: 'blue'    },
-  { icon: Users,         title: 'Total Teachers',  value: '86',    subtitle: '+4 this month',  color: 'emerald' },
-  { icon: Activity,      title: 'Active Exams',    value: '12',    subtitle: '3 ending today', color: 'amber'   },
-  { icon: Clock,         title: 'Upcoming Exams',  value: '28',    subtitle: 'Next 7 days',    color: 'purple'  },
-] as const;
-
-const RECENT_ACTIVITY = [
-  { text: 'New teacher account created — Dr. Amara Wells',     time: '2 min ago',  dot: 'bg-blue-400'    },
-  { text: 'Exam "Chemistry Midterm" published',                time: '14 min ago', dot: 'bg-emerald-400' },
-  { text: 'Student account flagged for suspicious activity',   time: '1 hr ago',   dot: 'bg-rose-400'    },
-  { text: '42 students enrolled in "Advanced Physics"',        time: '3 hr ago',   dot: 'bg-purple-400'  },
-  { text: 'System backup completed successfully',              time: 'Yesterday',  dot: 'bg-gray-500'    },
+  { label: 'System Settings',    icon: Settings        },
+  { label: 'Security Policies',  icon: ShieldAlert     },
+  { label: 'System Backups',     icon: FileText        },
+  { label: 'Audit Logs',         icon: BarChart3       },
+  { label: 'System Incidents',   icon: AlertCircle     },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
+
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -65,16 +52,62 @@ export default function AdminDashboard() {
     role: 'Admin' as const,
   };
 
+  // Dashboard data state
+  const [stats, setStats] = useState({ totalStudents: 0, totalTeachers: 0, totalAdmins: 0 });
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [systemHealth, setSystemHealth] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setLoading(true);
+    api.get('/admin/dashboard')
+      .then(res => {
+        const data = extractApiData(res) ?? res.data;
+        setStats(data.stats);
+        setRecentActivity(data.recentActivity);
+        setSystemHealth(data.systemHealth);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(extractApiError(err) || 'Failed to load dashboard data');
+        setLoading(false);
+      });
+  }, []);
+
   function handleNavChange(label: string) {
     if (label === 'User Management') {
       navigate('/admin/users');
       return;
     }
-    if (label === 'Exam Monitoring' || label === 'Exam Management' || label === 'System Monitoring') {
-      navigate('/admin/monitoring');
+    if (label === 'System Settings') {
+      navigate('/admin/system-settings');
+      return;
+    }
+    if (label === 'Security Policies') {
+      navigate('/admin/security-policies');
+      return;
+    }
+    if (label === 'System Backups') {
+      navigate('/admin/system-backups');
+      return;
+    }
+    if (label === 'Audit Logs') {
+      navigate('/admin/audit-logs');
+      return;
+    }
+    if (label === 'System Incidents') {
+      navigate('/admin/system-incidents');
       return;
     }
     setActiveItem(label);
+  }
+
+  if (loading) {
+    return <div className="p-8 text-center text-muted-foreground">Loading dashboard...</div>;
+  }
+  if (error) {
+    return <div className="p-8 text-center text-red-500">{error}</div>;
   }
 
   return (
@@ -87,8 +120,6 @@ export default function AdminDashboard() {
       notificationCount={3}
       pageTitle="Admin Dashboard"
     >
-
-      {/* ── Welcome banner ────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
@@ -96,20 +127,18 @@ export default function AdminDashboard() {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
       >
         <div>
-          <h2 className="text-2xl font-bold text-white mb-1">
+          <h2 className="text-2xl font-bold text-foreground mb-1">
             Welcome back, {currentUser.firstName} 👋
           </h2>
-          <p className="text-gray-400 text-sm">
-            Manage users, monitor exams, and review system health from one place.
+          <p className="text-muted-foreground text-sm">
+            Manage users, roles, system settings, security, backups, audit logs, and incidents from one place.
           </p>
         </div>
-
-        {/* Quick action */}
         <button
           onClick={() => navigate('/admin/users')}
-          className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-500
-                     text-white rounded-xl font-semibold text-sm transition-all duration-200
-                     shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90
+                     text-primary-foreground rounded-xl font-semibold text-sm transition-all duration-200
+                     shadow-lg shadow-primary/20 hover:shadow-primary/40
                      cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap shrink-0"
         >
           <Users className="w-4 h-4" />
@@ -117,135 +146,43 @@ export default function AdminDashboard() {
         </button>
       </motion.div>
 
-      {/* ── KPI cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        {KPI_CARDS.map((card, i) => (
-          <DashboardCard key={card.title} {...card} index={i} />
-        ))}
+      {/* Stats cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+        <DashboardCard title="Total Students" value={stats.totalStudents} subtitle="" icon={GraduationCap} color="blue" />
+        <DashboardCard title="Total Teachers" value={stats.totalTeachers} subtitle="" icon={Users} color="emerald" />
+        <DashboardCard title="Total Admins" value={stats.totalAdmins} subtitle="" icon={Settings} color="purple" />
       </div>
 
-      {/* ── Two-column content area ───────────────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      {/* Recent Activity */}
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold text-foreground mb-3">Recent Activity</h3>
+        <ul className="divide-y divide-border bg-card border border-border rounded-xl">
+          {recentActivity.length === 0 && <li className="p-4 text-muted-foreground">No recent activity.</li>}
+          {recentActivity.map((item: any, idx: number) => (
+            <li key={idx} className="p-4 flex items-center justify-between">
+              <span>{item.description}</span>
+              <span className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString()}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-        {/* Recent Activity — 2 cols */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="xl:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-6"
-        >
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-sm font-semibold text-white">Recent Activity</h3>
-            <button className="text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer">
-              View all
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {RECENT_ACTIVITY.map((item, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${item.dot}`} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-300 leading-snug">{item.text}</p>
-                  <p className="text-xs text-gray-600 mt-0.5">{item.time}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.section>
-
-        {/* System Monitoring placeholder — 1 col */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.28 }}
-          className="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col"
-        >
-          <h3 className="text-sm font-semibold text-white mb-5">System Monitoring</h3>
-
-          {/* Placeholder status rows */}
-          {[
-            { label: 'API Server',      status: 'Operational', color: 'text-emerald-400' },
-            { label: 'Database',        status: 'Operational', color: 'text-emerald-400' },
-            { label: 'Storage',         status: 'Operational', color: 'text-emerald-400' },
-            { label: 'Email Service',   status: 'Degraded',    color: 'text-amber-400'   },
-            { label: 'Exam AI Engine',  status: 'Offline',     color: 'text-rose-400'    },
-          ].map((row) => (
-            <div
-              key={row.label}
-              className="flex items-center justify-between py-2.5 border-b border-gray-800 last:border-0"
-            >
-              <span className="text-sm text-gray-400">{row.label}</span>
-              <span className={`text-xs font-semibold ${row.color}`}>{row.status}</span>
+      {/* System Health */}
+      <div className="mb-8">
+        <h3 className="text-lg font-semibold text-foreground mb-3">System Monitoring</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {systemHealth.map((service: any, idx: number) => (
+            <div key={idx} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+              <span className="font-medium text-foreground w-40">{service.service}</span>
+              <span className={
+                service.status === 'Operational' ? 'text-green-400' :
+                service.status === 'Degraded' ? 'text-yellow-400' :
+                'text-red-400'
+              }>{service.status}</span>
             </div>
           ))}
-
-          {/* Placeholder CTA */}
-          <button
-            className="mt-5 text-xs text-gray-500 hover:text-gray-300 transition-colors
-                       text-center cursor-pointer"
-          >
-            View full system report →
-          </button>
-        </motion.section>
+        </div>
       </div>
-
-      {/* ── Reports & User Management placeholders ───────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-6">
-
-        {/* User Management placeholder */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.34 }}
-          className="bg-gray-900 border border-gray-800 rounded-2xl p-6"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
-              <Users className="w-5 h-5 text-blue-400" />
-            </div>
-            <h3 className="text-sm font-semibold text-white">User Management</h3>
-          </div>
-          <p className="text-xs text-gray-500 mb-4">
-            {/* Placeholder description */}
-            Create, edit, and deactivate student and teacher accounts.
-            Assign roles and manage institutional access.
-          </p>
-          <button
-            className="text-xs font-medium text-blue-400 hover:text-blue-300
-                       transition-colors cursor-pointer flex items-center gap-1"
-          >
-            Manage users <span aria-hidden>→</span>
-          </button>
-        </motion.section>
-
-        {/* Reports placeholder */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.4 }}
-          className="bg-gray-900 border border-gray-800 rounded-2xl p-6"
-        >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-purple-400" />
-            </div>
-            <h3 className="text-sm font-semibold text-white">Reports &amp; Analytics</h3>
-          </div>
-          <p className="text-xs text-gray-500 mb-4">
-            {/* Placeholder description */}
-            View institution-wide exam performance, pass rates,
-            and engagement analytics across all departments.
-          </p>
-          <button
-            className="text-xs font-medium text-purple-400 hover:text-purple-300
-                       transition-colors cursor-pointer flex items-center gap-1"
-          >
-            View reports <span aria-hidden>→</span>
-          </button>
-        </motion.section>
-      </div>
-
     </DashboardLayout>
   );
 }

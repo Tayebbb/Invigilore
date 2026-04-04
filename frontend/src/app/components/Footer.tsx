@@ -2,44 +2,48 @@ import { Shield, Github, Twitter, Linkedin, Mail } from 'lucide-react';
 
 export function Footer() {
   return (
-    <footer className="relative bg-gray-900 border-t border-gray-800">
+    <footer className="relative bg-card border-t border-border">
       <div className="max-w-7xl mx-auto px-6 py-16">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
           {/* Column 1 - Brand */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-md shadow-blue-500/20">
-                <Shield className="w-5 h-5 text-white" />
+                <Shield className="w-5 h-5 text-white" aria-label="Invigilore logo" />
               </div>
               <span className="text-2xl font-semibold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
                 Invigilore
               </span>
             </div>
-            <p className="text-gray-400 text-sm leading-relaxed">
+            <p className="text-muted-foreground text-sm leading-relaxed">
               Next-generation digital examination management platform ensuring integrity, accountability, and real-time monitoring for academic institutions.
             </p>
             <div className="flex items-center gap-3">
               <a
                 href="#"
-                className="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center hover:bg-gray-700 hover:border-gray-600 transition-all duration-200 cursor-pointer"
+                aria-label="Twitter"
+                className="w-9 h-9 rounded-lg bg-muted border border-border flex items-center justify-center hover:bg-muted/80 hover:border-border/80 transition-all duration-200 cursor-pointer"
               >
                 <Twitter className="w-4 h-4 text-gray-400" />
               </a>
               <a
                 href="#"
-                className="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center hover:bg-gray-700 hover:border-gray-600 transition-all duration-200 cursor-pointer"
+                aria-label="LinkedIn"
+                className="w-9 h-9 rounded-lg bg-muted border border-border flex items-center justify-center hover:bg-muted/80 hover:border-border/80 transition-all duration-200 cursor-pointer"
               >
                 <Linkedin className="w-4 h-4 text-gray-400" />
               </a>
               <a
                 href="#"
-                className="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center hover:bg-gray-700 hover:border-gray-600 transition-all duration-200 cursor-pointer"
+                aria-label="GitHub"
+                className="w-9 h-9 rounded-lg bg-muted border border-border flex items-center justify-center hover:bg-muted/80 hover:border-border/80 transition-all duration-200 cursor-pointer"
               >
                 <Github className="w-4 h-4 text-gray-400" />
               </a>
               <a
                 href="#"
-                className="w-9 h-9 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center hover:bg-gray-700 hover:border-gray-600 transition-all duration-200 cursor-pointer"
+                aria-label="Email"
+                className="w-9 h-9 rounded-lg bg-muted border border-border flex items-center justify-center hover:bg-muted/80 hover:border-border/80 transition-all duration-200 cursor-pointer"
               >
                 <Mail className="w-4 h-4 text-gray-400" />
               </a>
@@ -48,15 +52,15 @@ export function Footer() {
 
           {/* Column 2 - Product */}
           <div>
-            <h3 className="text-white font-semibold mb-4">Product</h3>
+            <h3 className="text-card-foreground font-semibold mb-4">Product</h3>
             <ul className="space-y-3">
               <li>
-                <a href="#features" className="text-gray-400 hover:text-white transition-colors text-sm">
+                <a href="#features" className="text-muted-foreground hover:text-card-foreground transition-colors text-sm">
                   Features
                 </a>
               </li>
               <li>
-                <a href="#security" className="text-gray-400 hover:text-white transition-colors text-sm">
+                <a href="#security" className="text-muted-foreground hover:text-card-foreground transition-colors text-sm">
                   Security
                 </a>
               </li>

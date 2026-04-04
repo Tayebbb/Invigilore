@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { Save } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import { resolveProfileImageUrl } from '../../utils/profileImage';
 import { writeStoredAuthUser } from '../../utils/authUser';
@@ -17,15 +18,19 @@ export default function StudentProfilePage() {
 
   useEffect(() => {
     async function load() {
-      const response = await api.get('/me');
-      const user = response.data;
-      setName(user?.name ?? '');
-      setEmail(user?.email ?? '');
-      setRole(user?.role?.name ?? 'student');
-      setProfilePicture(user?.profile_picture ?? null);
+      try {
+        const response = await api.get('/me');
+        const user = extractApiData(response) ?? response.data;
+        setName(user?.name ?? '');
+        setEmail(user?.email ?? '');
+        setRole(user?.role?.name ?? 'student');
+        setProfilePicture(user?.profile_picture ?? null);
+      } catch {
+        setStatus('Unable to load profile');
+      }
     }
 
-    load().catch(() => setStatus('Unable to load profile'));
+    load();
   }, []);
 
   const handleNav = (label: string) => {

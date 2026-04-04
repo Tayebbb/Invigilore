@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 
 import api from '../api';
+import { Card, CardContent } from '../components/ui/card';
 import useCurrentUser from '../hooks/useCurrentUser';
 
 type ExamWithAssignments = {
@@ -93,10 +94,12 @@ export default function ExamRoleAccessRoute({ requiredRole, requireLiveWindow = 
 
   if (checking) {
     return (
-      <div className="min-h-screen bg-gray-950 text-gray-200 flex items-center justify-center px-4">
-        <div className="rounded-xl border border-gray-800 bg-gray-900 px-4 py-3 text-sm">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4">
+        <Card className="max-w-sm w-full border-border">
+          <CardContent className="px-4 py-3 text-sm text-muted-foreground">
           Validating exam access...
-        </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

@@ -58,6 +58,11 @@ export interface DashboardCardProps {
  */
 export default function DashboardCard({
   icon: Icon,
+import { Card, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { Badge } from '../ui/badge';
+
+export default function DashboardCard({
+  icon: Icon,
   title,
   value,
   subtitle,
@@ -68,26 +73,27 @@ export default function DashboardCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.07 }}
-      className="bg-gray-900 border border-gray-800 rounded-2xl p-5
-                 hover:border-gray-700 hover:shadow-xl hover:shadow-black/20
-                 transition-all duration-300 group cursor-default"
+      transition={{ duration: 0.8, delay: index * 0.1 }}
+      tabIndex={0}
+      aria-label={title}
+      className="focus-visible:ring-2 focus-visible:ring-primary outline-none"
     >
-      {/* Icon row */}
-      <div className="flex items-start justify-between mb-4">
-        <div
-          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0
-                      ${iconColors[color] ?? iconColors.blue}`}
-        >
-          <Icon className="w-5 h-5" />
-        </div>
-        <TrendingUp
-          className="w-4 h-4 text-gray-700 group-hover:text-emerald-400 transition-colors duration-300"
-        />
-      </div>
-
-      {/* Value */}
-      <div className="text-3xl font-bold text-white mb-1">{value}</div>
+      <Card className="p-5 group cursor-default">
+        <CardHeader className="flex items-start justify-between mb-4">
+          <Badge variant="secondary" className={`w-10 h-10 flex items-center justify-center ${iconColors[color] ?? iconColors.blue}`} aria-label={title + ' icon'}>
+            <Icon className="w-5 h-5" />
+          </Badge>
+          <TrendingUp className="w-4 h-4 text-gray-700 group-hover:text-emerald-400 transition-colors duration-300" aria-hidden="true" />
+        </CardHeader>
+        <CardTitle className="text-3xl font-bold text-card-foreground mb-1">{value}</CardTitle>
+        <CardDescription className="text-xs text-muted-foreground mb-2">{title}</CardDescription>
+        {subtitle && (
+          <div className={`text-xs font-medium ${trendColors[color] ?? trendColors.blue}`}>{subtitle}</div>
+        )}
+      </Card>
+    </motion.div>
+  );
+}
 
       {/* Title */}
       <div className="text-xs text-gray-500 mb-2">{title}</div>
