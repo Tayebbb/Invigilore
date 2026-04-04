@@ -11,24 +11,19 @@ class QuestionFactory extends Factory
 
     public function definition(): array
     {
-        $correctAnswer = $this->faker->randomElement(['A', 'B', 'C', 'D']);
+        $options = [
+            'A' => $this->faker->sentence(4),
+            'B' => $this->faker->sentence(4),
+            'C' => $this->faker->sentence(4),
+            'D' => $this->faker->sentence(4),
+        ];
 
         return [
             'exam_id' => null,
             'question_text' => $this->faker->sentence(12) . '?',
-            'option_a' => $this->faker->sentence(4),
-            'option_b' => $this->faker->sentence(4),
-            'option_c' => $this->faker->sentence(4),
-            'option_d' => $this->faker->sentence(4),
-            'correct_answer' => $correctAnswer,
-            'difficulty' => $this->faker->randomElement(['easy', 'medium', 'hard']),
-            'topic' => $this->faker->randomElement([
-                'Mathematics',
-                'Programming',
-                'Databases',
-                'Networking',
-                'Security',
-            ]),
+            'type' => 'mcq',
+            'options' => $options,
+            'correct_answer' => $this->faker->randomElement(array_keys($options)),
             'marks' => $this->faker->numberBetween(1, 5),
         ];
     }
