@@ -16,10 +16,11 @@ use App\Http\Controllers\ExamSessionController;
 use App\Http\Controllers\ExamAttemptController;
 use App\Http\Controllers\TeacherPortalController;
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::prefix('v1')->group(function () {
+    Route::post('/register', [AuthController::class, 'register']);
+    Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me', [AuthController::class, 'updateProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -57,12 +58,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy']);
     });
 
+
     // Admin-only routes
     Route::middleware('role:admin')->group(function () {
         Route::get('/admin/users',          [UserController::class, 'index']);
         Route::post('/admin/users',         [UserController::class, 'store']);
         Route::put('/admin/users/{user}',   [UserController::class, 'update']);
         Route::delete('/admin/users/{user}',[UserController::class, 'destroy']);
+        // Admin dashboard stats endpoint
+        Route::get('/admin/dashboard-stats', [\App\Http\Controllers\AdminDashboardController::class, 'stats']);
     });
 
     // Admin or Teacher routes
@@ -120,5 +124,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/results/{result}', [ResultController::class, 'show']);
         Route::put('/results/{result}', [ResultController::class, 'update']);
         Route::delete('/results/{result}', [ResultController::class, 'destroy']);
+    });
     });
 });
