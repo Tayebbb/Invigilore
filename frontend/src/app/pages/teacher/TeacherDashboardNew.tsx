@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import {
   LayoutDashboard,
@@ -18,6 +19,7 @@ import api from '../../api';
 import DashboardLayout             from '../../components/layout/DashboardLayout';
 import DashboardCard               from '../../components/dashboard/DashboardCard';
 import type { SidebarNavItem }     from '../../components/layout/DashboardSidebar';
+import useCurrentUser              from '../../hooks/useCurrentUser';
 
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 
@@ -59,14 +61,6 @@ const UPCOMING = [
   { name: 'Biology Practical', time: 'Mon, 9:00 AM',       dot: 'bg-emerald-400' },
 ];
 
-// ── Placeholder user (replace with auth context) ──────────────────────────────
-const TEACHER_USER = {
-  name:    'Prof. Jane',
-  email:   'jane@invigilore.com',
-  initial: 'J',
-  role:    'Teacher' as const,
-};
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 /**
@@ -76,10 +70,28 @@ const TEACHER_USER = {
  * TODO: replace static data with real API calls from Laravel backend.
  */
 export default function TeacherDashboardNew() {
+  const navigate = useNavigate();
+  const currentUser = useCurrentUser();
   const [activeItem, setActiveItem] = useState('Dashboard');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const teacherUser = {
+    name: currentUser.name,
+    email: currentUser.email,
+    initial: currentUser.initial,
+    role: 'Teacher' as const,
+  };
+
+  function handleNavChange(label: string) {
+    if (label === 'Create Exam') {
+      navigate('/teacher/exams/new');
+      return;
+    }
+
+    setActiveItem(label);
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -94,8 +106,8 @@ export default function TeacherDashboardNew() {
       role="Teacher"
       navItems={NAV_ITEMS}
       activeItem={activeItem}
-      onNavChange={setActiveItem}
-      user={TEACHER_USER}
+      onNavChange={handleNavChange}
+      user={teacherUser}
       notificationCount={2}
       pageTitle="Teacher Dashboard"
     >
@@ -109,7 +121,7 @@ export default function TeacherDashboardNew() {
       >
         <div>
           <h2 className="text-2xl font-bold text-white mb-1">
-            Welcome back, Prof. Jane 👋
+            Welcome back, {currentUser.firstName} 👋
           </h2>
           <p className="text-gray-400 text-sm">
             Create exams, manage students, and monitor results in real time.
@@ -117,6 +129,7 @@ export default function TeacherDashboardNew() {
         </div>
 
         <button
+          onClick={() => navigate('/teacher/exams/new')}
           className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500
                      text-white rounded-xl font-semibold text-sm transition-all duration-200
                      shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40

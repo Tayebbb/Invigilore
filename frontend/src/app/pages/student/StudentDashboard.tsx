@@ -17,6 +17,7 @@ import api from '../../api';
 import DashboardLayout             from '../../components/layout/DashboardLayout';
 import DashboardCard               from '../../components/dashboard/DashboardCard';
 import type { SidebarNavItem }     from '../../components/layout/DashboardSidebar';
+import useCurrentUser              from '../../hooks/useCurrentUser';
 
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 
@@ -92,14 +93,6 @@ const ACTIVE_NOTIFICATIONS = [
   },
 ];
 
-// ── Placeholder user (replace with auth context) ──────────────────────────────
-const STUDENT_USER = {
-  name:    'Alex Johnson',
-  email:   'alex@invigilore.com',
-  initial: 'A',
-  role:    'Student' as const,
-};
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 /**
@@ -110,10 +103,18 @@ const STUDENT_USER = {
  */
 export default function StudentDashboard() {
   const [activeItem, setActiveItem] = useState('Dashboard');
+  const currentUser = useCurrentUser();
   const [exams, setExams] = useState<Exam[]>([]);
   const [results, setResults] = useState<Result[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const studentUser = {
+    name: currentUser.name,
+    email: currentUser.email,
+    initial: currentUser.initial,
+    role: 'Student' as const,
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -132,7 +133,7 @@ export default function StudentDashboard() {
       navItems={NAV_ITEMS}
       activeItem={activeItem}
       onNavChange={setActiveItem}
-      user={STUDENT_USER}
+      user={studentUser}
       notificationCount={1}
       pageTitle="Student Dashboard"
     >
@@ -146,7 +147,7 @@ export default function StudentDashboard() {
       >
         <div>
           <h2 className="text-2xl font-bold text-white mb-1">
-            Welcome back, Alex 👋
+            Welcome back, {currentUser.firstName} 👋
           </h2>
           <p className="text-gray-400 text-sm">
             View your upcoming exams, track results, and stay on top of notifications.
