@@ -27,6 +27,7 @@ class Exam extends Model
         'paper_status',
         'exam_status',
         'instructions',
+        'review_comment',
     ];
 
     protected function casts(): array

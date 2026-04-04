@@ -3,11 +3,13 @@ import { Eye, EyeOff, Lock, Mail, User, AlertCircle, Loader2, ArrowRight } from 
 import { Link, useNavigate } from 'react-router';
 
 import api from '../api';
+import { AxiosError } from 'axios';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { extractApiData, extractApiError } from '../utils/apiHelpers';
+import { getHomeRouteByRole } from '../navigation/roleRoutes';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
   const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
@@ -67,8 +69,10 @@ export default function SignUp() {
         role: formData.isTeacher ? 'teacher' : 'student',
       });
 
+      // Support both wrapped (extractApiData) and direct response shapes
       const data = extractApiData(response) ?? response.data;
       const token = data?.token;
+
       if (!token) {
         setError('Signup succeeded, but no auth token was returned. Please try again.');
         return;
@@ -76,27 +80,30 @@ export default function SignUp() {
 
       localStorage.setItem('token', token);
 
-      const apiUser = data?.user ?? {};
+      const apiUser = data?.user ?? response.data?.user ?? {};
       const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
       const roleName = normalizeRole(rawRole);
 
       localStorage.setItem('invigilore_user', JSON.stringify({
-        name: apiUser?.name ?? formData.fullName,
+        id:    apiUser?.id,
+        name:  apiUser?.name  ?? formData.fullName,
         email: apiUser?.email ?? formData.email,
-        role: rawRole,
+        role:  rawRole,
       }));
 
-      const dashboardPaths: Record<string, string> = {
-        admin: '/admin/dashboard',
-        teacher: '/teacher/dashboard',
-        student: '/student/dashboard',
-      };
-
       setTimeout(() => {
-        navigate(dashboardPaths[roleName]);
+        navigate(getHomeRouteByRole(roleName));
       }, 300);
     } catch (err: unknown) {
-      setError(extractApiError(err) || 'Signup failed. Please try again.');
+      if (err instanceof AxiosError) {
+        setError(
+          err.response?.data?.message ||
+          extractApiError(err) ||
+          'Signup failed. Please try again.'
+        );
+      } else {
+        setError(extractApiError(err) || 'Signup failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -252,7 +259,7 @@ export default function SignUp() {
               </div>
             </div>
 
-            {/* Submit Button */}
+            {/* Teacher checkbox */}
             <label className="flex items-center gap-2.5 cursor-pointer select-none pt-1">
               <input
                 type="checkbox"

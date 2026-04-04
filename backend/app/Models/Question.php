@@ -18,6 +18,8 @@ class Question extends Model
         'options',
         'correct_answer',
         'marks',
+        'status',
+        'review_comment',
     ];
 
     protected $casts = [

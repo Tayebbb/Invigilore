@@ -6,6 +6,7 @@ import { Card, CardContent } from '../components/ui/card';
 import useCurrentUser from '../hooks/useCurrentUser';
 
 type ExamRolePayload = {
+  controller_id?: number | null;
   questionSetter?: { email?: string } | null;
   question_setter?: { email?: string } | null;
   controller?: { email?: string } | null;
@@ -30,6 +31,7 @@ interface ExamQuestionSetterRouteProps {
 export default function ExamQuestionSetterRoute({ children }: ExamQuestionSetterRouteProps) {
   const { id } = useParams();
   const currentUser = useCurrentUser();
+  const currentUserId = Number((currentUser as { id?: number | string }).id ?? NaN);
 
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
@@ -46,11 +48,13 @@ export default function ExamQuestionSetterRoute({ children }: ExamQuestionSetter
     setChecking(true);
     api.get(`/exams/${examId}`)
       .then((res) => {
+        const controllerId = Number((res.data as { controller_id?: number | string | null } | null)?.controller_id ?? NaN);
         const setterEmail = normalizeText(getQuestionSetterEmail(res.data));
         const controllerEmail = normalizeText(getControllerEmail(res.data));
         const currentEmail = normalizeText(currentUser.email);
         const isSetter = Boolean(setterEmail) && setterEmail === currentEmail;
-        const isController = Boolean(controllerEmail) && controllerEmail === currentEmail;
+        const isController = (Number.isFinite(currentUserId) && Number.isFinite(controllerId) && controllerId === currentUserId)
+          || (Boolean(controllerEmail) && controllerEmail === currentEmail);
         setAllowed(isSetter || isController);
       })
       .catch(() => {
@@ -59,7 +63,7 @@ export default function ExamQuestionSetterRoute({ children }: ExamQuestionSetter
       .finally(() => {
         setChecking(false);
       });
-  }, [currentUser.email, id]);
+  }, [currentUser.email, currentUserId, id]);
 
   if (checking) {
     return (

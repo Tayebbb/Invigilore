@@ -23,6 +23,7 @@ import {
 
 import api from '../../api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
+import ModeratorReviewPanel from './ModeratorReviewPanel';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import useCurrentUser from '../../hooks/useCurrentUser';
 
@@ -75,6 +76,7 @@ const LANGUAGES = ['English', 'French', 'Spanish'];
 
 type ExamContext = {
   id: number;
+  controller_id?: number | null;
   title?: string;
   subject_id?: number | null;
   duration?: number | string | null;
@@ -87,6 +89,7 @@ type ExamContext = {
   invigilator?: { email?: string } | null;
   teacher?: { email?: string } | null;
   controller?: { email?: string } | null;
+  exam_status?: 'draft' | 'active' | 'scheduled' | 'completed' | string;
 };
 
 function normalizeText(value: unknown): string {
@@ -154,6 +157,8 @@ export default function CreateExam() {
     role: 'Teacher' as const,
   }), [currentUser]);
 
+  const currentUserId = Number((currentUser as { id?: number | string }).id ?? NaN);
+
   const roleKey = String((currentUser as { roleKey?: string }).roleKey ?? 'teacher').toLowerCase();
   const canCreateExam = roleKey === 'teacher' || roleKey === 'controller' || roleKey === 'admin';
   const canAssignRoles = canCreateExam;
@@ -208,8 +213,10 @@ export default function CreateExam() {
     normalizeText(getSetterEmail(examContext)) === normalizedCurrentUserEmail;
 
   const isControllerOnCurrentExam =
-    !!examContext &&
-    normalizeText(examContext.controller?.email) === normalizedCurrentUserEmail;
+    !!examContext && (
+      (Number.isFinite(currentUserId) && examContext.controller_id === currentUserId) ||
+      normalizeText(examContext.controller?.email) === normalizedCurrentUserEmail
+    );
 
   const isModeratorOnCurrentExam =
     !!examContext &&
@@ -222,14 +229,24 @@ export default function CreateExam() {
   const activeExamId = examContext?.id ?? null;
   const isEditingExam = !!examId && !Number.isNaN(examId) && activeExamId === examId;
 
-  const canAccessQuestionsManager =
-    !!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam);
+  const isPrivileged = roleKey === 'teacher' || roleKey === 'controller' || roleKey === 'admin';
+  const isGlobalAdminOrController = roleKey === 'admin' || roleKey === 'controller';
 
-  const canAccessModeratorPanel = !!examId && (isModeratorOnCurrentExam || isControllerOnCurrentExam);
-  const canAccessInvigilatorPanel = !!examId && (isInvigilatorOnCurrentExam || isControllerOnCurrentExam);
-  const canAccessControllerOnly = !!examId && isControllerOnCurrentExam;
+  // Read access (can see the tab in sidebar and navigate to it):
+  const canAccessQuestionsManager = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
+  const canAccessModeratorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
+  const canAccessInvigilatorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
+  const canAccessControllerOnly = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
+
+  // Edit access (can make changes):
+  const canEditControllerOnly = isGlobalAdminOrController || (!examId && canCreateExam) || (!!examId && isControllerOnCurrentExam);
+  const canEditQuestionsManager = canEditControllerOnly || (!!examId && isAssignedQuestionSetterOnCurrentExam);
+  const canEditModeratorPanel = canEditControllerOnly || (!!examId && isModeratorOnCurrentExam);
+  const canEditInvigilatorPanel = canEditControllerOnly || (!!examId && isInvigilatorOnCurrentExam);
+  const canEditTestAccess = canEditControllerOnly || (!!examId && isModeratorOnCurrentExam);
 
   const activeExamContext = examContext ?? setterExams[0] ?? null;
+  const canActivateExam = canEditControllerOnly || (!!examId && isModeratorOnCurrentExam && activeExamContext?.exam_status === 'completed');
 
   async function refreshExamQuestions(examIdToLoad: number) {
     setLoadingQuestions(true);
@@ -276,6 +293,8 @@ export default function CreateExam() {
           invigilator: exam.invigilator ?? null,
           teacher: exam.teacher ?? null,
           controller: exam.controller ?? null,
+          controller_id: exam.controller_id ?? null,
+          exam_status: exam.exam_status ?? 'draft',
         };
 
         setExamContext(loadedExam);
@@ -386,6 +405,7 @@ export default function CreateExam() {
             questionSetter: exam.questionSetter ?? null,
             teacher: exam.teacher ?? null,
             controller: exam.controller ?? null,
+            controller_id: exam.controller_id ?? null,
           }));
 
         setSetterExams(assigned);
@@ -555,15 +575,21 @@ export default function CreateExam() {
         question_setter_email: canAssignRoles ? (questionSetterEmail || null) : null,
         moderator_email: canAssignRoles ? (moderatorEmail || null) : null,
         invigilator_email: canAssignRoles ? (invigilatorEmail || null) : null,
+        exam_status: 'active',
       };
       const examLabel = getExamLabel(testName);
 
       if (isEditingExam && activeExamId) {
         await api.put(`/exams/${activeExamId}`, payload);
-        setSuccess(`Exam "${examLabel}" updated successfully.`);
+        const updatedExam = { ...activeExamContext!, exam_status: 'active' };
+        setExamContext(updatedExam as ExamContext);
+        setSuccess(`Exam "${examLabel}" is now active.`);
       } else {
-        await api.post('/exams', payload);
-        setSuccess(`Exam "${examLabel}" created successfully. Controller role can now assign question setter, moderator, and invigilator.`);
+        const res = await api.post('/exams', payload);
+        setSuccess(`Exam "${examLabel}" created and activated successfully.`);
+        if (res.data?.id) {
+          navigate(`/teacher/exams/${res.data.id}`);
+        }
       }
     } catch (err: any) {
       const apiErrors = err?.response?.data?.errors;
@@ -609,15 +635,21 @@ export default function CreateExam() {
         question_setter_email: canAssignRoles ? (questionSetterEmail || null) : null,
         moderator_email: canAssignRoles ? (moderatorEmail || null) : null,
         invigilator_email: canAssignRoles ? (invigilatorEmail || null) : null,
+        exam_status: 'draft',
       };
       const examLabel = getExamLabel(testName);
 
       if (isEditingExam && activeExamId) {
         await api.put(`/exams/${activeExamId}`, payload);
-        setSuccess(`Exam "${examLabel}" information updated in database successfully.`);
+        const updatedExam = { ...activeExamContext!, exam_status: 'draft' };
+        setExamContext(updatedExam as ExamContext);
+        setSuccess(`Exam "${examLabel}" draft saved successfully.`);
       } else {
-        await api.post('/exams', payload);
-        setSuccess(`Exam "${examLabel}" information saved to database successfully. Use Activate test on the left when you are ready to publish.`);
+        const res = await api.post('/exams', payload);
+        setSuccess(`Exam "${examLabel}" saved as draft. You can activate it when ready.`);
+        if (res.data?.id) {
+          navigate(`/teacher/exams/${res.data.id}/settings`);
+        }
       }
     } catch (err: any) {
       const apiErrors = err?.response?.data?.errors;
@@ -627,6 +659,27 @@ export default function CreateExam() {
       } else {
         setError(err?.response?.data?.message ?? err?.message ?? `Failed to ${isEditingExam ? 'update' : 'save'} exam information.`);
       }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleCompleteExamSetup() {
+    if (!activeExamId) return;
+    setSubmitting(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const payload = {
+        exam_status: 'completed',
+      };
+      await api.put(`/exams/${activeExamId}`, payload);
+      const updatedExam = { ...activeExamContext!, exam_status: 'completed' };
+      setExamContext(updatedExam as ExamContext);
+      setSuccess(`Exam questions setup marked as completed.`);
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? err?.message ?? 'Failed to complete exam setup.');
     } finally {
       setSubmitting(false);
     }
@@ -691,12 +744,7 @@ export default function CreateExam() {
             </div>
 
             <div className="space-y-1.5">
-              {STEPS.filter((step) => {
-                if (step.key === 'questions') return canAccessQuestionsManager;
-                if (step.key === 'moderator') return canAccessModeratorPanel;
-                if (step.key === 'invigilator') return canAccessInvigilatorPanel;
-                return canAccessControllerOnly;
-              }).map((step) => {
+              {STEPS.map((step) => {
                 const Icon = step.icon;
                 const isActive = activeStep === step.key;
                 return (
@@ -715,17 +763,19 @@ export default function CreateExam() {
               })}
             </div>
 
-            <button
-              onClick={handleCreateExam}
-              disabled={submitting || !canCreateExam}
-              className="mt-6 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {submitting ? (
-                <span className="inline-flex items-center gap-1.5"><Loader2 className="w-4 h-4 animate-spin" /> {isEditingExam ? 'Updating...' : 'Creating...'}</span>
-              ) : (
-                <span>{canCreateExam ? (isEditingExam ? 'Update test' : 'Activate test') : 'View only access'}</span>
-              )}
-            </button>
+            {isEditingExam && (
+              <button
+                onClick={handleCreateExam}
+                disabled={submitting || !canActivateExam || activeExamContext?.exam_status === 'active'}
+                className="mt-6 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <span className="inline-flex items-center gap-1.5"><Loader2 className="w-4 h-4 animate-spin" /> Activating...</span>
+                ) : (
+                  <span>{activeExamContext?.exam_status === 'active' ? 'Exam is Active' : 'Active exam'}</span>
+                )}
+              </button>
+            )}
           </motion.aside>
 
           <motion.section
@@ -740,10 +790,10 @@ export default function CreateExam() {
                 <h3 className="text-lg font-semibold text-white">Basic settings</h3>
                 <button
                   onClick={handleSaveDraft}
-                  disabled={submitting || !canCreateExam}
+                  disabled={submitting || !canEditControllerOnly}
                   className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isEditingExam ? 'Update' : 'Create'}
+                  Save
                 </button>
               </div>
 
@@ -760,7 +810,7 @@ export default function CreateExam() {
                 </div>
               )}
 
-              <div className="space-y-5">
+              <fieldset disabled={!canEditControllerOnly} className="space-y-5 border-0 p-0 m-0 w-full min-w-0">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Test name</label>
                   <input
@@ -918,7 +968,7 @@ export default function CreateExam() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </fieldset>
             </div>
             )}
 
@@ -987,13 +1037,14 @@ export default function CreateExam() {
                   <h4 className="text-2xl font-bold text-white mb-2">You don&apos;t have any questions yet</h4>
                   <p className="text-sm text-gray-400 mb-5">Click Add question to create your first question.</p>
                   <div className="flex items-center justify-center gap-2">
-                    <button className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold inline-flex items-center gap-1.5">
+                    <button disabled={!canEditQuestionsManager} className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
                       <Sparkles className="w-4 h-4" />
                       Generate using AI
                     </button>
                     <button
                       onClick={() => openQuestionEditor()}
-                      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold inline-flex items-center gap-1.5"
+                      disabled={!canEditQuestionsManager}
+                      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Plus className="w-4 h-4" />
                       Add question
@@ -1027,6 +1078,7 @@ export default function CreateExam() {
                     </div>
 
                     <div className="space-y-4">
+                      <fieldset disabled={!canEditQuestionsManager} className="space-y-4 border-0 p-0 m-0 w-full min-w-0">
                       <div>
                         <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Question</label>
                         <textarea
@@ -1135,17 +1187,19 @@ export default function CreateExam() {
                             setShowQuestionEditor(false);
                             resetQuestionEditor();
                           }}
-                          className="px-4 py-2 rounded-lg border border-gray-700 text-sm text-gray-200 hover:bg-gray-800"
+                          className="px-4 py-2 rounded-lg border border-gray-700 text-sm text-gray-200 hover:bg-gray-800 cursor-pointer"
                         >
                           Cancel
                         </button>
                         <button
                           onClick={handleSaveQuestion}
-                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold"
+                          disabled={!canEditQuestionsManager}
+                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {editingQuestionId ? 'Update question' : 'Save question'}
                         </button>
                       </div>
+                      </fieldset>
                     </div>
                   </div>
                 )}
@@ -1154,14 +1208,24 @@ export default function CreateExam() {
                   <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-sm font-semibold text-white">Saved questions ({questions.length})</h4>
-                      {canAccessQuestionsManager && (
-                        <button
-                          onClick={() => openQuestionEditor()}
-                          className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold inline-flex items-center gap-1.5"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Add question
-                        </button>
+                      {canAccessQuestionsManager && canEditQuestionsManager && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleCompleteExamSetup}
+                            disabled={submitting || activeExamContext?.exam_status === 'completed'}
+                            className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <CircleCheck className="w-4 h-4" />
+                            {activeExamContext?.exam_status === 'completed' ? 'Completed' : 'Complete setup'}
+                          </button>
+                          <button
+                            onClick={() => openQuestionEditor()}
+                            className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Add question
+                          </button>
+                        </div>
                       )}
                     </div>
                     <div className="space-y-3">
@@ -1195,19 +1259,11 @@ export default function CreateExam() {
               </div>
             )}
 
-            {activeStep === 'moderator' && canAccessModeratorPanel && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
-                <h3 className="text-lg font-semibold text-white">Moderator Review</h3>
-                <p className="text-sm text-gray-400">Review paper quality, comments, and approval flow in one place.</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => navigate(`/exam/${activeExamContext?.id}/moderator`)}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold"
-                  >
-                    Open Moderator Tools
-                  </button>
-                </div>
-              </div>
+            {activeStep === 'moderator' && canAccessModeratorPanel && activeExamContext && (
+              <ModeratorReviewPanel 
+                examId={activeExamContext.id} 
+                canEdit={canEditModeratorPanel} 
+              />
             )}
 
             {activeStep === 'invigilator' && canAccessInvigilatorPanel && (
@@ -1217,7 +1273,8 @@ export default function CreateExam() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => navigate(`/exam/${activeExamContext?.id}/invigilator`)}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold"
+                    disabled={!canEditInvigilatorPanel}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Open Invigilator Tools
                   </button>
@@ -1226,7 +1283,7 @@ export default function CreateExam() {
             )}
 
             {activeStep === 'test_access' && canAccessControllerOnly && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
+              <fieldset disabled={!canEditTestAccess} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
                 <h3 className="text-lg font-semibold text-white">Test Access</h3>
 
                 <div>
@@ -1392,7 +1449,7 @@ export default function CreateExam() {
                     This access mode is reserved for future extension.
                   </div>
                 )}
-              </div>
+              </fieldset>
             )}
 
             {activeStep === 'grading' && canAccessControllerOnly && (
