@@ -1,0 +1,103 @@
+name: Auto Resolve & Merge PR
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches:
+      - main
+
+jobs:
+  resolve-and-merge:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      # ── 1. Checkout PR branch ──────────────────────────────
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+
+      # ── 2. Configure Git identity ─────────────────────────
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config core.editor true
+          git config sequence.editor true
+
+      # ── 3. Rebase onto main and auto-resolve conflicts ────
+      - name: Rebase onto main and resolve conflicts
+        run: |
+          set -euo pipefail
+
+          PR_BRANCH="${{ github.head_ref }}"
+          git fetch origin main
+          git checkout "$PR_BRANCH"
+
+          # Attempt rebase
+          git rebase origin/main || true
+
+          # Only resolve actual conflicts
+          CONFLICT_FILES=$(git diff --name-only --diff-filter=U || true)
+
+          if [ -z "$CONFLICT_FILES" ]; then
+            echo "✅ No merge conflicts detected — skipping auto-resolve."
+          else
+            echo "⚠️ Conflicts detected. Auto-resolving by keeping PR branch version:"
+            echo "$CONFLICT_FILES"
+
+            # Resolve conflicts by taking PR branch version
+            echo "$CONFLICT_FILES" | xargs -I{} git checkout --theirs {}
+            echo "$CONFLICT_FILES" | xargs git add
+
+            # Continue rebase with automatic commit message
+            git rebase --continue -m "Auto-resolved merge conflicts"
+          fi
+
+          # Push updated branch
+          git push origin "$PR_BRANCH" --force-with-lease
+          echo "✅ Branch pushed successfully."
+
+      # ── 4. Merge the PR ───────────────────────────────────
+      - name: Merge pull request
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr_number = context.payload.pull_request.number;
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr_number,
+                merge_method: 'squash',
+                commit_title: `Auto-merged PR #${pr_number}: ${context.payload.pull_request.title}`,
+                commit_message: 'Automatically merged via GitHub Actions.',
+              });
+              console.log(`PR #${pr_number} merged successfully.`);
+            } catch (err) {
+              core.setFailed(`Merge failed: ${err.message}`);
+            }
+
+      # ── 5. Delete merged branch ───────────────────────────
+      - name: Delete merged branch
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${{ github.head_ref }}`
+              });
+              console.log(`Branch '${{ github.head_ref }}' deleted.`);
+            } catch (err) {
+              console.log(`Could not delete branch: ${err.message}`);
+            }
