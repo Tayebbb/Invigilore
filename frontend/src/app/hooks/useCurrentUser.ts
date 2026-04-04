@@ -15,6 +15,7 @@ const TEACHER_LIKE_ROLES = new Set([
 ]);
 
 type ApiMeResponse = {
+  id?: number;
   name?: string;
   email?: string;
   role?: { name?: string } | string | null;
@@ -41,6 +42,7 @@ export default function useCurrentUser() {
   const stored = getStoredUser();
 
   const [user, setUser] = useState(() => ({
+    id: stored?.id ?? null,
     name: stored?.name ?? 'User',
     email: stored?.email ?? '',
     rawRole: String(stored?.role ?? 'student').toLowerCase().replace(/[-\s]+/g, '_'),
@@ -60,6 +62,7 @@ export default function useCurrentUser() {
           .toLowerCase()
           .replace(/[-\s]+/g, '_');
         const next = {
+          id: data?.id ?? user.id,
           name: data?.name ?? user.name,
           email: data?.email ?? user.email,
           rawRole,
@@ -84,6 +87,7 @@ export default function useCurrentUser() {
     () => ({
       name: user.name,
       email: user.email,
+      id: user.id,
       initial: (user.name?.[0] ?? 'U').toUpperCase(),
       roleBadge: toBadgeRole(user.role),
       roleKey: user.rawRole,

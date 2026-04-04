@@ -75,6 +75,7 @@ const LANGUAGES = ['English', 'French', 'Spanish'];
 
 type ExamContext = {
   id: number;
+  controller_id?: number | null;
   title?: string;
   subject_id?: number | null;
   duration?: number | string | null;
@@ -154,6 +155,8 @@ export default function CreateExam() {
     role: 'Teacher' as const,
   }), [currentUser]);
 
+  const currentUserId = Number((currentUser as { id?: number | string }).id ?? NaN);
+
   const roleKey = String((currentUser as { roleKey?: string }).roleKey ?? 'teacher').toLowerCase();
   const canCreateExam = roleKey === 'teacher' || roleKey === 'controller' || roleKey === 'admin';
   const canAssignRoles = canCreateExam;
@@ -208,8 +211,10 @@ export default function CreateExam() {
     normalizeText(getSetterEmail(examContext)) === normalizedCurrentUserEmail;
 
   const isControllerOnCurrentExam =
-    !!examContext &&
-    normalizeText(examContext.controller?.email) === normalizedCurrentUserEmail;
+    !!examContext && (
+      (Number.isFinite(currentUserId) && examContext.controller_id === currentUserId) ||
+      normalizeText(examContext.controller?.email) === normalizedCurrentUserEmail
+    );
 
   const isModeratorOnCurrentExam =
     !!examContext &&
@@ -276,6 +281,7 @@ export default function CreateExam() {
           invigilator: exam.invigilator ?? null,
           teacher: exam.teacher ?? null,
           controller: exam.controller ?? null,
+          controller_id: exam.controller_id ?? null,
         };
 
         setExamContext(loadedExam);
@@ -386,6 +392,7 @@ export default function CreateExam() {
             questionSetter: exam.questionSetter ?? null,
             teacher: exam.teacher ?? null,
             controller: exam.controller ?? null,
+            controller_id: exam.controller_id ?? null,
           }));
 
         setSetterExams(assigned);
@@ -691,12 +698,7 @@ export default function CreateExam() {
             </div>
 
             <div className="space-y-1.5">
-              {STEPS.filter((step) => {
-                if (step.key === 'questions') return canAccessQuestionsManager;
-                if (step.key === 'moderator') return canAccessModeratorPanel;
-                if (step.key === 'invigilator') return canAccessInvigilatorPanel;
-                return canAccessControllerOnly;
-              }).map((step) => {
+              {STEPS.map((step) => {
                 const Icon = step.icon;
                 const isActive = activeStep === step.key;
                 return (

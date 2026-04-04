@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router';
 
 import api from '../api';
 import { AxiosError } from 'axios';
+import { getHomeRouteByRole } from '../navigation/roleRoutes';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
   const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
@@ -71,16 +72,11 @@ export default function SignUp() {
         const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
         const roleName = normalizeRole(rawRole);
         localStorage.setItem('invigilore_user', JSON.stringify({
+          id: apiUser.id,
           name:  apiUser.name,
           email: apiUser.email,
           role:  rawRole,
         }));
-
-        const dashboardPaths: Record<string, string> = {
-          admin:   '/admin/dashboard',
-          teacher: '/teacher/dashboard',
-          student: '/student/dashboard',
-        };
 
         navigate(getHomeRouteByRole(roleName));
       } else {

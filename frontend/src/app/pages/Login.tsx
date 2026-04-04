@@ -60,6 +60,7 @@ export default function Login() {
         const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
         const roleName = normalizeRole(rawRole);
         localStorage.setItem('invigilore_user', JSON.stringify({
+          id: apiUser.id,
           name:  apiUser.name,
           email: apiUser.email,
           role:  rawRole,

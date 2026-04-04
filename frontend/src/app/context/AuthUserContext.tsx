@@ -84,7 +84,14 @@ export function AuthUserProvider({ children }: { children: ReactNode }) {
 export function useAuthUser() {
   const context = useContext(AuthUserContext);
   if (!context) {
-    throw new Error('useAuthUser must be used within AuthUserProvider');
+    return {
+      user: readStoredAuthUser(),
+      refreshUser: async () => {},
+      setUserFromApi: () => {},
+      clearUser: () => {
+        clearStoredAuthUser();
+      },
+    };
   }
   return context;
 }
