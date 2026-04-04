@@ -50,7 +50,7 @@ function SubjectCard({ subject, index }: { subject: StudentSubject; index: numbe
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.06 }}
-      className="rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-700 hover:shadow-lg hover:shadow-black/20 transition-all duration-200"
+      className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm p-5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200"
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${grad} flex items-center justify-center shrink-0`}>
@@ -85,7 +85,7 @@ function ExamCard({ exam, onEnter, index }: { exam: StudentExam; onEnter: (id: n
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.07 }}
-      className="rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-700 hover:shadow-lg hover:shadow-black/20 transition-all duration-200"
+      className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm p-5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5 transition-all duration-200"
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
@@ -245,7 +245,7 @@ export default function StudentDashboard() {
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35, delay: i * 0.07 }}
-                  className="rounded-2xl border border-gray-800 bg-gray-900 p-5 hover:border-gray-700 transition-colors"
+                  className="rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm p-5 hover:border-primary/30 transition-shadow duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
                 >
                   <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3`}>
                     <Icon className="w-4.5 h-4.5 text-white" style={{ width: 18, height: 18 }} />
