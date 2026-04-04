@@ -20,19 +20,23 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name'     => 'required|string|between:2,100',
             'email'    => 'required|string|email|max:100|unique:users',
-            'password' => 'required|string|confirmed|min:8',
-            'role'     => 'required|in:student,teacher,admin',
+            'password' => 'required|string|min:8',
+            'role'     => 'sometimes|in:student,teacher,admin',
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 400);
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
         }
 
-        $role = Role::where('name', $request->role)->first();
+        $roleName = $request->string('role')->toString() ?: 'student';
+        $role = Role::where('name', $roleName)->first();
 
-        if (!$role) {
+        if (! $role) {
             return response()->json([
-                'error' => 'Selected role is not available. Please seed roles and try again.',
+                'message' => 'Selected role is not available. Please seed roles and try again.',
             ], 422);
         }
 
@@ -43,13 +47,11 @@ class AuthController extends Controller
             'role_id'  => $role->id,
         ]);
 
-        $token = auth('api')->login($user);
+        $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
-            'message'      => 'User registered successfully',
-            'access_token' => $token,
-            'token_type'   => 'bearer',
-            'user'         => $user->load('role'),
+            'user' => $user->load('role'),
+            'token' => $token,
         ], 201);
     }
 
@@ -62,20 +64,28 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string',
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
         }
 
-        $credentials = $request->only('email', 'password');
+        $user = User::where('email', $request->string('email')->toString())->first();
 
-        if (!$token = auth('api')->attempt($credentials)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+        if (! $user || ! Hash::check($request->string('password')->toString(), $user->password)) {
+            return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        return $this->respondWithToken($token);
+        $token = $user->createToken('api-token')->plainTextToken;
+
+        return response()->json([
+            'user' => $user->load('role'),
+            'token' => $token,
+        ]);
     }
 
     /**
@@ -83,9 +93,9 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function me()
+    public function me(Request $request)
     {
-        return response()->json(auth('api')->user()->load('role'));
+        return response()->json($request->user()->load('role'));
     }
 
     /**
@@ -93,27 +103,10 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function logout()
+    public function logout(Request $request)
     {
-        auth('api')->logout();
+        $request->user()->currentAccessToken()?->delete();
 
         return response()->json(['message' => 'Successfully logged out']);
-    }
-
-    /**
-     * Get the token array structure.
-     *
-     * @param  string $token
-     *
-     * @return \Illuminate\Http\JsonResponse
-     */
-    protected function respondWithToken($token)
-    {
-        return response()->json([
-            'access_token' => $token,
-            'token_type'   => 'bearer',
-            'expires_in'   => auth('api')->factory()->getTTL() * 60,
-            'user'         => auth('api')->user()->load('role'),
-        ]);
     }
 }
