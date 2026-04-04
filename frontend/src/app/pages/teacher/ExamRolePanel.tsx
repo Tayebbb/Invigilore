@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'react-router';
 
 import api from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import useCurrentUser from '../../hooks/useCurrentUser';
 
 type PageMode = 'moderator' | 'invigilator';
@@ -40,17 +41,20 @@ export default function ExamRolePanel({ mode }: { mode: PageMode }) {
     try {
       if (mode === 'moderator') {
         const res = await api.get(`/exam/${examId}/paper`);
-        setPaper(res.data as ExamPaper);
+        const data = extractApiData(res) ?? res.data;
+        setPaper(data as ExamPaper);
         setMessage('Question paper loaded successfully.');
         return;
       }
 
       const liveRes = await api.get(`/exam/${examId}/live`);
       const instructionsRes = await api.get(`/exam/${examId}/instructions`);
-      setPaper({ ...(liveRes.data as ExamPaper), instructions: instructionsRes.data?.instructions ?? '' });
+      const liveData = extractApiData(liveRes) ?? liveRes.data;
+      const instructionsData = extractApiData(instructionsRes) ?? instructionsRes.data;
+      setPaper({ ...(liveData as ExamPaper), instructions: instructionsData?.instructions ?? '' });
       setMessage('Live exam paper and instructions loaded.');
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Failed to load exam data.');
+      setError(extractApiError(err) || 'Failed to load exam data.');
     }
   }
 
@@ -64,7 +68,7 @@ export default function ExamRolePanel({ mode }: { mode: PageMode }) {
       setMessage('Paper marked as reviewed.');
       await loadPaper();
     } catch (err: any) {
-      setError(err?.response?.data?.message ?? 'Failed to submit review.');
+      setError(extractApiError(err) || 'Failed to submit review.');
     } finally {
       setSubmitting(false);
     }

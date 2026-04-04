@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import type { StudentResult } from './studentTypes';
 
@@ -18,9 +19,10 @@ export default function StudentResultsPage() {
       setError('');
       try {
         const res = await api.get('/student/results');
-        setResults(res.data?.data ?? []);
-      } catch {
-        setError('Unable to load results.');
+        const data = extractApiData(res);
+        setResults(Array.isArray(data) ? data : []);
+      } catch (err: any) {
+        setError(extractApiError(err));
       } finally {
         setLoading(false);
       }

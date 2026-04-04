@@ -28,6 +28,7 @@ import DashboardLayout         from '../../components/layout/DashboardLayout';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import useCurrentUser          from '../../hooks/useCurrentUser';
 import api                     from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -78,14 +79,13 @@ function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
     setError('');
     setLoading(true);
     try {
-      const { data } = await api.post<ApiUser>('/admin/users', form);
-      onCreated(data);
+      const response = await api.post<ApiUser>('/admin/users', form);
+      const user = extractApiData(response);
+      if (!user) throw new Error('No user returned from API.');
+      onCreated(user);
       onClose();
     } catch (err: any) {
-      const msg = err.response?.data?.errors
-        ? Object.values(err.response.data.errors as Record<string, string[]>).flat().join(' ')
-        : err.response?.data?.message ?? 'Failed to create user.';
-      setError(msg);
+      setError(extractApiError(err));
     } finally {
       setLoading(false);
     }
@@ -275,10 +275,11 @@ export default function UserManagement() {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.get<ApiUser[]>('/admin/users');
-      setUsers(data);
-    } catch {
-      setError('Failed to load users. Make sure you are connected to the backend.');
+      const response = await api.get<ApiUser[]>('/admin/users');
+      const users = extractApiData(response);
+      setUsers(Array.isArray(users) ? users : []);
+    } catch (err: any) {
+      setError(extractApiError(err));
     } finally {
       setLoading(false);
     }
@@ -294,7 +295,7 @@ export default function UserManagement() {
       setUsers(prev => prev.filter(u => u.id !== user.id));
       showToast(`${user.name} deleted.`, 'success');
     } catch (err: any) {
-      showToast(err.response?.data?.error ?? 'Delete failed.', 'error');
+      showToast(extractApiError(err), 'error');
     } finally {
       setDeleting(null);
     }

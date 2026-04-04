@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import api from '../api';
+import { extractApiData, extractApiError } from '../utils/apiHelpers';
 import {
   ClipboardCheck,
   LayoutDashboard,
@@ -158,9 +159,10 @@ export default function TeacherDashboard() {
     const fetchUser = async () => {
       try {
         const response = await api.get('/me');
-        setUser(response.data);
+        const data = extractApiData(response) ?? response.data;
+        setUser(data);
       } catch (err) {
-        // Will be redirected by interceptor or we can handle it here
+        setUser(null);
       }
     };
     fetchUser();
@@ -170,7 +172,7 @@ export default function TeacherDashboard() {
     try {
       await api.post('/logout');
     } catch(e) {
-      console.error(e);
+      // Optionally handle error
     } finally {
       localStorage.removeItem('token');
       navigate('/login');

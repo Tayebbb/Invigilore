@@ -3,6 +3,7 @@ import { Eye, EyeOff, Lock, Mail, User, AlertCircle, Loader2, ArrowRight } from 
 import { Link, useNavigate } from 'react-router';
 
 import api from '../api';
+import { extractApiData, extractApiError } from '../utils/apiHelpers';
 import { AxiosError } from 'axios';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
@@ -40,21 +41,6 @@ export default function SignUp() {
     email: '',
     password: '',
     confirmPassword: '',
-    isTeacher: false,
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    // Validation
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    setIsLoading(true);
-
     try {
       const response = await api.post('/register', {
         name: formData.fullName,
@@ -63,11 +49,11 @@ export default function SignUp() {
         password_confirmation: formData.confirmPassword,
         role: formData.isTeacher ? 'teacher' : 'student',
       });
+      const data = extractApiData(response) ?? response.data;
+      if (data.token) {
+        localStorage.setItem('token', data.token);
 
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-
-        const apiUser = response.data.user;
+        const apiUser = data.user;
         const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
         const roleName = normalizeRole(rawRole);
         localStorage.setItem('invigilore_user', JSON.stringify({
@@ -81,12 +67,17 @@ export default function SignUp() {
           teacher: '/teacher/dashboard',
           student: '/student/dashboard',
         };
-
-        navigate(getHomeRouteByRole(roleName));
+        setTimeout(() => {
+          navigate(dashboardPaths[roleName]);
+        }, 500);
       } else {
-        setError('Registration succeeded, but no auth token was returned. Please log in.');
+        setError('Signup succeeded, but no auth token was returned. Please try again.');
       }
-    } catch (err) {
+    } catch (err: any) {
+      setError(extractApiError(err) || 'Signup failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
       const axiosError = err as AxiosError<{ message?: string; error?: string; errors?: Record<string, string[]>; [key: string]: any }>;
 
       if (axiosError.response?.data && typeof axiosError.response.data === 'object') {
