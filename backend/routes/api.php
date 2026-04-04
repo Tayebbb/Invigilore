@@ -61,99 +61,29 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy']);
     });
 
-    // Admin-only routes
+
+    // System Administrator (IT-only) Admin routes
     Route::middleware('role:admin')->group(function () {
+        // User (faculty) management
         Route::get('/admin/users',          [UserController::class, 'index']);
         Route::post('/admin/users',         [UserController::class, 'store']);
         Route::put('/admin/users/{user}',   [UserController::class, 'update']);
         Route::delete('/admin/users/{user}',[UserController::class, 'destroy']);
-    });
 
-    // Admin or Teacher routes
-    Route::middleware('role:admin,teacher')->group(function () {
-        Route::get('/exams',          [ExamController::class, 'index']);
-        Route::post('/exams',         [ExamController::class, 'store']);
-        Route::get('/exams/{exam}',   [ExamController::class, 'show']);
-        Route::put('/exams/{exam}',   [ExamController::class, 'update']);
-        Route::delete('/exams/{exam}',[ExamController::class, 'destroy']);
+        // Admin dashboard stats, activity, system health
+        Route::get('/admin/dashboard', [\App\Http\Controllers\AdminDashboardController::class, 'index']);
 
-        Route::prefix('teacher/portal')->group(function () {
-            Route::get('/tests', [TeacherPortalController::class, 'tests']);
-            Route::get('/tests/{exam}', [TeacherPortalController::class, 'testInfo']);
-            Route::post('/tests/{exam}/activate', [TeacherPortalController::class, 'activate']);
-            Route::post('/tests/{exam}/end', [TeacherPortalController::class, 'end']);
-            Route::get('/results-database', [TeacherPortalController::class, 'resultsDatabase']);
-            Route::get('/respondents', [TeacherPortalController::class, 'respondents']);
-        });
-    });
-
-    // Admin-only question bank routes
-    Route::middleware('role:admin')->group(function () {
-        Route::get('/questions', [QuestionController::class, 'index']);
-        Route::post('/questions', [QuestionController::class, 'store']);
-        Route::get('/questions/{question}', [QuestionController::class, 'show']);
-        Route::put('/questions/{question}', [QuestionController::class, 'update']);
-        Route::delete('/questions/{question}', [QuestionController::class, 'destroy']);
-
-        Route::get('/exams/{exam}/generate-questions', [QuestionController::class, 'generateQuestions']);
-    });
-
-    // Admin, Teacher, Student routes
-    Route::middleware('role:admin,teacher,student')->group(function () {
-        Route::get('/exam_sessions',          [ExamSessionController::class, 'index']);
-        Route::post('/exam_sessions',         [ExamSessionController::class, 'store']);
-        Route::get('/exam_sessions/{session}',   [ExamSessionController::class, 'show']);
-        Route::put('/exam_sessions/{session}',   [ExamSessionController::class, 'update']);
-        Route::delete('/exam_sessions/{session}',[ExamSessionController::class, 'destroy']);
-
-        Route::post('/attempts/start', [ExamAttemptController::class, 'start']);
-        Route::get('/attempts/{id}', [ExamAttemptController::class, 'show']);
-        Route::post('/attempts/{id}/answer', [ExamAttemptController::class, 'saveAnswer']);
-        Route::post('/attempts/{id}/submit', [ExamAttemptController::class, 'submit']);
-    });
-
-    // System monitoring / proctoring
-    Route::middleware('role:admin,teacher')->group(function () {
-        Route::get('/proctoring', [ProctoringController::class, 'index']);
-    });
-
-    // Question setter exam-scoped question manager routes
-    Route::middleware('exam.role:question_setter')->group(function () {
-        Route::get('/exams/{exam}/questions', [QuestionController::class, 'examQuestions']);
-        Route::post('/exams/{exam}/questions', [QuestionController::class, 'storeExamQuestion']);
-        Route::put('/exams/{exam}/questions/{question}', [QuestionController::class, 'updateExamQuestion']);
-        Route::delete('/exams/{exam}/questions/{question}', [QuestionController::class, 'destroyExamQuestion']);
-    });
-
-    // Moderator paper workflow routes
-    Route::middleware(['exam.role:moderator', 'exam.paper_status:submitted,reviewed'])->group(function () {
-        Route::get('/exam/{exam}/paper', [ExamWorkflowController::class, 'paper']);
-        Route::post('/exam/{exam}/review', [ExamWorkflowController::class, 'review']);
-        Route::post('/exam/{exam}/approve', [ExamWorkflowController::class, 'approve']);
-        Route::get('/exam/{exam}/moderator', [ExamWorkflowController::class, 'moderator']);
-    });
-
-    // Invigilator routes
-    Route::middleware('exam.role:invigilator')->group(function () {
-        Route::get('/exam/{exam}/instructions', [ExamWorkflowController::class, 'instructions']);
-        Route::get('/exam/{exam}/live', [ExamWorkflowController::class, 'live'])->middleware('exam.live_window');
-        Route::post('/exam/{exam}/report', [ExamWorkflowController::class, 'report'])->middleware('exam.live_window');
-        Route::get('/exam/{exam}/invigilator', [ExamWorkflowController::class, 'invigilator']);
-    });
-
-    // Controller super-role routes
-    Route::middleware('exam.role:controller')->group(function () {
-        Route::get('/exam/{exam}/settings', [ExamWorkflowController::class, 'settings']);
-        Route::put('/exam/{exam}/settings', [ExamWorkflowController::class, 'updateSettings']);
-        Route::post('/exam/{exam}/activate', [ExamWorkflowController::class, 'activate']);
-        Route::get('/exams/{exam}/access', [ExamAccessController::class, 'show']);
-        Route::post('/exams/{exam}/access/public', [ExamAccessController::class, 'generatePublic']);
-        Route::post('/exams/{exam}/access/private', [ExamAccessController::class, 'generatePrivate']);
-    });
-
-    // Optional audit log route for testing
-    Route::middleware('role:admin')->group(function () {
-        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+        // System settings, security policies, backups, audit logs, incidents
+        // Add endpoints for these features as implemented:
+        // Route::get('/admin/settings', [SettingsController::class, 'index']);
+        // Route::put('/admin/settings', [SettingsController::class, 'update']);
+        // Route::get('/admin/security-policies', [SecurityPolicyController::class, 'index']);
+        // Route::put('/admin/security-policies', [SecurityPolicyController::class, 'update']);
+        // Route::post('/admin/backups', [BackupController::class, 'create']);
+        // Route::post('/admin/backups/restore', [BackupController::class, 'restore']);
+        Route::get('/admin/audit-logs', [AuditLogController::class, 'index']);
+        // Route::get('/admin/incidents', [IncidentController::class, 'index']);
+        // Route::get('/admin/incidents/{id}', [IncidentController::class, 'show']);
     });
 
     // Student result routes
