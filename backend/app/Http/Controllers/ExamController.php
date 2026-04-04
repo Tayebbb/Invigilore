@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Exam;
+use App\Models\ExamRole;
 use App\Models\User;
+use App\Support\ExamRoles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -14,7 +16,9 @@ class ExamController extends Controller
      */
     public function index()
     {
-        $exams = Exam::with([
+        $user = request()->user();
+
+        $query = Exam::with([
             'subject',
             'questions',
             'teacher',
@@ -22,7 +26,19 @@ class ExamController extends Controller
             'questionSetter',
             'moderator',
             'invigilator',
-        ])->latest()->get();
+        ])->latest();
+
+        if ($user && $user->role?->name !== 'admin') {
+            $query->where(function ($roleQuery) use ($user) {
+                $roleQuery->where('teacher_id', $user->id)
+                    ->orWhere('controller_id', $user->id)
+                    ->orWhere('question_setter_id', $user->id)
+                    ->orWhere('moderator_id', $user->id)
+                    ->orWhere('invigilator_id', $user->id);
+            });
+        }
+
+        $exams = $query->get();
         return response()->json($exams);
     }
 
@@ -70,19 +86,11 @@ class ExamController extends Controller
             $invigilator = User::where('email', $payload['invigilator_email'])->first();
         }
 
-        $assignedIds = array_filter([
-            $questionSetter?->id,
-            $moderator?->id,
-            $invigilator?->id,
-        ]);
-
-        if (count($assignedIds) !== count(array_unique($assignedIds))) {
-            return response()->json([
-                'message' => 'Each assignment role must be mapped to a different user email.',
-            ], 422);
-        }
-
-        if (in_array($creator->id, $assignedIds, true)) {
+        if (
+            $creator->id === $questionSetter?->id ||
+            $creator->id === $moderator?->id ||
+            $creator->id === $invigilator?->id
+        ) {
             return response()->json([
                 'message' => 'Controller cannot be assigned as question setter, moderator, or invigilator.',
             ], 422);
@@ -95,12 +103,15 @@ class ExamController extends Controller
             'total_marks' => $payload['total_marks'],
             'start_time' => $payload['start_time'],
             'end_time' => $payload['end_time'],
+            'paper_status' => 'submitted',
             'teacher_id' => $creator->id,
             'controller_id' => $creator->id,
             'question_setter_id' => $questionSetter?->id,
             'moderator_id' => $moderator?->id,
             'invigilator_id' => $invigilator?->id,
         ]);
+
+        $this->syncExamRoleAssignments($exam);
 
         return response()->json($exam->load([
             'subject',
@@ -117,6 +128,24 @@ class ExamController extends Controller
      */
     public function show(Exam $exam)
     {
+        $user = request()->user();
+
+        if ($user && $user->role?->name !== 'admin') {
+            $allowedUserIds = array_filter([
+                $exam->teacher_id,
+                $exam->controller_id,
+                $exam->question_setter_id,
+                $exam->moderator_id,
+                $exam->invigilator_id,
+            ]);
+
+            if (! in_array($user->id, $allowedUserIds, true)) {
+                return response()->json([
+                    'message' => 'Forbidden. You do not have access to this exam.',
+                ], 403);
+            }
+        }
+
         return response()->json($exam->load([
             'subject',
             'questions',
@@ -179,19 +208,11 @@ class ExamController extends Controller
             unset($data['invigilator_email']);
         }
 
-        $assignedIds = array_filter([
-            $exam->question_setter_id,
-            $exam->moderator_id,
-            $exam->invigilator_id,
-        ]);
-
-        if (count($assignedIds) !== count(array_unique($assignedIds))) {
-            return response()->json([
-                'message' => 'Each assignment role must be mapped to a different user email.',
-            ], 422);
-        }
-
-        if (in_array($exam->controller_id, $assignedIds, true)) {
+        if (
+            $exam->controller_id === $exam->question_setter_id ||
+            $exam->controller_id === $exam->moderator_id ||
+            $exam->controller_id === $exam->invigilator_id
+        ) {
             return response()->json([
                 'message' => 'Controller cannot be assigned as question setter, moderator, or invigilator.',
             ], 422);
@@ -199,6 +220,8 @@ class ExamController extends Controller
 
         $exam->fill($data);
         $exam->save();
+
+        $this->syncExamRoleAssignments($exam);
 
         return response()->json($exam->load([
             'subject',
@@ -217,5 +240,29 @@ class ExamController extends Controller
     {
         $exam->delete();
         return response()->json(['message' => 'Exam deleted']);
+    }
+
+    private function syncExamRoleAssignments(Exam $exam): void
+    {
+        ExamRole::query()->where('exam_id', $exam->id)->delete();
+
+        $roleUserPairs = [
+            ExamRoles::CONTROLLER => $exam->controller_id,
+            ExamRoles::QUESTION_SETTER => $exam->question_setter_id,
+            ExamRoles::MODERATOR => $exam->moderator_id,
+            ExamRoles::INVIGILATOR => $exam->invigilator_id,
+        ];
+
+        foreach ($roleUserPairs as $role => $userId) {
+            if (! $userId) {
+                continue;
+            }
+
+            ExamRole::create([
+                'exam_id' => $exam->id,
+                'user_id' => $userId,
+                'role' => $role,
+            ]);
+        }
     }
 }

@@ -6,19 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class AuditLog extends Model
+class ExamRole extends Model
 {
     use HasFactory;
 
-    const UPDATED_AT = null;
-
     protected $fillable = [
+        'exam_id',
         'user_id',
-        'event_type',
-        'description',
-        'ip_address',
-        'user_agent',
+        'role',
     ];
+
+    public function exam(): BelongsTo
+    {
+        return $this->belongsTo(Exam::class);
+    }
 
     public function user(): BelongsTo
     {

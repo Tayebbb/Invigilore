@@ -5,10 +5,19 @@ import { Navigate } from 'react-router';
 
 export type UserRole = 'admin' | 'teacher' | 'student';
 
+const TEACHER_LIKE_ROLES = new Set([
+  'teacher',
+  'controller',
+  'moderator',
+  'question_setter',
+  'question setter',
+  'invigilator',
+]);
+
 export interface StoredUser {
   name: string;
   email: string;
-  role: UserRole;
+  role: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -27,6 +36,17 @@ export function getStoredUser(): StoredUser | null {
   } catch {
     return null;
   }
+}
+
+function normalizeStoredRole(rawRole: unknown): UserRole {
+  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
+  if (role === 'admin' || role === 'teacher' || role === 'student') {
+    return role;
+  }
+  if (TEACHER_LIKE_ROLES.has(role)) {
+    return 'teacher';
+  }
+  return 'student';
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -56,13 +76,15 @@ export default function ProtectedRoute({ allowedRoles, children }: ProtectedRout
   }
 
   // Logged in but accessing the wrong role's dashboard
-  if (!allowedRoles.includes(user.role)) {
+  const normalizedRole = normalizeStoredRole(user.role);
+
+  if (!allowedRoles.includes(normalizedRole)) {
     const rolePaths: Record<UserRole, string> = {
       admin:   '/admin/dashboard',
       teacher: '/teacher/dashboard',
       student: '/student/dashboard',
     };
-    return <Navigate to={rolePaths[user.role]} replace />;
+    return <Navigate to={rolePaths[normalizedRole]} replace />;
   }
 
   return <>{children}</>;

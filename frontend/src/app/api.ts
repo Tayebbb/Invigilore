@@ -2,6 +2,7 @@ import axios, { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'ax
 
 const api = axios.create({
   baseURL: import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api',
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -25,7 +26,10 @@ api.interceptors.response.use(
     return response;
   },
   (error: AxiosError) => {
-    if (error.response && error.response.status === 401) {
+    const requestUrl = String(error.config?.url ?? '');
+    const isAuthEndpoint = requestUrl.includes('/login') || requestUrl.includes('/register');
+
+    if (error.response && error.response.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }

@@ -8,14 +8,15 @@ import TeacherDashboard       from "./pages/TeacherDashboard";
 
 // Role-based dashboards
 import AdminDashboard         from "./pages/admin/AdminDashboard";
-import TeacherDashboardNew    from "./pages/teacher/TeacherDashboardNew";
+import MyExamsDashboard       from "./pages/teacher/MyExamsDashboard";
 import CreateExam             from "./pages/teacher/CreateExam";
 import StudentDashboard       from "./pages/student/StudentDashboard";
 import UserManagement         from "./pages/admin/UserManagement";
-import ExamMonitoring         from "./pages/admin/ExamMonitoring";
 
 // Auth guard
 import ProtectedRoute         from "./auth/ProtectedRoute";
+import ExamQuestionSetterRoute from "./auth/ExamQuestionSetterRoute";
+import ExamRoleAccessRoute    from "./auth/ExamRoleAccessRoute";
 
 export const router = createBrowserRouter([
   // ── Public routes ────────────────────────────────────────────────────────
@@ -62,7 +63,7 @@ export const router = createBrowserRouter([
     path: "/teacher/dashboard",
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
-        <TeacherDashboardNew />
+        <MyExamsDashboard />
       </ProtectedRoute>
     ),
   },
@@ -75,18 +76,50 @@ export const router = createBrowserRouter([
     ),
   },
   {
-    path: "/admin/users",
+    path: "/exam/:id/questions",
     element: (
-      <ProtectedRoute allowedRoles={["admin"]}>
-        <UserManagement />
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <ExamQuestionSetterRoute>
+          <CreateExam />
+        </ExamQuestionSetterRoute>
       </ProtectedRoute>
     ),
   },
   {
-    path: "/admin/monitoring",
+    path: "/exam/:id/moderator",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <ExamRoleAccessRoute requiredRole="moderator">
+          <CreateExam />
+        </ExamRoleAccessRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/exam/:id/invigilator",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <ExamRoleAccessRoute requiredRole="invigilator" requireLiveWindow>
+          <CreateExam />
+        </ExamRoleAccessRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/exam/:id/access",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <ExamRoleAccessRoute requiredRole="controller">
+          <CreateExam />
+        </ExamRoleAccessRoute>
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/users",
     element: (
       <ProtectedRoute allowedRoles={["admin"]}>
-        <ExamMonitoring />
+        <UserManagement />
       </ProtectedRoute>
     ),
   },
