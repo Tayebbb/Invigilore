@@ -1,4 +1,5 @@
 export interface AuthUserRecord {
+  id?: number | string;
   name: string;
   email: string;
   role: string;

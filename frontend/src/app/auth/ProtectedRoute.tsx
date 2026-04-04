@@ -16,6 +16,7 @@ const TEACHER_LIKE_ROLES = new Set([
 ]);
 
 export interface StoredUser {
+  id?: number | string;
   name: string;
   email: string;
   role: string;
