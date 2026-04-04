@@ -2,76 +2,116 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Question;
+use App\Http\Requests\Question\GenerateQuestionsRequest;
+use App\Http\Requests\Question\StoreQuestionRequest;
+use App\Http\Requests\Question\UpdateQuestionRequest;
+use App\Http\Resources\QuestionAdminResource;
+use App\Http\Resources\QuestionResource;
 use App\Models\Exam;
+use App\Models\Question;
+use App\Services\QuestionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class QuestionController extends Controller
 {
-    /**
-     * GET /questions — list all questions (admin/teacher)
-     */
-    public function index()
+    public function __construct(private readonly QuestionService $questionService)
     {
-        $questions = Question::with('exam')->latest()->get();
-        return response()->json($questions);
     }
 
-    /**
-     * POST /questions — create question (admin/teacher)
-     */
-    public function store(Request $request)
+    public function index(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'exam_id'        => 'required|integer|exists:exams,id',
-            'question_text'  => 'required|string',
-            'type'           => 'required|string',
-            'options'        => 'nullable|string',
-            'correct_answer' => 'required|string',
-            'marks'          => 'required|integer|min:1',
-        ]);
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-        $question = Question::create($validator->validated());
-        return response()->json($question, 201);
+        $questions = $this->questionService->paginate(
+            $request->only(['exam_id']),
+            max(1, min(100, (int) $request->integer('per_page', 15)))
+        );
+
+        return QuestionAdminResource::collection($questions);
     }
 
-    /**
-     * GET /questions/{question} — show question details
-     */
     public function show(Question $question)
     {
-        return response()->json($question->load('exam'));
+        return new QuestionAdminResource($question->load('exam'));
     }
 
-    /**
-     * PUT /questions/{question} — update question
-     */
-    public function update(Request $request, Question $question)
+    public function store(StoreQuestionRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'exam_id'        => 'sometimes|integer|exists:exams,id',
-            'question_text'  => 'sometimes|string',
-            'type'           => 'sometimes|string',
-            'options'        => 'nullable|string',
-            'correct_answer' => 'sometimes|string',
-            'marks'          => 'sometimes|integer|min:1',
+        $validated = $request->validated();
+
+        $question = $this->questionService->create([
+            'exam_id' => $validated['exam_id'] ?? null,
+            'question_text' => $validated['question_text'],
+            'type' => $validated['type'] ?? 'mcq',
+            'options' => [
+                'A' => $validated['option_a'],
+                'B' => $validated['option_b'],
+                'C' => $validated['option_c'],
+                'D' => $validated['option_d'],
+            ],
+            'correct_answer' => $validated['correct_answer'],
+            'marks' => $validated['marks'] ?? 1,
         ]);
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-        $question->update($validator->validated());
-        return response()->json($question);
+
+        return (new QuestionAdminResource($question))->response()->setStatusCode(201);
     }
 
-    /**
-     * DELETE /questions/{question} — delete question
-     */
-    public function destroy(Question $question)
+    public function update(UpdateQuestionRequest $request, Question $question)
     {
-        $question->delete();
-        return response()->json(['message' => 'Question deleted']);
+        $validated = $request->validated();
+        $payload = [];
+
+        if (array_key_exists('exam_id', $validated)) {
+            $payload['exam_id'] = $validated['exam_id'];
+        }
+
+        if (array_key_exists('question_text', $validated)) {
+            $payload['question_text'] = $validated['question_text'];
+        }
+
+        if (array_key_exists('type', $validated)) {
+            $payload['type'] = $validated['type'];
+        }
+
+        if (
+            array_key_exists('option_a', $validated) ||
+            array_key_exists('option_b', $validated) ||
+            array_key_exists('option_c', $validated) ||
+            array_key_exists('option_d', $validated)
+        ) {
+            $existingOptions = is_array($question->options) ? $question->options : [];
+
+            $payload['options'] = [
+                'A' => $validated['option_a'] ?? ($existingOptions['A'] ?? null),
+                'B' => $validated['option_b'] ?? ($existingOptions['B'] ?? null),
+                'C' => $validated['option_c'] ?? ($existingOptions['C'] ?? null),
+                'D' => $validated['option_d'] ?? ($existingOptions['D'] ?? null),
+            ];
+        }
+
+        if (array_key_exists('correct_answer', $validated)) {
+            $payload['correct_answer'] = $validated['correct_answer'];
+        }
+
+        if (array_key_exists('marks', $validated)) {
+            $payload['marks'] = $validated['marks'];
+        }
+
+        $question = $this->questionService->update($question, $payload);
+
+        return new QuestionAdminResource($question);
+    }
+
+    public function destroy(Question $question): JsonResponse
+    {
+        $this->questionService->delete($question);
+
+        return response()->json(['message' => 'Question deleted successfully']);
+    }
+
+    public function generateQuestions(GenerateQuestionsRequest $request, Exam $exam)
+    {
+        $questions = $this->questionService->generateForExam($exam, $request->validated());
+
+        return QuestionResource::collection($questions);
     }
 }
