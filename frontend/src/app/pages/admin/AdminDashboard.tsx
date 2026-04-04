@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import api from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import {
   LayoutDashboard,
   Users,
@@ -61,13 +62,14 @@ export default function AdminDashboard() {
     setLoading(true);
     api.get('/admin/dashboard')
       .then(res => {
-        setStats(res.data.stats);
-        setRecentActivity(res.data.recentActivity);
-        setSystemHealth(res.data.systemHealth);
+        const data = extractApiData(res) ?? res.data;
+        setStats(data.stats);
+        setRecentActivity(data.recentActivity);
+        setSystemHealth(data.systemHealth);
         setLoading(false);
       })
       .catch(err => {
-        setError('Failed to load dashboard data');
+        setError(extractApiError(err) || 'Failed to load dashboard data');
         setLoading(false);
       });
   }, []);

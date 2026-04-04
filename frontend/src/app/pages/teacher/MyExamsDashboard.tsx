@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import api from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import DashboardCard from '../../components/dashboard/DashboardCard';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
@@ -202,10 +203,11 @@ export default function MyExamsDashboard() {
     setLoading(true);
     api.get('/exams')
       .then((response) => {
-        const apiExams = Array.isArray(response.data) ? response.data : [];
+        const data = extractApiData(response) ?? response.data;
+        const apiExams = Array.isArray(data) ? data : [];
         setExams(apiExams);
       })
-      .catch(() => setError('Failed to load exams'))
+      .catch((err) => setError(extractApiError(err) || 'Failed to load exams'))
       .finally(() => setLoading(false));
   }, []);
 

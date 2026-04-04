@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import api from '../api';
+import { extractApiData, extractApiError } from '../utils/apiHelpers';
 import { getHomeRouteByRole } from '../navigation/roleRoutes';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
@@ -10,48 +11,38 @@ function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
     return role;
   }
   if (role === 'controller' || role === 'moderator' || role === 'question_setter' || role === 'invigilator') {
-    return 'teacher';
-  }
-  return 'student';
-}
-
-function normalizeStoredRoleValue(rawRole: unknown): string {
-  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
-  return role || 'student';
-}
-
-export default function Login() {
-  const navigate = useNavigate();
-  
-  // Set page title dynamically
-  useEffect(() => {
-    document.title = 'InvigiLORE - Sign In';
-    return () => {
-      document.title = 'InvigiLORE';
-    };
-  }, []);
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
     try {
       const response = await api.post('/login', {
         email: formData.email,
         password: formData.password,
       });
+      const data = extractApiData(response) ?? response.data;
+      const token = data?.token ?? data?.access_token;
 
-      const token = response.data?.token ?? response.data?.access_token;
+      if (token) {
+        localStorage.setItem('token', token);
 
+        // Store user info for ProtectedRoute and dashboard display
+        const apiUser = data.user;
+        const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
+        const roleName = normalizeRole(rawRole);
+        localStorage.setItem('invigilore_user', JSON.stringify({
+          name:  apiUser.name,
+          email: apiUser.email,
+          role:  rawRole,
+        }));
+
+        setTimeout(() => {
+          navigate(getHomeRouteByRole(roleName));
+        }, 500);
+      } else {
+        setError('Login succeeded, but no auth token was returned. Please try again.');
+      }
+    } catch (err: any) {
+      setError(extractApiError(err) || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
       if (token) {
         localStorage.setItem('token', token);
 

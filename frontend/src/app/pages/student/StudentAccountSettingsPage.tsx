@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { AlertCircle, Lock, Save, ShieldCheck, Upload } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import { writeStoredAuthUser } from '../../utils/authUser';
 
@@ -36,7 +37,7 @@ export default function StudentAccountSettingsPage() {
       setLoading(true);
       try {
         const response = await api.get('/student/account-settings');
-        const data = response.data?.data;
+        const data = extractApiData(response) ?? response.data?.data;
 
         setFullName(data?.profile?.name ?? '');
         setEmail(data?.profile?.email ?? '');
@@ -46,8 +47,8 @@ export default function StudentAccountSettingsPage() {
         setNotificationEmail(Boolean(data?.preferences?.notification_preferences?.email ?? true));
         setNotificationSms(Boolean(data?.preferences?.notification_preferences?.sms ?? false));
         setTheme((data?.preferences?.theme ?? 'dark') as 'light' | 'dark');
-      } catch {
-        setError('Unable to load account settings');
+      } catch (err: any) {
+        setError(extractApiError(err) || 'Unable to load account settings');
       } finally {
         setLoading(false);
       }
