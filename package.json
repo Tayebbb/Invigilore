@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "start:client": "cd client && npm run dev",
-    "start:server": "cd server && php artisan serve",
-    "build:client": "cd client && npm run build",
-    "copy:client": "cp -r client/dist/* server/public/",
-    "build:prod": "npm run build:client && npm run copy:client"
+    "start:frontend": "cd frontend && npm run dev",
+    "start:backend": "cd backend && php artisan serve",
+    "build:frontend": "cd frontend && npm run build",
+    "copy:frontend": "cp -r frontend/dist/* backend/public/",
+    "build:prod": "npm run build:frontend && npm run copy:frontend"
   },
   "keywords": [],
   "author": "Ali Ahnaf",
