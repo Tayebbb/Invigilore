@@ -42,6 +42,7 @@ interface ApiUser {
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard Overview', icon: LayoutDashboard },
   { label: 'User Management',    icon: Users           },
+  { label: 'Exam Monitoring',    icon: Activity        },
   { label: 'Exam Management',    icon: ClipboardList   },
   { label: 'Question Bank',      icon: BookOpen        },
   { label: 'System Monitoring',  icon: Activity        },
@@ -299,6 +300,7 @@ export default function UserManagement() {
 
   function handleNavChange(label: string) {
     if (label === 'Dashboard Overview') { navigate('/admin/dashboard'); return; }
+    if (label === 'Exam Monitoring' || label === 'Exam Management' || label === 'System Monitoring') { navigate('/admin/monitoring'); return; }
     // Stay on this page for User Management
   }
 

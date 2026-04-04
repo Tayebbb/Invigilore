@@ -11,6 +11,7 @@ import AdminDashboard         from "./pages/admin/AdminDashboard";
 import TeacherDashboardNew    from "./pages/teacher/TeacherDashboardNew";
 import StudentDashboard       from "./pages/student/StudentDashboard";
 import UserManagement         from "./pages/admin/UserManagement";
+import ExamMonitoring         from "./pages/admin/ExamMonitoring";
 
 // Auth guard
 import ProtectedRoute         from "./auth/ProtectedRoute";
@@ -69,6 +70,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["admin"]}>
         <UserManagement />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/admin/monitoring",
+    element: (
+      <ProtectedRoute allowedRoles={["admin"]}>
+        <ExamMonitoring />
       </ProtectedRoute>
     ),
   },

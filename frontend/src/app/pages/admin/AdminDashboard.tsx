@@ -26,6 +26,7 @@ import { getStoredUser }           from '../../auth/ProtectedRoute';
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard Overview', icon: LayoutDashboard },
   { label: 'User Management',    icon: Users           },
+  { label: 'Exam Monitoring',    icon: Activity        },
   { label: 'Exam Management',    icon: ClipboardList   },
   { label: 'Question Bank',      icon: BookOpen        },
   { label: 'System Monitoring',  icon: Activity        },
@@ -67,6 +68,10 @@ export default function AdminDashboard() {
   function handleNavChange(label: string) {
     if (label === 'User Management') {
       navigate('/admin/users');
+      return;
+    }
+    if (label === 'Exam Monitoring' || label === 'Exam Management' || label === 'System Monitoring') {
+      navigate('/admin/monitoring');
       return;
     }
     setActiveItem(label);
