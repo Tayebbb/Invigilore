@@ -9,11 +9,12 @@ use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\ResultController;
 use App\Http\Controllers\ProctoringController;
 use App\Http\Controllers\ExamSessionController;
+use App\Http\Controllers\ExamAttemptController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware('auth:api')->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
@@ -57,6 +58,11 @@ Route::middleware('auth:api')->group(function () {
         Route::get('/exam_sessions/{session}',   [ExamSessionController::class, 'show']);
         Route::put('/exam_sessions/{session}',   [ExamSessionController::class, 'update']);
         Route::delete('/exam_sessions/{session}',[ExamSessionController::class, 'destroy']);
+
+        Route::post('/attempts/start', [ExamAttemptController::class, 'start']);
+        Route::get('/attempts/{id}', [ExamAttemptController::class, 'show']);
+        Route::post('/attempts/{id}/answer', [ExamAttemptController::class, 'saveAnswer']);
+        Route::post('/attempts/{id}/submit', [ExamAttemptController::class, 'submit']);
     });
 
     // System monitoring / proctoring
