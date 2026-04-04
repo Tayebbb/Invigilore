@@ -37,14 +37,15 @@ class UserController extends Controller
             'name'     => 'required|string|between:2,100',
             'email'    => 'required|string|email|max:100|unique:users',
             'password' => 'required|string|min:8',
-            'role'     => 'required|in:student,teacher,admin',
+            'role'     => 'sometimes|in:student,teacher,admin',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $role = Role::where('name', $request->role)->first();
+        $roleName = $request->string('role')->toString() ?: 'student';
+        $role = Role::where('name', $roleName)->first();
 
         if (!$role) {
             return response()->json([
@@ -63,7 +64,7 @@ class UserController extends Controller
             'id'    => $user->id,
             'name'  => $user->name,
             'email' => $user->email,
-            'role'  => $role->name,
+            'role'  => $roleName,
         ], 201);
     }
 

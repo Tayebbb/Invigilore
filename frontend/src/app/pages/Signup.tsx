@@ -4,8 +4,22 @@ import { Link, useNavigate } from 'react-router';
 
 import api from '../api';
 import { AxiosError } from 'axios';
-import { getHomeRouteByRole } from '../navigation/roleRoutes';
-import { writeStoredAuthUser } from '../utils/authUser';
+
+function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
+  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
+  if (role === 'admin' || role === 'teacher' || role === 'student') {
+    return role;
+  }
+  if (role === 'controller' || role === 'moderator' || role === 'question_setter' || role === 'invigilator') {
+    return 'teacher';
+  }
+  return 'student';
+}
+
+function normalizeStoredRoleValue(rawRole: unknown): string {
+  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
+  return role || 'student';
+}
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -26,6 +40,7 @@ export default function SignUp() {
     email: '',
     password: '',
     confirmPassword: '',
+    isTeacher: false,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,22 +61,26 @@ export default function SignUp() {
         email: formData.email,
         password: formData.password,
         password_confirmation: formData.confirmPassword,
-        role: 'student',
+        role: formData.isTeacher ? 'teacher' : 'student',
       });
 
-      const accessToken = response.data?.access_token ?? response.data?.token;
-
-      if (accessToken) {
-        localStorage.setItem('token', accessToken);
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
 
         const apiUser = response.data.user;
-        const roleName: string = apiUser?.role?.name ?? 'student';
-        writeStoredAuthUser({
+        const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
+        const roleName = normalizeRole(rawRole);
+        localStorage.setItem('invigilore_user', JSON.stringify({
           name:  apiUser.name,
           email: apiUser.email,
-          role:  roleName,
-          profile_picture: apiUser?.profile_picture ?? null,
-        });
+          role:  rawRole,
+        }));
+
+        const dashboardPaths: Record<string, string> = {
+          admin:   '/admin/dashboard',
+          teacher: '/teacher/dashboard',
+          student: '/student/dashboard',
+        };
 
         navigate(getHomeRouteByRole(roleName));
       } else {
@@ -91,9 +110,10 @@ export default function SignUp() {
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: type === 'checkbox' ? checked : value,
     });
   };
 
@@ -242,6 +262,18 @@ export default function SignUp() {
             </div>
 
             {/* Submit Button */}
+            <label className="flex items-center gap-2.5 cursor-pointer select-none pt-1">
+              <input
+                type="checkbox"
+                name="isTeacher"
+                checked={formData.isTeacher}
+                onChange={handleChange}
+                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500
+                           focus:ring-blue-500/40 focus:ring-2"
+              />
+              <span className="text-xs text-gray-300">I am a teacher</span>
+            </label>
+
             <button
               type="submit"
               disabled={isLoading}
