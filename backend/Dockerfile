@@ -21,8 +21,8 @@ RUN set -eux; \
     ACCEPT_EULA=Y apt-get install -y msodbcsql18 unixodbc-dev; \
     rm -rf /var/lib/apt/lists/*
 
-# Install only essential PHP extensions for this app to keep builds stable
-RUN docker-php-ext-install mbstring bcmath zip
+# Install required PHP extensions for Laravel and MySQL connectivity
+RUN docker-php-ext-install mbstring bcmath zip pdo_mysql
 # RUN pecl install sqlsrv pdo_sqlsrv && docker-php-ext-enable sqlsrv pdo_sqlsrv
 
 # Install Composer
