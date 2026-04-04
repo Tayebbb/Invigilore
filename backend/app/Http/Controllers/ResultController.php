@@ -15,7 +15,11 @@ class ResultController extends Controller
     public function index()
     {
         $results = Result::with('attempt', 'attempt.user', 'attempt.exam')->latest()->get();
-        return response()->json($results);
+        return response()->json([
+            'success' => true,
+            'message' => 'Results fetched successfully',
+            'data' => $results,
+        ]);
     }
 
     /**
@@ -27,12 +31,27 @@ class ResultController extends Controller
             'attempt_id'  => 'required|integer|exists:exam_attempts,id',
             'score'       => 'required|integer',
             'total_marks' => 'required|integer',
+            'grade'       => 'sometimes|string|max:10',
+            'feedback'    => 'sometimes|string',
+            'is_published' => 'sometimes|boolean',
         ]);
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
         }
-        $result = Result::create($validator->validated());
-        return response()->json($result, 201);
+
+        $payload = $validator->validated();
+
+        if (! empty($payload['is_published']) && ! array_key_exists('published_at', $payload)) {
+            $payload['published_at'] = now();
+        }
+
+        $result = Result::create($payload);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Result created successfully',
+            'data' => $result,
+        ], 201);
     }
 
     /**
@@ -40,7 +59,11 @@ class ResultController extends Controller
      */
     public function show(Result $result)
     {
-        return response()->json($result->load('attempt', 'attempt.user', 'attempt.exam'));
+        return response()->json([
+            'success' => true,
+            'message' => 'Result fetched successfully',
+            'data' => $result->load('attempt', 'attempt.user', 'attempt.exam'),
+        ]);
     }
 
     /**
@@ -51,12 +74,27 @@ class ResultController extends Controller
         $validator = Validator::make($request->all(), [
             'score'       => 'sometimes|integer',
             'total_marks' => 'sometimes|integer',
+            'grade'       => 'sometimes|string|max:10',
+            'feedback'    => 'sometimes|string',
+            'is_published' => 'sometimes|boolean',
         ]);
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json(['success' => false, 'message' => 'Validation failed', 'errors' => $validator->errors()], 422);
         }
-        $result->update($validator->validated());
-        return response()->json($result);
+
+        $payload = $validator->validated();
+
+        if (array_key_exists('is_published', $payload)) {
+            $payload['published_at'] = $payload['is_published'] ? now() : null;
+        }
+
+        $result->update($payload);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Result updated successfully',
+            'data' => $result,
+        ]);
     }
 
     /**
@@ -65,6 +103,6 @@ class ResultController extends Controller
     public function destroy(Result $result)
     {
         $result->delete();
-        return response()->json(['message' => 'Result deleted']);
+        return response()->json(['success' => true, 'message' => 'Result deleted']);
     }
 }

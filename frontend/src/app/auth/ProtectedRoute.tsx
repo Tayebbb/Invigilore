@@ -1,9 +1,10 @@
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router';
+import { getHomeRouteByRole, normalizeRole } from '../navigation/roleRoutes';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'teacher' | 'student';
+export type UserRole = 'admin' | 'teacher' | 'student' | 'controller' | 'invigilator' | 'question-setter' | 'moderator';
 
 const TEACHER_LIKE_ROLES = new Set([
   'teacher',
@@ -69,22 +70,20 @@ interface ProtectedRouteProps {
  */
 export default function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
   const user = getStoredUser();
+  const normalizedRole = normalizeRole(user?.role ?? null);
 
   // Not logged in
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  // Logged in but accessing the wrong role's dashboard
-  const normalizedRole = normalizeStoredRole(user.role);
+  if (!normalizedRole) {
+    return <Navigate to="/login" replace />;
+  }
 
+  // Logged in but accessing the wrong role's dashboard
   if (!allowedRoles.includes(normalizedRole)) {
-    const rolePaths: Record<UserRole, string> = {
-      admin:   '/admin/dashboard',
-      teacher: '/teacher/dashboard',
-      student: '/student/dashboard',
-    };
-    return <Navigate to={rolePaths[normalizedRole]} replace />;
+    return <Navigate to={getHomeRouteByRole(normalizedRole)} replace />;
   }
 
   return <>{children}</>;

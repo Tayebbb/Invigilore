@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import api from '../api';
+import { getHomeRouteByRole } from '../navigation/roleRoutes';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
   const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
@@ -49,8 +50,10 @@ export default function Login() {
         password: formData.password,
       });
 
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
+      const token = response.data?.token ?? response.data?.access_token;
+
+      if (token) {
+        localStorage.setItem('token', token);
 
         // Store user info for ProtectedRoute and dashboard display
         const apiUser = response.data.user;
@@ -62,15 +65,11 @@ export default function Login() {
           role:  rawRole,
         }));
 
-        const dashboardPaths: Record<string, string> = {
-          admin:   '/admin/dashboard',
-          teacher: '/teacher/dashboard',
-          student: '/student/dashboard',
-        };
-
         setTimeout(() => {
-          navigate(dashboardPaths[roleName] ?? '/dashboard');
+          navigate(getHomeRouteByRole(roleName));
         }, 500);
+      } else {
+        setError('Login succeeded, but no auth token was returned. Please try again.');
       }
     } catch (err: any) {
       if (err.code === 'ECONNABORTED') {
