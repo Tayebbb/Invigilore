@@ -47,8 +47,8 @@ export default function SignUp() {
         role: 'student',
       });
 
-      if (response.data.access_token) {
-        localStorage.setItem('token', response.data.access_token);
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
 
         const apiUser = response.data.user;
         const roleName: string = apiUser?.role?.name ?? 'student';
