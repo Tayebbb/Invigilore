@@ -14,9 +14,9 @@ class AdminDashboardController extends Controller
     public function index()
     {
         // User stats
-        $totalStudents = User::where('role', 'student')->count();
-        $totalTeachers = User::where('role', 'teacher')->count();
-        $totalAdmins   = User::where('role', 'admin')->count();
+        $totalStudents = User::whereHas('role', fn($q) => $q->where('name', 'student'))->count();
+        $totalTeachers = User::whereHas('role', fn($q) => $q->where('name', 'teacher'))->count();
+        $totalAdmins   = User::whereHas('role', fn($q) => $q->where('name', 'admin'))->count();
 
         // Recent activity (last 5 audit logs)
         $recentActivity = AuditLog::orderBy('created_at', 'desc')->limit(5)->get(['description', 'created_at']);
