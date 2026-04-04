@@ -24,7 +24,7 @@ import {
 
 import DashboardLayout         from '../../components/layout/DashboardLayout';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
-import { getStoredUser }       from '../../auth/ProtectedRoute';
+import useCurrentUser          from '../../hooks/useCurrentUser';
 import api                     from '../../api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -42,6 +42,7 @@ interface ApiUser {
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard Overview', icon: LayoutDashboard },
   { label: 'User Management',    icon: Users           },
+  { label: 'Exam Monitoring',    icon: Activity        },
   { label: 'Exam Management',    icon: ClipboardList   },
   { label: 'Question Bank',      icon: BookOpen        },
   { label: 'System Monitoring',  icon: Activity        },
@@ -255,11 +256,11 @@ export default function UserManagement() {
   const [deleting,   setDeleting]   = useState<number | null>(null);
   const [toast,      setToast]      = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
-  const storedUser = getStoredUser();
+  const currentUser = useCurrentUser();
   const adminUser = {
-    name:    storedUser?.name    ?? 'Admin',
-    email:   storedUser?.email   ?? '',
-    initial: (storedUser?.name?.[0] ?? 'A').toUpperCase(),
+    name:    currentUser.name,
+    email:   currentUser.email,
+    initial: currentUser.initial,
     role:    'Admin' as const,
   };
 
@@ -299,6 +300,7 @@ export default function UserManagement() {
 
   function handleNavChange(label: string) {
     if (label === 'Dashboard Overview') { navigate('/admin/dashboard'); return; }
+    if (label === 'Exam Monitoring' || label === 'Exam Management' || label === 'System Monitoring') { navigate('/admin/monitoring'); return; }
     // Stay on this page for User Management
   }
 

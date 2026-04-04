@@ -8,11 +8,8 @@ import TeacherDashboard       from "./pages/TeacherDashboard";
 
 // Role-based dashboards
 import AdminDashboard         from "./pages/admin/AdminDashboard";
-import TeacherTestsPage       from "./pages/teacher/TeacherTestsPage";
-import TeacherTestInfoPage    from "./pages/teacher/TeacherTestInfoPage";
-import TeacherResultsDatabasePage from "./pages/teacher/TeacherResultsDatabasePage";
-import TeacherAccountPage     from "./pages/teacher/TeacherAccountPage";
-import TeacherRespondentsPage from "./pages/teacher/TeacherRespondentsPage";
+import MyExamsDashboard       from "./pages/teacher/MyExamsDashboard";
+import CreateExam             from "./pages/teacher/CreateExam";
 import StudentDashboard       from "./pages/student/StudentDashboard";
 import StudentExamAttemptPage from "./pages/student/StudentExamAttemptPage";
 import StudentResultsPage     from "./pages/student/StudentResultsPage";
@@ -25,6 +22,8 @@ import RoleDashboardPlaceholder from "./pages/role/RoleDashboardPlaceholder";
 
 // Auth guard
 import ProtectedRoute         from "./auth/ProtectedRoute";
+import ExamQuestionSetterRoute from "./auth/ExamQuestionSetterRoute";
+import ExamRoleAccessRoute    from "./auth/ExamRoleAccessRoute";
 
 export const router = createBrowserRouter([
   // ── Public routes ────────────────────────────────────────────────────────
@@ -71,71 +70,55 @@ export const router = createBrowserRouter([
     path: "/teacher/dashboard",
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
-        <TeacherTestsPage />
+        <MyExamsDashboard />
       </ProtectedRoute>
     ),
   },
   {
-    path: "/teacher/tests/:testId",
+    path: "/teacher/exams/new",
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
-        <TeacherTestInfoPage />
+        <CreateExam />
       </ProtectedRoute>
     ),
   },
   {
-    path: "/teacher/results-database",
+    path: "/exam/:id/questions",
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
-        <TeacherResultsDatabasePage />
+        <ExamQuestionSetterRoute>
+          <CreateExam />
+        </ExamQuestionSetterRoute>
       </ProtectedRoute>
     ),
   },
   {
-    path: "/teacher/account",
+    path: "/exam/:id/moderator",
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
-        <TeacherAccountPage />
+        <ExamRoleAccessRoute requiredRole="moderator">
+          <CreateExam />
+        </ExamRoleAccessRoute>
       </ProtectedRoute>
     ),
   },
   {
-    path: "/teacher/respondents",
+    path: "/exam/:id/invigilator",
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
-        <TeacherRespondentsPage />
+        <ExamRoleAccessRoute requiredRole="invigilator" requireLiveWindow>
+          <CreateExam />
+        </ExamRoleAccessRoute>
       </ProtectedRoute>
     ),
   },
   {
-    path: "/controller/dashboard",
+    path: "/exam/:id/access",
     element: (
-      <ProtectedRoute allowedRoles={["controller"]}>
-        <RoleDashboardPlaceholder roleName="Controller" />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/invigilator/dashboard",
-    element: (
-      <ProtectedRoute allowedRoles={["invigilator"]}>
-        <RoleDashboardPlaceholder roleName="Invigilator" />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/question-setter/dashboard",
-    element: (
-      <ProtectedRoute allowedRoles={["question-setter"]}>
-        <RoleDashboardPlaceholder roleName="Question Setter" />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/moderator/dashboard",
-    element: (
-      <ProtectedRoute allowedRoles={["moderator"]}>
-        <RoleDashboardPlaceholder roleName="Moderator" />
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <ExamRoleAccessRoute requiredRole="controller">
+          <CreateExam />
+        </ExamRoleAccessRoute>
       </ProtectedRoute>
     ),
   },

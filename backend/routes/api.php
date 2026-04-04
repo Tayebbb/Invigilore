@@ -14,10 +14,14 @@ use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\StudentExamController;
 use App\Http\Controllers\ExamSessionController;
 use App\Http\Controllers\ExamAttemptController;
-use App\Http\Controllers\TeacherPortalController;
+use App\Http\Controllers\StudentResultController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\ExamWorkflowController;
+use App\Http\Controllers\ExamAccessController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/test/{exam}', [ExamAccessController::class, 'verify']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
@@ -113,12 +117,49 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/proctoring', [ProctoringController::class, 'index']);
     });
 
-    // Result management / publication controls
-    Route::middleware('role:admin,teacher,controller')->group(function () {
-        Route::get('/results', [ResultController::class, 'index']);
-        Route::post('/results', [ResultController::class, 'store']);
-        Route::get('/results/{result}', [ResultController::class, 'show']);
-        Route::put('/results/{result}', [ResultController::class, 'update']);
-        Route::delete('/results/{result}', [ResultController::class, 'destroy']);
+    // Question setter exam-scoped question manager routes
+    Route::middleware('exam.role:question_setter')->group(function () {
+        Route::get('/exams/{exam}/questions', [QuestionController::class, 'examQuestions']);
+        Route::post('/exams/{exam}/questions', [QuestionController::class, 'storeExamQuestion']);
+        Route::put('/exams/{exam}/questions/{question}', [QuestionController::class, 'updateExamQuestion']);
+        Route::delete('/exams/{exam}/questions/{question}', [QuestionController::class, 'destroyExamQuestion']);
+    });
+
+    // Moderator paper workflow routes
+    Route::middleware(['exam.role:moderator', 'exam.paper_status:submitted,reviewed'])->group(function () {
+        Route::get('/exam/{exam}/paper', [ExamWorkflowController::class, 'paper']);
+        Route::post('/exam/{exam}/review', [ExamWorkflowController::class, 'review']);
+        Route::post('/exam/{exam}/approve', [ExamWorkflowController::class, 'approve']);
+        Route::get('/exam/{exam}/moderator', [ExamWorkflowController::class, 'moderator']);
+    });
+
+    // Invigilator routes
+    Route::middleware('exam.role:invigilator')->group(function () {
+        Route::get('/exam/{exam}/instructions', [ExamWorkflowController::class, 'instructions']);
+        Route::get('/exam/{exam}/live', [ExamWorkflowController::class, 'live'])->middleware('exam.live_window');
+        Route::post('/exam/{exam}/report', [ExamWorkflowController::class, 'report'])->middleware('exam.live_window');
+        Route::get('/exam/{exam}/invigilator', [ExamWorkflowController::class, 'invigilator']);
+    });
+
+    // Controller super-role routes
+    Route::middleware('exam.role:controller')->group(function () {
+        Route::get('/exam/{exam}/settings', [ExamWorkflowController::class, 'settings']);
+        Route::put('/exam/{exam}/settings', [ExamWorkflowController::class, 'updateSettings']);
+        Route::post('/exam/{exam}/activate', [ExamWorkflowController::class, 'activate']);
+        Route::get('/exams/{exam}/access', [ExamAccessController::class, 'show']);
+        Route::post('/exams/{exam}/access/public', [ExamAccessController::class, 'generatePublic']);
+        Route::post('/exams/{exam}/access/private', [ExamAccessController::class, 'generatePrivate']);
+    });
+
+    // Optional audit log route for testing
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+    });
+
+    // Student result routes
+    Route::middleware('role:student')->group(function () {
+        Route::get('/student/attempts', [StudentResultController::class, 'index']);
+        Route::get('/student/attempts/{id}', [StudentResultController::class, 'show']);
+        Route::get('/student/results/summary', [StudentResultController::class, 'summary']);
     });
 });

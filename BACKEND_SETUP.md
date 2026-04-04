@@ -6,9 +6,9 @@ This document explains how to run the Laravel backend locally for Invigilore, in
 
 The backend was run using:
 
-~~~powershell
+```powershell
 php -v
-~~~
+```
 
 Observed version:
 
@@ -23,9 +23,9 @@ Why this matters:
 
 Composer used:
 
-~~~powershell
+```powershell
 composer --version
-~~~
+```
 
 Observed version:
 
@@ -33,10 +33,10 @@ Observed version:
 
 Install command used:
 
-~~~powershell
+```powershell
 cd backend
 composer install
-~~~
+```
 
 What happened:
 
@@ -60,30 +60,30 @@ To use SQL Server locally, configure backend/.env as below.
 
 ### Required SQL Server .env values
 
-~~~env
+```env
 DB_CONNECTION=sqlsrv
 DB_HOST=127.0.0.1
 DB_PORT=1433
 DB_DATABASE=invigilore
 DB_USERNAME=sa
 DB_PASSWORD=YourStrongPassword
-~~~
+```
 
 ### Optional SQL Server security values
 
 If your SQL Server setup requires encryption settings, add:
 
-~~~env
+```env
 DB_ENCRYPT=yes
 DB_TRUST_SERVER_CERTIFICATE=true
-~~~
+```
 
 Then clear and reload Laravel config:
 
-~~~powershell
+```powershell
 cd backend
 php artisan config:clear
-~~~
+```
 
 Why this matters:
 
@@ -94,14 +94,14 @@ Why this matters:
 
 In this workspace, backend/.env did not exist initially. Create it from backend/.env.example first:
 
-~~~powershell
+```powershell
 cd backend
 copy .env.example .env
-~~~
+```
 
 Then update at minimum:
 
-~~~env
+```env
 APP_NAME=Invigilore
 APP_ENV=local
 APP_DEBUG=true
@@ -116,14 +116,14 @@ DB_PASSWORD=YourStrongPassword
 
 # JWT package support
 JWT_SECRET=
-~~~
+```
 
 Generate required app keys/secrets:
 
-~~~powershell
+```powershell
 php artisan key:generate
 php artisan jwt:secret
-~~~
+```
 
 Why this matters:
 
@@ -134,7 +134,7 @@ Why this matters:
 
 The setup flow (and recommended repeatable flow) is:
 
-~~~powershell
+```powershell
 # 1. Go to backend
 cd backend
 
@@ -158,14 +158,14 @@ php artisan db:seed
 
 # 8. Start backend server
 php artisan serve --host=0.0.0.0 --port=8000
-~~~
+```
 
 Useful verification commands:
 
-~~~powershell
+```powershell
 php artisan migrate:status
 php -m | findstr /I "zip sqlsrv pdo_sqlsrv"
-~~~
+```
 
 ## 6) PHP Drivers and Extensions Installed/Changed
 
@@ -192,15 +192,15 @@ Why this matters:
 
 From the backend folder:
 
-~~~powershell
+```powershell
 php artisan serve --host=0.0.0.0 --port=8000
-~~~
+```
 
 Expected output:
 
-~~~text
+```text
 INFO  Server running on [http://0.0.0.0:8000]
-~~~
+```
 
 Access locally at:
 
@@ -212,10 +212,10 @@ Access locally at:
 
 Run:
 
-~~~powershell
+```powershell
 cd backend
 composer install
-~~~
+```
 
 ### SQL Server connection errors
 
@@ -225,15 +225,15 @@ Check:
 - .env DB values are correct
 - sqlsrv and pdo_sqlsrv are loaded
 
-~~~powershell
+```powershell
 php -m | findstr /I "sqlsrv pdo_sqlsrv"
-~~~
+```
 
 ### Config changes not reflected
 
 Run:
 
-~~~powershell
+```powershell
 php artisan config:clear
 php artisan cache:clear
-~~~
+```

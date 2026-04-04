@@ -6,12 +6,17 @@ use App\Services\AuditTrailService;
 use App\Services\IncidentService;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly AuditService $auditService)
+    {
+    }
+
     /**
      * Register a User.
      *
@@ -84,32 +89,10 @@ class AuthController extends Controller
 
         $token = $user->createToken('api-token')->plainTextToken;
 
-        $activeTokenCount = $user->tokens()->count();
-
-        $auditTrailService->log(
-            $user,
-            'auth.login',
-            [
-                'timestamp' => now()->toISOString(),
-                'active_tokens' => $activeTokenCount,
-                'user_agent' => $request->userAgent(),
-            ],
-            $request->ip()
-        );
-
-        if ($activeTokenCount > 1) {
-            $incidentService->record(
-                $user,
-                null,
-                null,
-                'multiple_simultaneous_logins',
-                'high',
-                [
-                    'active_tokens' => $activeTokenCount,
-                    'detected_at' => now()->toISOString(),
-                ],
-                $request
-            );
+        try {
+            $this->auditService->log('login', 'User logged in successfully');
+        } catch (\Throwable) {
+            // Do not block login response when audit logging fails.
         }
 
         return response()->json([

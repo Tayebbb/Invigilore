@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router';
 import {
   Menu,
   Bell,
@@ -8,7 +7,6 @@ import NotificationsPanel from '../student/NotificationsPanel';
 import type { StudentNotification } from '../../pages/student/studentTypes';
 import { isStudentRole } from '../../navigation/roleRoutes';
 import UserMenuDropdown from './UserMenuDropdown';
-import { clearStoredAuthUser } from '../../utils/authUser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -47,8 +45,6 @@ export default function DashboardNavbar({
   notifications,
   onMenuClick,
 }: DashboardNavbarProps) {
-  const navigate = useNavigate();
-
   return (
     <header
       className="fixed top-0 right-0 z-30 h-16
@@ -95,22 +91,21 @@ export default function DashboardNavbar({
         )}
 
         {/* Help */}
-        {isStudentRole(user.role) && (
-          <button
-            onClick={() => navigate('/student/help-support')}
-            className="hidden sm:flex w-9 h-9 rounded-lg items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 transition-all duration-200 cursor-pointer"
-            aria-label="Help"
-          >
-            <HelpCircle className="w-4.5 h-4.5" />
-          </button>
-        )}
+        <button
+          className="hidden sm:flex w-9 h-9 rounded-lg items-center justify-center
+                     text-gray-400 hover:text-white hover:bg-gray-800
+                     transition-all duration-200 cursor-pointer"
+          aria-label="Help"
+        >
+          <HelpCircle className="w-4.5 h-4.5" />
+        </button>
 
+        {/* Profile dropdown */}
         <UserMenuDropdown
           user={user}
           onSignOut={() => {
             localStorage.removeItem('token');
-            clearStoredAuthUser();
-            navigate('/login');
+            localStorage.removeItem('invigilore_user');
           }}
         />
       </div>
