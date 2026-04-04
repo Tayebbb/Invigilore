@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Menu,
@@ -10,6 +10,8 @@ import {
   Settings,
   LogOut,
 } from 'lucide-react';
+import NotificationsPanel from '../student/NotificationsPanel';
+import type { StudentNotification } from '../../pages/student/studentTypes';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,8 @@ export interface DashboardNavbarProps {
   user: NavbarUser;
   /** Notification count — omit or pass 0 to hide the dot */
   notificationCount?: number;
+  /** Optional notifications payload to show rich dropdown panel */
+  notifications?: StudentNotification[];
   onMenuClick: () => void;
 }
 
@@ -42,10 +46,12 @@ export default function DashboardNavbar({
   pageTitle,
   user,
   notificationCount = 0,
+  notifications,
   onMenuClick,
 }: DashboardNavbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   /* Close dropdown when clicking outside */
   useEffect(() => {
@@ -86,21 +92,26 @@ export default function DashboardNavbar({
       <div className="flex items-center gap-1.5 flex-shrink-0">
 
         {/* Notification bell */}
-        <button
-          className="relative w-9 h-9 rounded-lg flex items-center justify-center
-                     text-gray-400 hover:text-white hover:bg-gray-800
-                     transition-all duration-200 cursor-pointer"
-          aria-label="Notifications"
-        >
-          <Bell className="w-4.5 h-4.5" />
-          {notificationCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500
-                             rounded-full ring-2 ring-gray-900" />
-          )}
-        </button>
+        {notifications ? (
+          <NotificationsPanel notifications={notifications} />
+        ) : (
+          <button
+            className="relative w-9 h-9 rounded-lg flex items-center justify-center
+                       text-gray-400 hover:text-white hover:bg-gray-800
+                       transition-all duration-200 cursor-pointer"
+            aria-label="Notifications"
+          >
+            <Bell className="w-4.5 h-4.5" />
+            {notificationCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500
+                               rounded-full ring-2 ring-gray-900" />
+            )}
+          </button>
+        )}
 
         {/* Help */}
         <button
+          onClick={() => navigate('/student/help-support')}
           className="hidden sm:flex w-9 h-9 rounded-lg items-center justify-center
                      text-gray-400 hover:text-white hover:bg-gray-800
                      transition-all duration-200 cursor-pointer"
@@ -150,12 +161,16 @@ export default function DashboardNavbar({
                 {/* Menu items */}
                 <div className="p-1.5">
                   {[
-                    { icon: User,     label: 'View Profile' },
-                    { icon: Settings, label: 'Account Settings' },
-                    { icon: HelpCircle, label: 'Help & Support' },
-                  ].map(({ icon: Icon, label }) => (
+                    { icon: User,     label: 'View Profile', action: () => navigate('/student/profile') },
+                    { icon: Settings, label: 'Account Settings', action: () => navigate('/student/account-settings') },
+                    { icon: HelpCircle, label: 'Help & Support', action: () => navigate('/student/help-support') },
+                  ].map(({ icon: Icon, label, action }) => (
                     <button
                       key={label}
+                      onClick={() => {
+                        action();
+                        setProfileOpen(false);
+                      }}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
                                  text-sm text-gray-300 hover:text-white hover:bg-gray-800
                                  transition-all duration-150 cursor-pointer"
