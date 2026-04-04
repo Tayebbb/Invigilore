@@ -727,7 +727,7 @@ export default function CreateExam() {
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.25 }}
-            className="bg-gray-900 border border-gray-800 rounded-2xl p-4"
+            className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-4"
           >
             <div className="mb-4">
               <span className="inline-flex text-[10px] font-semibold tracking-wide px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-300 border border-blue-500/30 uppercase">
@@ -785,7 +785,7 @@ export default function CreateExam() {
             className="space-y-6"
           >
             {activeStep === 'basic' && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6">
               <div className="flex items-center justify-between mb-5 gap-3">
                 <h3 className="text-lg font-semibold text-white">Basic settings</h3>
                 <button
@@ -973,7 +973,7 @@ export default function CreateExam() {
             )}
 
             {activeStep === 'basic' && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6">
               <h4 className="text-sm font-semibold text-white mb-4 uppercase tracking-wide">Logo</h4>
 
               <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
@@ -991,7 +991,7 @@ export default function CreateExam() {
             )}
 
             {activeStep === 'questions' && !canAccessQuestionsManager && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-8 text-center">
                 <div className="mx-auto mb-3 w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
                   <Lock className="w-4 h-4 text-rose-300" />
                 </div>
@@ -1003,7 +1003,7 @@ export default function CreateExam() {
             )}
 
             {activeStep === 'questions' && canAccessQuestionsManager && setterExams.length > 0 && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-4">
                 <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide">Assigned as Question Setter</p>
                 <div className="flex flex-wrap gap-2">
                   {setterExams.map((exam) => (
@@ -1024,7 +1024,7 @@ export default function CreateExam() {
             )}
 
             {activeStep === 'questions' && canAccessQuestionsManager && !showQuestionEditor && questions.length === 0 && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl min-h-[540px] flex items-center justify-center">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl min-h-[540px] flex items-center justify-center">
                 <div className="max-w-md text-center px-6 py-10">
                   <h3 className="text-sm font-semibold text-white mb-1">Questions manager</h3>
                   <div className="w-72 mx-auto rounded-2xl bg-gray-950 border border-gray-800 p-4 mt-8 mb-6">
@@ -1063,7 +1063,7 @@ export default function CreateExam() {
             {activeStep === 'questions' && canAccessQuestionsManager && (showQuestionEditor || questions.length > 0) && (
               <div className="space-y-4">
                 {showQuestionEditor && (
-                  <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+                  <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-5">
                       <h3 className="text-lg font-semibold text-white">{editingQuestionId ? 'Edit Question' : 'Question 1'}</h3>
                       <button
@@ -1205,7 +1205,7 @@ export default function CreateExam() {
                 )}
 
                 {questions.length > 0 && (
-                  <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+                  <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="text-sm font-semibold text-white">Saved questions ({questions.length})</h4>
                       {canAccessQuestionsManager && canEditQuestionsManager && (
@@ -1267,7 +1267,7 @@ export default function CreateExam() {
             )}
 
             {activeStep === 'invigilator' && canAccessInvigilatorPanel && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-4">
                 <h3 className="text-lg font-semibold text-white">Invigilator Panel</h3>
                 <p className="text-sm text-gray-400">Monitor live exam activity and review suspicious activity reports.</p>
                 <div className="flex gap-2">
@@ -1283,7 +1283,7 @@ export default function CreateExam() {
             )}
 
             {activeStep === 'test_access' && canAccessControllerOnly && (
-              <fieldset disabled={!canEditTestAccess} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
+              <fieldset disabled={!canEditTestAccess} className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-5">
                 <h3 className="text-lg font-semibold text-white">Test Access</h3>
 
                 <div>
@@ -1453,28 +1453,28 @@ export default function CreateExam() {
             )}
 
             {activeStep === 'grading' && canAccessControllerOnly && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-3">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-3">
                 <h3 className="text-lg font-semibold text-white">Grading & Summary</h3>
                 <p className="text-sm text-gray-400">Configure marks distribution, grading mode, and summary rules.</p>
               </div>
             )}
 
             {activeStep === 'time' && canAccessControllerOnly && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-3">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-3">
                 <h3 className="text-lg font-semibold text-white">Time Settings</h3>
                 <p className="text-sm text-gray-400">Set exam start/end time, duration, and time restrictions.</p>
               </div>
             )}
 
             {activeStep === 'certificate' && canAccessControllerOnly && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-3">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-3">
                 <h3 className="text-lg font-semibold text-white">Certificate Template</h3>
                 <p className="text-sm text-gray-400">Choose or design the certificate format for exam completion.</p>
               </div>
             )}
 
             {activeStep === 'activate' && canAccessControllerOnly && (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-4">
                 <h3 className="text-lg font-semibold text-white">Activate Test</h3>
                 <p className="text-sm text-gray-400">Final validation and publishing step. Controller only.</p>
                 <button
