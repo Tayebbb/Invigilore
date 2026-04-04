@@ -3,6 +3,14 @@ import { Eye, EyeOff, Lock, Mail, AlertCircle, Loader2, ArrowRight } from 'lucid
 import { Link, useNavigate } from 'react-router';
 import api from '../api';
 
+function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
+  const role = String(rawRole ?? '').toLowerCase();
+  if (role === 'admin' || role === 'teacher' || role === 'student') {
+    return role;
+  }
+  return 'student';
+}
+
 export default function Login() {
   const navigate = useNavigate();
   
@@ -38,7 +46,7 @@ export default function Login() {
 
         // Store user info for ProtectedRoute and dashboard display
         const apiUser = response.data.user;
-        const roleName: string = apiUser?.role?.name ?? 'student';
+        const roleName = normalizeRole(apiUser?.role?.name ?? apiUser?.role);
         localStorage.setItem('invigilore_user', JSON.stringify({
           name:  apiUser.name,
           email: apiUser.email,

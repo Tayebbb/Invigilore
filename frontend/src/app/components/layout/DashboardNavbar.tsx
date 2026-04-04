@@ -8,6 +8,7 @@ import {
   ChevronDown,
   User,
   Settings,
+  LayoutDashboard,
   LogOut,
 } from 'lucide-react';
 
@@ -149,6 +150,19 @@ export default function DashboardNavbar({
 
                 {/* Menu items */}
                 <div className="p-1.5">
+                  {user.role === 'Admin' && (
+                    <Link
+                      to="/admin/dashboard"
+                      onClick={() => setProfileOpen(false)}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
+                                 text-sm text-gray-300 hover:text-white hover:bg-gray-800
+                                 transition-all duration-150 cursor-pointer"
+                    >
+                      <LayoutDashboard className="w-4 h-4 text-gray-400" />
+                      Admin Panel
+                    </Link>
+                  )}
+
                   {[
                     { icon: User,     label: 'View Profile' },
                     { icon: Settings, label: 'Account Settings' },
