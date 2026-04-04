@@ -33,8 +33,8 @@ export default function Login() {
         password: formData.password,
       });
 
-      if (response.data.access_token) {
-        localStorage.setItem('token', response.data.access_token);
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
 
         // Store user info for ProtectedRoute and dashboard display
         const apiUser = response.data.user;

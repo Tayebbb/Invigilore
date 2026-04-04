@@ -4,12 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Role;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly AuditService $auditService)
+    {
+    }
+
     /**
      * Register a User.
      *
@@ -81,6 +86,12 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
+
+        try {
+            $this->auditService->log('login', 'User logged in successfully');
+        } catch (\Throwable) {
+            // Do not block login response when audit logging fails.
+        }
 
         return response()->json([
             'user' => $user->load('role'),
