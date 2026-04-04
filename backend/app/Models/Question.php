@@ -12,6 +12,7 @@ class Question extends Model
 
     protected $fillable = [
         'exam_id',
+        'created_by',
         'question_text',
         'type',
         'options',
@@ -26,5 +27,10 @@ class Question extends Model
     public function exam(): BelongsTo
     {
         return $this->belongsTo(Exam::class);
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 }
