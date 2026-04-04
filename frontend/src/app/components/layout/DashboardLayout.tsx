@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import DashboardSidebar, { type SidebarNavItem } from './DashboardSidebar';
 import DashboardNavbar,  { type NavbarUser    } from './DashboardNavbar';
 import DashboardFooter                          from './DashboardFooter';
+import type { StudentNotification } from '../../pages/student/studentTypes';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ export interface DashboardLayoutProps {
   user: NavbarUser;
   /** Notification dot count */
   notificationCount?: number;
+  /** Optional rich notifications payload for dropdown panel */
+  notifications?: StudentNotification[];
   /** Page title shown in the navbar */
   pageTitle: string;
   /** Dashboard body content */
@@ -49,6 +52,7 @@ export default function DashboardLayout({
   onNavChange,
   user,
   notificationCount,
+  notifications,
   pageTitle,
   children,
 }: DashboardLayoutProps) {
@@ -75,6 +79,7 @@ export default function DashboardLayout({
           pageTitle={pageTitle}
           user={user}
           notificationCount={notificationCount}
+          notifications={notifications}
           onMenuClick={() => setMobileSidebarOpen(true)}
         />
 

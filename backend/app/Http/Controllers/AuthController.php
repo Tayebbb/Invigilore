@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AuditTrailService;
+use App\Services\IncidentService;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -21,7 +23,7 @@ class AuthController extends Controller
             'name'     => 'required|string|between:2,100',
             'email'    => 'required|string|email|max:100|unique:users',
             'password' => 'required|string|min:8',
-            'role'     => 'sometimes|in:student,teacher,admin',
+            'role'     => 'sometimes|in:student,teacher,admin,controller,question_setter,viewer',
         ]);
 
         if ($validator->fails()) {
@@ -60,7 +62,7 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function login(Request $request)
+    public function login(Request $request, AuditTrailService $auditTrailService, IncidentService $incidentService)
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
@@ -82,6 +84,34 @@ class AuthController extends Controller
 
         $token = $user->createToken('api-token')->plainTextToken;
 
+        $activeTokenCount = $user->tokens()->count();
+
+        $auditTrailService->log(
+            $user,
+            'auth.login',
+            [
+                'timestamp' => now()->toISOString(),
+                'active_tokens' => $activeTokenCount,
+                'user_agent' => $request->userAgent(),
+            ],
+            $request->ip()
+        );
+
+        if ($activeTokenCount > 1) {
+            $incidentService->record(
+                $user,
+                null,
+                null,
+                'multiple_simultaneous_logins',
+                'high',
+                [
+                    'active_tokens' => $activeTokenCount,
+                    'detected_at' => now()->toISOString(),
+                ],
+                $request
+            );
+        }
+
         return response()->json([
             'user' => $user->load('role'),
             'token' => $token,
@@ -96,6 +126,40 @@ class AuthController extends Controller
     public function me(Request $request)
     {
         return response()->json($request->user()->load('role'));
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|string|between:2,100',
+            'password' => 'sometimes|string|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 400);
+        }
+
+        if ($request->filled('name')) {
+            $user->name = trim((string) $request->input('name'));
+        }
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make((string) $request->input('password'));
+        }
+
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully',
+            'data' => $user->load('role'),
+        ]);
     }
 
     /**
