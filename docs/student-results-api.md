@@ -71,6 +71,8 @@ For a given attempt:
 
 1. Load all questions belonging to the attempt's exam.
 2. Load all answers for that attempt.
+  - If `attempt_answers` exists, use `attempt_answers.selected_answer`.
+  - If `answers` exists, use `answers.answer` and map it internally as `selected_answer`.
 3. Compare each `selected_answer` to `questions.correct_answer`.
 4. If correct, add `questions.marks` to obtained marks.
 5. Compute:
@@ -85,7 +87,7 @@ For a given attempt:
 - Unauthorized access to another student's attempt: returns `403`.
 - No answers submitted: `obtained_marks = 0`.
 - Division by zero when total marks is zero: `percentage = 0`.
-- Supports either `attempt_answers` or `answers` table for answer lookup.
+- Supports either `attempt_answers.selected_answer` or `answers.answer` (mapped to `selected_answer`) for answer lookup.
 
 ## Assumptions
 

@@ -15,6 +15,7 @@
 Table: `audit_logs`
 
 Columns:
+
 - `id` (primary key)
 - `user_id` (nullable foreign key to `users.id`)
 - `event_type` (`login`, `exam_start`, `exam_submit`)
@@ -22,6 +23,7 @@ Columns:
 - `ip_address` (string)
 - `user_agent` (nullable text)
 - `created_at` (timestamp)
+- `updated_at` (timestamp)
 
 ## Where Logging Is Triggered
 

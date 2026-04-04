@@ -83,14 +83,10 @@ class ExamAttemptController extends Controller
 
         $attempt = ExamAttempt::create($attemptData);
 
-        try {
-            $this->auditService->log(
-                'exam_start',
-                'Exam attempt started. attempt_id='.$attempt->id.', exam_id='.$attempt->exam_id
-            );
-        } catch (\Throwable) {
-            // Do not block exam start when audit logging fails.
-        }
+        $this->auditService->log(
+            'exam_start',
+            'Exam attempt started. attempt_id='.$attempt->id.', exam_id='.$attempt->exam_id
+        );
 
         $questions = $exam->questions()
             ->inRandomOrder()
@@ -225,14 +221,10 @@ class ExamAttemptController extends Controller
 
         $summary = $this->finalizeAttempt($attempt, 'submitted');
 
-        try {
-            $this->auditService->log(
-                'exam_submit',
-                'Exam attempt submitted. attempt_id='.$attempt->id.', exam_id='.$attempt->exam_id
-            );
-        } catch (\Throwable) {
-            // Do not block submit when audit logging fails.
-        }
+        $this->auditService->log(
+            'exam_submit',
+            'Exam attempt submitted. attempt_id='.$attempt->id.', exam_id='.$attempt->exam_id
+        );
 
         return response()->json([
             'message' => 'Attempt submitted successfully',

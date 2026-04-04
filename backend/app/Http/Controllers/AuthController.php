@@ -89,11 +89,7 @@ class AuthController extends Controller
 
         $token = $user->createToken('api-token')->plainTextToken;
 
-        try {
-            $this->auditService->log('login', 'User logged in successfully');
-        } catch (\Throwable) {
-            // Do not block login response when audit logging fails.
-        }
+        $this->auditService->log('login', 'User logged in successfully');
 
         return response()->json([
             'user' => $user->load('role'),

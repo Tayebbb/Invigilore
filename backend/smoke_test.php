@@ -42,15 +42,20 @@ echo json_encode($loginPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PH
 
 $loginResp = makeRequest('POST', $host . '/api/login', null, $loginPayload);
 echo "Status: " . $loginResp['status'] . PHP_EOL;
+echo "Expected Response Structure:" . PHP_EOL;
+echo '{
+  "user": { ... },
+  "token": "..."
+}' . PHP_EOL;
 echo "Response:" . PHP_EOL;
 echo json_encode($loginResp['data'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL;
 
-if (!isset($loginResp['data']['data']['token'])) {
+if (!isset($loginResp['data']['token'])) {
     echo "ERROR: No token received!" . PHP_EOL;
     exit(1);
 }
 
-$token = $loginResp['data']['data']['token'];
+$token = $loginResp['data']['token'];
 echo "✓ Token received: " . substr($token, 0, 20) . "..." . PHP_EOL;
 
 // TEST 2: GET ATTEMPTS

@@ -16,7 +16,7 @@ return new class extends Migration
                 $table->text('description')->nullable();
                 $table->string('ip_address', 45)->nullable();
                 $table->text('user_agent')->nullable();
-                $table->timestamp('created_at')->useCurrent();
+                $table->timestamps();
             });
 
             return;
@@ -33,6 +33,10 @@ return new class extends Migration
 
             if (! Schema::hasColumn('audit_logs', 'created_at')) {
                 $table->timestamp('created_at')->nullable()->useCurrent()->after('user_agent');
+            }
+
+            if (! Schema::hasColumn('audit_logs', 'updated_at')) {
+                $table->timestamp('updated_at')->nullable()->after('created_at');
             }
         });
 

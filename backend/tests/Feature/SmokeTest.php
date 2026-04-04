@@ -77,10 +77,8 @@ class SmokeTest extends TestCase
         
         echo "\nEXPECTED RESPONSE STRUCTURE:" . PHP_EOL;
         echo '{
-  "data": {
-    "user": { "id": <int>, "email": <string>, ... },
-    "token": <string>
-  }
+  "user": { "id": <int>, "email": <string>, ... },
+  "token": <string>
 }' . PHP_EOL;
         
         echo "\nACTUAL RESPONSE (HTTP " . $loginResp->status() . "):" . PHP_EOL;

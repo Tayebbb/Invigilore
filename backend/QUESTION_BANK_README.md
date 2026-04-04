@@ -59,7 +59,7 @@ The `questions` table is created by the migration `2026_04_03_000010_create_ques
 
 ## API Endpoints
 
-All endpoints are protected by `auth:api` middleware and require valid JWT authentication. Admin routes additionally require `role:admin` middleware.
+All endpoints are protected by `auth:sanctum` middleware and require a valid Laravel Sanctum bearer token. Admin routes additionally require `role:admin` middleware.
 
 ### 1. List Questions
 
@@ -466,7 +466,7 @@ Process:
 - **`api.php`**: API route definitions
     - CRUD routes: GET/POST /questions, GET/PUT/DELETE /questions/{question}
     - Generation route: GET /exams/{exam}/generate-questions
-    - Protected by `auth:api` middleware
+    - Protected by `auth:sanctum` middleware
     - Admin-only routes protected by `role:admin` middleware
 
 ---
@@ -525,7 +525,7 @@ php artisan tinker
 No additional configuration required. The system uses Laravel's default settings for:
 
 - Database connection (configured in `.env`)
-- Authentication (JWT via tymon/jwt-auth)
+- Authentication (Laravel Sanctum bearer token)
 - API versioning (handled by routes)
 
 ---
@@ -534,7 +534,7 @@ No additional configuration required. The system uses Laravel's default settings
 
 ### Prerequisites
 
-Obtain a valid JWT token by authenticating:
+Obtain a valid Sanctum token by authenticating:
 
 ```bash
 curl -X POST "http://localhost:8000/api/login" \
@@ -548,7 +548,7 @@ Response will include a `token` field.
 
 ```bash
 curl -X GET "http://localhost:8000/api/questions?per_page=15" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -H "Authorization: Bearer YOUR_SANCTUM_TOKEN" \
   -H "Accept: application/json"
 ```
 
@@ -556,7 +556,7 @@ curl -X GET "http://localhost:8000/api/questions?per_page=15" \
 
 ```bash
 curl -X POST "http://localhost:8000/api/questions" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -H "Authorization: Bearer YOUR_SANCTUM_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "exam_id": 1,
@@ -576,7 +576,7 @@ curl -X POST "http://localhost:8000/api/questions" \
 
 ```bash
 curl -X GET "http://localhost:8000/api/exams/1/generate-questions?total_questions=10&easy=5&medium=3&hard=2" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -H "Authorization: Bearer YOUR_SANCTUM_TOKEN" \
   -H "Accept: application/json"
 ```
 
@@ -584,7 +584,7 @@ curl -X GET "http://localhost:8000/api/exams/1/generate-questions?total_question
 
 ```bash
 curl -X PUT "http://localhost:8000/api/questions/1" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+    -H "Authorization: Bearer YOUR_SANCTUM_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "marks": 2,
@@ -596,7 +596,7 @@ curl -X PUT "http://localhost:8000/api/questions/1" \
 
 ```bash
 curl -X DELETE "http://localhost:8000/api/questions/1" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+    -H "Authorization: Bearer YOUR_SANCTUM_TOKEN"
 ```
 
 ---

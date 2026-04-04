@@ -68,6 +68,29 @@ class StudentResultController extends Controller
             ->where('user_id', $request->user()->id)
             ->get();
 
+        if ($attempts->isEmpty()) {
+            return response()->json([
+                'data' => [
+                    'total_attempts' => 0,
+                    'completed_attempts' => 0,
+                    'average_score' => 0.0,
+                    'highest_score' => 0.0,
+                    'lowest_score' => 0.0,
+                ],
+            ]);
+        }
+
+        $examQuestionsByExamId = DB::table('questions')
+            ->whereIn('exam_id', $attempts->pluck('exam_id')->unique()->values()->all())
+            ->get(['id', 'exam_id', 'correct_answer', 'marks'])
+            ->groupBy('exam_id');
+
+        $answersByAttemptId = $this->getAttemptAnswersForAttemptIds($attempts->pluck('id'))
+            ->groupBy('attempt_id')
+            ->map(function (Collection $rows) {
+                return $rows->keyBy('question_id');
+            });
+
         $percentages = [];
         $completedAttempts = 0;
 
@@ -76,8 +99,27 @@ class StudentResultController extends Controller
                 $completedAttempts++;
             }
 
-            $score = $this->calculateAttemptScore($attempt);
-            $percentages[] = $score['percentage'];
+            $questions = $examQuestionsByExamId->get($attempt->exam_id, collect());
+            $answers = $answersByAttemptId->get($attempt->id, collect());
+
+            $totalMarks = (int) $questions->sum('marks');
+            $obtainedMarks = 0;
+
+            foreach ($questions as $question) {
+                $answer = $answers->get($question->id);
+
+                if (! $answer) {
+                    continue;
+                }
+
+                if ((string) $answer->selected_answer === (string) $question->correct_answer) {
+                    $obtainedMarks += (int) $question->marks;
+                }
+            }
+
+            $percentages[] = $totalMarks > 0
+                ? round(($obtainedMarks / $totalMarks) * 100, 2)
+                : 0.0;
         }
 
         return response()->json([
@@ -130,12 +172,46 @@ class StudentResultController extends Controller
 
     private function getAttemptAnswers(int $attemptId): Collection
     {
-        // Support both existing table names without changing DB structure.
-        $table = Schema::hasTable('attempt_answers') ? 'attempt_answers' : 'answers';
+        $table = $this->resolveAnswersTable();
 
         return DB::table($table)
             ->where('attempt_id', $attemptId)
-            ->get(['question_id', 'selected_answer']);
+            ->get($this->answerColumns($table));
+    }
+
+    private function getAttemptAnswersForAttemptIds(Collection $attemptIds): Collection
+    {
+        if ($attemptIds->isEmpty()) {
+            return collect();
+        }
+
+        $table = $this->resolveAnswersTable();
+
+        return DB::table($table)
+            ->whereIn('attempt_id', $attemptIds->values()->all())
+            ->get($this->answerColumns($table, true));
+    }
+
+    private function resolveAnswersTable(): string
+    {
+        // Support both existing table names without changing DB structure.
+        return Schema::hasTable('attempt_answers') ? 'attempt_answers' : 'answers';
+    }
+
+    private function answerColumns(string $table, bool $includeAttemptId = false): array
+    {
+        $columns = [];
+
+        if ($includeAttemptId) {
+            $columns[] = 'attempt_id';
+        }
+
+        $columns[] = 'question_id';
+        $columns[] = $table === 'attempt_answers'
+            ? 'selected_answer'
+            : DB::raw('answer as selected_answer');
+
+        return $columns;
     }
 
     private function isCompleted(ExamAttempt $attempt): bool
