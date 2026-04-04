@@ -75,7 +75,7 @@ export default function DashboardCard({
       aria-label={title}
       className="focus-visible:ring-2 focus-visible:ring-primary outline-none"
     >
-      <Card className="p-5 group cursor-default">
+      <Card className="p-5 group cursor-default bg-card/40 backdrop-blur-md border-border/40 transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_0_25px_rgba(59,130,246,0.12)] hover:border-primary/50">
         <CardHeader className="flex items-start justify-between mb-4">
           <Badge variant="secondary" className={`w-10 h-10 flex items-center justify-center ${iconColors[color] ?? iconColors.blue}`} aria-label={title + ' icon'}>
             <Icon className="w-5 h-5" />

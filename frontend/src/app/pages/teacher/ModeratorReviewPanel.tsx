@@ -69,7 +69,7 @@ export default function ModeratorReviewPanel({ examId, canEdit }: { examId: numb
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
+      <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6">
         <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-1">
           <ShieldCheck className="w-5 h-5 text-emerald-400" />
           Moderator Review Board
@@ -95,7 +95,7 @@ export default function ModeratorReviewPanel({ examId, canEdit }: { examId: numb
 
       {/* Questions list */}
       {loading ? (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center text-gray-400">
+        <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-8 text-center text-gray-400">
           Loading questions...
         </div>
       ) : questions.length === 0 ? (
@@ -106,7 +106,7 @@ export default function ModeratorReviewPanel({ examId, canEdit }: { examId: numb
       ) : (
         <div className="space-y-4">
           {questions.map((q, index) => (
-            <div key={q.id} className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+            <div key={q.id} className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-5">
               {/* Question header */}
               <div className="flex flex-wrap items-center gap-3 mb-3">
                 <span className="text-sm font-bold text-white">Q{index + 1}.</span>
@@ -155,7 +155,7 @@ export default function ModeratorReviewPanel({ examId, canEdit }: { examId: numb
 
       {/* Single comment + approve block (only visible when questions exist) */}
       {!loading && questions.length > 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+        <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-4">
           {/* Success banner */}
           {successMsg && (
             <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-3 rounded-xl flex items-center gap-2 text-sm">
