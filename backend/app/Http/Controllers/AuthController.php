@@ -109,6 +109,40 @@ class AuthController extends Controller
         return response()->json($request->user()->load('role'));
     }
 
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|string|between:2,100',
+            'password' => 'sometimes|string|min:8',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 400);
+        }
+
+        if ($request->filled('name')) {
+            $user->name = trim((string) $request->input('name'));
+        }
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make((string) $request->input('password'));
+        }
+
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profile updated successfully',
+            'data' => $user->load('role'),
+        ]);
+    }
+
     /**
      * Log the user out (Invalidate the token).
      *

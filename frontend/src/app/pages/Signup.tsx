@@ -47,8 +47,10 @@ export default function SignUp() {
         role: 'student',
       });
 
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
+      const accessToken = response.data?.access_token ?? response.data?.token;
+
+      if (accessToken) {
+        localStorage.setItem('token', accessToken);
 
         const apiUser = response.data.user;
         const roleName: string = apiUser?.role?.name ?? 'student';
@@ -65,17 +67,23 @@ export default function SignUp() {
         };
 
         navigate(dashboardPaths[roleName] ?? '/dashboard');
+      } else {
+        setError('Registration succeeded, but no auth token was returned. Please log in.');
       }
     } catch (err) {
-      const axiosError = err as AxiosError<{ message?: string; error?: string; [key: string]: any }>;
-      if (axiosError.response?.data) {
+      const axiosError = err as AxiosError<{ message?: string; error?: string; errors?: Record<string, string[]>; [key: string]: any }>;
+
+      if (axiosError.response?.data && typeof axiosError.response.data === 'object') {
         const errData = axiosError.response.data;
-        // Collect all errors into a string or show first one
-        if (typeof errData === 'object') {
-          const msgs = Object.values(errData).flat();
-          setError(String(msgs[0]) || 'Registration failed');
+
+        if (errData.errors && typeof errData.errors === 'object') {
+          const firstFieldError = Object.values(errData.errors)
+            .flat()
+            .find((msg): msg is string => typeof msg === 'string' && msg.length > 0);
+
+          setError(firstFieldError ?? errData.message ?? 'Registration failed');
         } else {
-          setError('Registration failed');
+          setError(errData.message ?? errData.error ?? 'Registration failed');
         }
       } else {
         setError('An unexpected error occurred. Please try again later.');
