@@ -53,7 +53,20 @@ export default function DashboardLayout({
   }, [authUser?.name, authUser?.role, avatarUrl, user]);
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
+    <div className="min-h-screen flex bg-background text-foreground relative transition-colors duration-500">
+      {/* ── Theme Background Elements ─────────────────────────────────────── */}
+      {/* Main Gradient */}
+      <div className="fixed inset-0 bg-gradient-to-br from-[#0f172a] to-[#020617] -z-10" />
+
+      {/* Subtle Dot Pattern */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.03] -z-10"
+        style={{
+          backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+          backgroundSize: '40px 40px',
+        }}
+      />
+
       <DashboardSidebar
         role={role}
         navItems={navItems}
@@ -63,7 +76,7 @@ export default function DashboardLayout({
         onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
-      <div className="flex flex-col flex-1 min-h-screen lg:ml-64">
+      <div className="flex flex-col flex-1 min-h-screen lg:ml-64 relative z-10">
         <DashboardNavbar
           pageTitle={pageTitle}
           user={mergedUser}
