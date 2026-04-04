@@ -98,8 +98,8 @@ function SidebarContent({
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer group focus-visible:ring-2 focus-visible:ring-sidebar-ring',
                 isActive
-                  ? 'bg-sidebar-primary/10 text-sidebar-primary'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent/10 hover:text-sidebar-primary'
+                  ? 'bg-primary/10 text-primary border-l-2 border-primary shadow-[0_0_15px_-3px_rgba(59,130,246,0.3)]'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/30 hover:text-sidebar-primary'
               )}
             >
               <Icon className="w-4 h-4 shrink-0" />

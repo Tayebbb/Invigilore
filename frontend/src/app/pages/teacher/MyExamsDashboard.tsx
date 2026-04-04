@@ -332,7 +332,7 @@ export default function MyExamsDashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.18 }}
-        className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden"
+        className="bg-card/40 backdrop-blur-md border border-border/50 rounded-2xl overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
       >
         <div className="flex flex-col gap-4 px-6 py-5 border-b border-gray-800">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -534,7 +534,7 @@ export default function MyExamsDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.24 }}
-          className="xl:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-6"
+          className="xl:col-span-2 bg-card/40 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
         >
           <div className="flex items-center gap-2 mb-5">
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center">
@@ -563,7 +563,7 @@ export default function MyExamsDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3 }}
-          className="bg-gray-900 border border-gray-800 rounded-2xl p-6"
+          className="bg-card/40 backdrop-blur-md border border-border/50 rounded-2xl p-6 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
         >
           <div className="flex items-center gap-2 mb-4">
             <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
