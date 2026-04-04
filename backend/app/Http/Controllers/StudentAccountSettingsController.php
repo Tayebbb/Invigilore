@@ -57,12 +57,13 @@ class StudentAccountSettingsController extends Controller
 
         $user->save();
 
-        AuditLog::create([
-            'user_id' => $user->id,
-            'action' => 'student.profile_updated',
-            'description' => json_encode(['before' => $before, 'after' => $user->only(['name', 'profile_picture'])], JSON_UNESCAPED_SLASHES),
-            'ip_address' => $request->ip(),
-        ]);
+        AuditLog::writeEntry(
+            $user->id,
+            'student.profile_updated',
+            json_encode(['before' => $before, 'after' => $user->only(['name', 'profile_picture'])], JSON_UNESCAPED_SLASHES),
+            $request->ip(),
+            $request->userAgent()
+        );
 
         return response()->json([
             'success' => true,
@@ -85,16 +86,17 @@ class StudentAccountSettingsController extends Controller
         $user->password = Hash::make((string) $request->input('password'));
         $user->save();
 
-        AuditLog::create([
-            'user_id' => $user->id,
-            'action' => 'student.password_changed',
-            'description' => json_encode([
+        AuditLog::writeEntry(
+            $user->id,
+            'student.password_changed',
+            json_encode([
                 'timestamp' => now()->toISOString(),
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ], JSON_UNESCAPED_SLASHES),
-            'ip_address' => $request->ip(),
-        ]);
+            $request->ip(),
+            $request->userAgent()
+        );
 
         return response()->json([
             'success' => true,
@@ -118,12 +120,13 @@ class StudentAccountSettingsController extends Controller
         $user->preferences = $preferences;
         $user->save();
 
-        AuditLog::create([
-            'user_id' => $user->id,
-            'action' => 'student.preferences_updated',
-            'description' => json_encode(['before' => $before, 'after' => $preferences], JSON_UNESCAPED_SLASHES),
-            'ip_address' => $request->ip(),
-        ]);
+        AuditLog::writeEntry(
+            $user->id,
+            'student.preferences_updated',
+            json_encode(['before' => $before, 'after' => $preferences], JSON_UNESCAPED_SLASHES),
+            $request->ip(),
+            $request->userAgent()
+        );
 
         return response()->json([
             'success' => true,

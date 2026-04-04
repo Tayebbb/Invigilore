@@ -1,14 +1,17 @@
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router';
+import { getHomeRouteByRole, normalizeRole } from '../navigation/roleRoutes';
+import { readStoredAuthUser } from '../utils/authUser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type UserRole = 'admin' | 'teacher' | 'student';
+export type UserRole = 'admin' | 'teacher' | 'student' | 'controller' | 'invigilator' | 'question-setter' | 'moderator';
 
 export interface StoredUser {
   name: string;
   email: string;
   role: UserRole;
+  profile_picture?: string | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -20,13 +23,7 @@ export interface StoredUser {
  *       once the authentication system is implemented.
  */
 export function getStoredUser(): StoredUser | null {
-  try {
-    const raw = localStorage.getItem('invigilore_user');
-    if (!raw) return null;
-    return JSON.parse(raw) as StoredUser;
-  } catch {
-    return null;
-  }
+  return readStoredAuthUser() as StoredUser | null;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -49,20 +46,20 @@ interface ProtectedRouteProps {
  */
 export default function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
   const user = getStoredUser();
+  const normalizedRole = normalizeRole(user?.role ?? null);
 
   // Not logged in
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
+  if (!normalizedRole) {
+    return <Navigate to="/login" replace />;
+  }
+
   // Logged in but accessing the wrong role's dashboard
-  if (!allowedRoles.includes(user.role)) {
-    const rolePaths: Record<UserRole, string> = {
-      admin:   '/admin/dashboard',
-      teacher: '/teacher/dashboard',
-      student: '/student/dashboard',
-    };
-    return <Navigate to={rolePaths[user.role]} replace />;
+  if (!allowedRoles.includes(normalizedRole)) {
+    return <Navigate to={getHomeRouteByRole(normalizedRole)} replace />;
   }
 
   return <>{children}</>;
