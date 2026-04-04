@@ -1,5 +1,6 @@
 import { BookOpen, FileText, GitBranch, BarChart3, AlertTriangle, FileCheck } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Badge } from './ui/badge';
 
 const features = [
   {
@@ -52,11 +53,7 @@ export function FeaturesSection() {
           transition={{ duration: 0.6 }}
           className="text-center mb-16"
         >
-          <div className="inline-block mb-4">
-            <div className="px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20">
-              <span className="text-sm text-blue-400 font-medium">Core Features</span>
-            </div>
-          </div>
+          <Badge variant="secondary" className="mb-4 px-4 py-2 text-blue-400 border-blue-500/20 bg-blue-500/10">Core Features</Badge>
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
             Everything You Need for{' '}
             <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">

@@ -51,12 +51,14 @@ export default function StudentHelpSupportPage() {
   const handleNav = (label: string) => {
     const route = getStudentSidebarRoute(label);
     if (route) {
+      import { extractApiData, extractApiError } from '../../utils/apiHelpers';
       navigate(route);
     }
   };
 
-  const submitTicket = async () => {
-    setSubmitting(true);
+              const response = await api.get('/student/support-tickets');
+              const data = extractApiData(response);
+              setTickets(Array.isArray(data) ? data : []);
     setError('');
     setStatus('');
 
@@ -76,30 +78,33 @@ export default function StudentHelpSupportPage() {
   };
 
   const notifications = [
-    {
-      id: 'support',
+            const response = await api.get('/student/support-tickets');
+            const data = extractApiData(response);
+            setTickets(Array.isArray(data) ? data : []);
       title: 'Help Center',
-      message: 'Submit a ticket for technical, exam, or account issues.',
+            setError(extractApiError(err));
       timestamp: new Date().toISOString(),
       read: false,
     },
   ];
 
   return (
-    <DashboardLayout
-      role="Student"
-      navItems={STUDENT_NAV_ITEMS}
-      activeItem="Help & Support"
-      onNavChange={handleNav}
-      user={{ name: 'Student', email: 'student@invigilore.com', initial: 'S', role: 'Student' }}
-      notifications={notifications}
-      pageTitle="Help & Support"
-    >
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold text-white">Help & Support</h2>
-        <p className="text-sm text-gray-400">Find answers quickly or contact support for assistance.</p>
-      </div>
-
+                    {Array.isArray(tickets) && tickets.length === 0 ? (
+                      <p className="text-sm text-gray-500">No support tickets yet.</p>
+                    ) : (
+                      Array.isArray(tickets) && tickets.map((ticket) => (
+                        ticket && ticket.id && ticket.subject ? (
+                          <div key={ticket.id} className="rounded-lg border border-gray-800 bg-gray-950 p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-medium text-white">{ticket.subject}</p>
+                              <span className={`rounded-md px-2 py-1 text-[11px] font-semibold ${ticket.status === 'resolved' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>{ticket.status}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs text-gray-400">{ticket.category}</p>
+                          </div>
+                        ) : null
+                      ))
+                    )}
       {(error || status) && (
         <div className={`mb-4 flex items-center gap-2 rounded-lg border p-3 text-sm ${error ? 'border-red-500/40 bg-red-500/10 text-red-200' : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'}`}>
           <AlertCircle className="h-4 w-4" />

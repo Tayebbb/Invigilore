@@ -20,12 +20,19 @@ import {
   Lock,
   User,
   ChevronDown,
+  ShieldAlert,
+  FileText,
 } from 'lucide-react';
 
-import DashboardLayout         from '../../components/layout/DashboardLayout';
+import DashboardLayout         from '../../components/layout/DashboardLayout.tsx';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
+import { Alert, AlertDescription, AlertTitle } from '../../components/ui/alert';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 import useCurrentUser          from '../../hooks/useCurrentUser';
 import api                     from '../../api';
+import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,21 +49,21 @@ interface ApiUser {
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard Overview', icon: LayoutDashboard },
   { label: 'User Management',    icon: Users           },
-  { label: 'Exam Monitoring',    icon: Activity        },
-  { label: 'Exam Management',    icon: ClipboardList   },
-  { label: 'Question Bank',      icon: BookOpen        },
-  { label: 'System Monitoring',  icon: Activity        },
-  { label: 'Reports & Analytics',icon: BarChart3       },
-  { label: 'Settings',           icon: Settings        },
+  // { label: 'Role Assignment',   icon: UserPlus      }, // Add if role assignment UI exists
+  { label: 'System Settings',    icon: Settings        },
+  { label: 'Security Policies',  icon: ShieldAlert     },
+  { label: 'System Backups',     icon: FileText        },
+  { label: 'Audit Logs',         icon: BarChart3       },
+  { label: 'System Incidents',   icon: AlertCircle     },
 ];
 
-const ROLE_OPTIONS = ['admin', 'teacher', 'student'] as const;
+const ROLE_OPTIONS = ['teacher', 'student', 'admin'] as const;
 type RoleOption = typeof ROLE_OPTIONS[number];
 
 const roleColors: Record<string, string> = {
-  admin:   'bg-purple-500/15 text-purple-400 border border-purple-500/30',
-  teacher: 'bg-blue-500/15   text-blue-400   border border-blue-500/30',
+  teacher: 'bg-blue-500/15 text-blue-400 border border-blue-500/30',
   student: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  admin: 'bg-purple-500/15 text-purple-400 border border-purple-500/30',
 };
 
 // ── Create User Modal ─────────────────────────────────────────────────────────
@@ -67,7 +74,7 @@ interface CreateUserModalProps {
 }
 
 function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
-  const [form, setForm]       = useState({ name: '', email: '', password: '', role: 'student' as RoleOption });
+  const [form, setForm]       = useState({ name: '', email: '', password: '', role: 'teacher' as RoleOption });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
@@ -76,14 +83,13 @@ function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
     setError('');
     setLoading(true);
     try {
-      const { data } = await api.post<ApiUser>('/admin/users', form);
-      onCreated(data);
+      const response = await api.post<ApiUser>('/admin/users', form);
+      const user = extractApiData(response);
+      if (!user) throw new Error('No user returned from API.');
+      onCreated(user);
       onClose();
     } catch (err: any) {
-      const msg = err.response?.data?.errors
-        ? Object.values(err.response.data.errors as Record<string, string[]>).flat().join(' ')
-        : err.response?.data?.message ?? 'Failed to create user.';
-      setError(msg);
+      setError(extractApiError(err));
     } finally {
       setLoading(false);
     }
@@ -106,21 +112,21 @@ function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
         transition={{ duration: 0.2 }}
-        className="relative w-full max-w-md bg-gray-900 border border-gray-700 rounded-2xl
-                   shadow-2xl shadow-black/50 p-6 mx-4"
+        className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl shadow-black/40 p-6 mx-4"
+        role="dialog"
+        aria-modal="true"
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-600/20 flex items-center justify-center">
-              <UserPlus className="w-5 h-5 text-purple-400" />
+            <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center">
+              <UserPlus className="w-5 h-5 text-primary" />
             </div>
-            <h2 className="text-lg font-bold text-white">Create New User</h2>
+            <h2 className="text-lg font-bold text-foreground">Create New User</h2>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500
-                       hover:text-white hover:bg-gray-800 transition-all cursor-pointer"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="w-4 h-4" />
           </button>
@@ -128,84 +134,73 @@ function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
 
         {/* Error */}
         {error && (
-          <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/25 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-            <p className="text-sm text-red-300">{error}</p>
-          </div>
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="w-4 h-4" />
+            <AlertTitle>Create user failed</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Full Name</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Full Name</label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
                 type="text"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 required
                 minLength={2}
                 placeholder="Dr. Jane Smith"
-                className="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg
-                           text-white placeholder-gray-500 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50
-                           transition-all"
+                className="w-full pl-9 pr-4 py-2.5 text-sm"
               />
             </div>
           </div>
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Email Address</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Email Address</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
                 type="email"
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                 required
                 placeholder="jane@university.edu"
-                className="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg
-                           text-white placeholder-gray-500 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50
-                           transition-all"
+                className="w-full pl-9 pr-4 py-2.5 text-sm"
               />
             </div>
           </div>
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
                 type="password"
                 value={form.password}
                 onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
                 required
                 minLength={8}
                 placeholder="Min. 8 characters"
-                className="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg
-                           text-white placeholder-gray-500 text-sm
-                           focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50
-                           transition-all"
+                className="w-full pl-9 pr-4 py-2.5 text-sm"
               />
             </div>
           </div>
 
           {/* Role */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1.5">Role</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Role</label>
             <div className="relative">
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <select
                 value={form.role}
                 onChange={e => setForm(f => ({ ...f, role: e.target.value as RoleOption }))}
-                className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg
-                           text-white text-sm appearance-none
-                           focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50
-                           transition-all cursor-pointer"
+                className="w-full px-3 py-2.5 bg-input-background border border-input rounded-lg text-foreground text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring/50 transition-all cursor-pointer"
               >
                 {ROLE_OPTIONS.map(r => (
                   <option key={r} value={r} className="capitalize">{r.charAt(0).toUpperCase() + r.slice(1)}</option>
@@ -216,28 +211,25 @@ function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
-            <button
+            <Button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300
-                         text-sm font-medium transition-all cursor-pointer"
+              variant="outline"
+              className="flex-1 py-2.5 h-auto text-sm font-medium"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={loading}
-              className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white
-                         text-sm font-semibold transition-all cursor-pointer
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 h-auto text-sm font-semibold flex items-center justify-center gap-2"
             >
               {loading ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Creating...</>
               ) : (
                 <><Plus className="w-4 h-4" /> Create User</>
               )}
-            </button>
+            </Button>
           </div>
         </form>
       </motion.div>
@@ -261,7 +253,7 @@ export default function UserManagement() {
     name:    currentUser.name,
     email:   currentUser.email,
     initial: currentUser.initial,
-    role:    'Admin' as const,
+    role:    'System Administrator' as const,
   };
 
   function showToast(msg: string, type: 'success' | 'error') {
@@ -273,10 +265,11 @@ export default function UserManagement() {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.get<ApiUser[]>('/admin/users');
-      setUsers(data);
-    } catch {
-      setError('Failed to load users. Make sure you are connected to the backend.');
+      const response = await api.get<ApiUser[]>('/admin/users');
+      const users = extractApiData(response);
+      setUsers(Array.isArray(users) ? users : []);
+    } catch (err: any) {
+      setError(extractApiError(err));
     } finally {
       setLoading(false);
     }
@@ -292,7 +285,7 @@ export default function UserManagement() {
       setUsers(prev => prev.filter(u => u.id !== user.id));
       showToast(`${user.name} deleted.`, 'success');
     } catch (err: any) {
-      showToast(err.response?.data?.error ?? 'Delete failed.', 'error');
+      showToast(extractApiError(err), 'error');
     } finally {
       setDeleting(null);
     }
@@ -300,7 +293,7 @@ export default function UserManagement() {
 
   function handleNavChange(label: string) {
     if (label === 'Dashboard Overview') { navigate('/admin/dashboard'); return; }
-    if (label === 'Exam Monitoring' || label === 'Exam Management' || label === 'System Monitoring') { navigate('/admin/monitoring'); return; }
+    // Add navigation for other allowed features as implemented
     // Stay on this page for User Management
   }
 
@@ -323,21 +316,18 @@ export default function UserManagement() {
           className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
         >
           <div>
-            <h2 className="text-2xl font-bold text-white mb-1">User Management</h2>
-            <p className="text-gray-400 text-sm">
-              Create and manage admin, teacher, and student accounts.
+            <h2 className="text-2xl font-bold text-foreground mb-1">User Management</h2>
+            <p className="text-muted-foreground text-sm">
+              Create and manage teacher, student, and admin accounts.
             </p>
           </div>
-          <button
+          <Button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-500
-                       text-white rounded-xl font-semibold text-sm transition-all duration-200
-                       shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40
-                       cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap shrink-0"
+            className="flex items-center gap-2 px-5 py-2.5 h-auto font-semibold text-sm whitespace-nowrap shrink-0"
           >
             <UserPlus className="w-4 h-4" />
             New User
-          </button>
+          </Button>
         </motion.div>
 
         {/* ── Table card ──────────────────────────────────────────────── */}
@@ -345,21 +335,21 @@ export default function UserManagement() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden"
+          className="bg-card border border-border rounded-2xl overflow-hidden"
         >
           {/* Table header */}
-          <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">
+          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+            <p className="text-sm font-semibold text-foreground">
               All Users
               {!loading && (
-                <span className="ml-2 text-xs font-normal text-gray-500">
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
                   ({users.length} total)
                 </span>
               )}
             </p>
             <button
               onClick={fetchUsers}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
               Refresh
             </button>
@@ -368,7 +358,7 @@ export default function UserManagement() {
           {/* Content */}
           {loading ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -376,21 +366,21 @@ export default function UserManagement() {
               <p className="text-sm text-red-300">{error}</p>
               <button
                 onClick={fetchUsers}
-                className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-muted hover:bg-accent text-sm text-foreground cursor-pointer"
               >
                 Retry
               </button>
             </div>
           ) : users.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Users className="w-8 h-8 text-gray-600" />
-              <p className="text-sm text-gray-500">No users yet. Create the first one.</p>
+              <Users className="w-8 h-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">No users yet. Create the first one.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-gray-500 uppercase tracking-wider border-b border-gray-800">
+                  <tr className="text-xs text-muted-foreground uppercase tracking-wider border-b border-border">
                     <th className="text-left px-6 py-3 font-medium">Name</th>
                     <th className="text-left px-6 py-3 font-medium">Email</th>
                     <th className="text-left px-6 py-3 font-medium">Role</th>
@@ -398,30 +388,27 @@ export default function UserManagement() {
                     <th className="px-6 py-3" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/60">
+                <tbody className="divide-y divide-border/60">
                   {users.map((user) => (
                     <tr
                       key={user.id}
-                      className="hover:bg-gray-800/40 transition-colors group"
+                      className="hover:bg-accent/30 transition-colors group"
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center
-                                         justify-center text-xs font-bold text-white shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground shrink-0">
                             {user.name[0].toUpperCase()}
                           </div>
-                          <span className="font-medium text-white">{user.name}</span>
+                          <span className="font-medium text-foreground">{user.name}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-gray-400">{user.email}</td>
+                      <td className="px-6 py-4 text-muted-foreground">{user.email}</td>
                       <td className="px-6 py-4">
-                        <span className={`inline-block text-[11px] font-semibold px-2.5 py-0.5
-                                         rounded-full capitalize
-                                         ${roleColors[user.role] ?? 'bg-gray-700 text-gray-300'}`}>
+                        <Badge className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize ${roleColors[user.role] ?? 'bg-muted text-muted-foreground'}`} variant="secondary">
                           {user.role}
-                        </span>
+                        </Badge>
                       </td>
-                      <td className="px-6 py-4 text-gray-500">
+                      <td className="px-6 py-4 text-muted-foreground">
                         {new Date(user.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -473,8 +460,8 @@ export default function UserManagement() {
             className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3
                         rounded-xl shadow-xl text-sm font-medium border
                         ${toast.type === 'success'
-                          ? 'bg-emerald-950 border-emerald-700/50 text-emerald-300'
-                          : 'bg-red-950 border-red-700/50 text-red-300'}`}
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                          : 'bg-red-500/10 border-red-500/30 text-red-300'}`}
           >
             {toast.type === 'success'
               ? <CheckCircle className="w-4 h-4 shrink-0" />
