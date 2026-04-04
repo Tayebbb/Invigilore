@@ -10,6 +10,8 @@ use App\Http\Controllers\ResultController;
 use App\Http\Controllers\ProctoringController;
 use App\Http\Controllers\ExamSessionController;
 use App\Http\Controllers\ExamAttemptController;
+use App\Http\Controllers\StudentResultController;
+use App\Http\Controllers\AuditLogController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -68,5 +70,17 @@ Route::middleware('auth:sanctum')->group(function () {
     // System monitoring / proctoring
     Route::middleware('role:admin,teacher')->group(function () {
         Route::get('/proctoring', [ProctoringController::class, 'index']);
+    });
+
+    // Optional audit log route for testing
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/audit-logs', [AuditLogController::class, 'index']);
+    });
+
+    // Student result routes
+    Route::middleware('role:student')->group(function () {
+        Route::get('/student/attempts', [StudentResultController::class, 'index']);
+        Route::get('/student/attempts/{id}', [StudentResultController::class, 'show']);
+        Route::get('/student/results/summary', [StudentResultController::class, 'summary']);
     });
 });
