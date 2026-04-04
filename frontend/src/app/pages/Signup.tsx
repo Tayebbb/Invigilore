@@ -3,8 +3,11 @@ import { Eye, EyeOff, Lock, Mail, User, AlertCircle, Loader2, ArrowRight } from 
 import { Link, useNavigate } from 'react-router';
 
 import api from '../api';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
+import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
+import { Input } from '../components/ui/input';
 import { extractApiData, extractApiError } from '../utils/apiHelpers';
-import { AxiosError } from 'axios';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
   const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
@@ -24,7 +27,7 @@ function normalizeStoredRoleValue(rawRole: unknown): string {
 
 export default function SignUp() {
   const navigate = useNavigate();
-  
+
   // Set page title dynamically
   useEffect(() => {
     document.title = 'InvigiLORE - Create Account';
@@ -41,6 +44,20 @@ export default function SignUp() {
     email: '',
     password: '',
     confirmPassword: '',
+    isTeacher: false,
+  });
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
     try {
       const response = await api.post('/register', {
         name: formData.fullName,
@@ -49,52 +66,37 @@ export default function SignUp() {
         password_confirmation: formData.confirmPassword,
         role: formData.isTeacher ? 'teacher' : 'student',
       });
+
       const data = extractApiData(response) ?? response.data;
-      if (data.token) {
-        localStorage.setItem('token', data.token);
-
-        const apiUser = data.user;
-        const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
-        const roleName = normalizeRole(rawRole);
-        localStorage.setItem('invigilore_user', JSON.stringify({
-          name:  apiUser.name,
-          email: apiUser.email,
-          role:  rawRole,
-        }));
-
-        const dashboardPaths: Record<string, string> = {
-          admin:   '/admin/dashboard',
-          teacher: '/teacher/dashboard',
-          student: '/student/dashboard',
-        };
-        setTimeout(() => {
-          navigate(dashboardPaths[roleName]);
-        }, 500);
-      } else {
+      const token = data?.token;
+      if (!token) {
         setError('Signup succeeded, but no auth token was returned. Please try again.');
+        return;
       }
-    } catch (err: any) {
+
+      localStorage.setItem('token', token);
+
+      const apiUser = data?.user ?? {};
+      const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
+      const roleName = normalizeRole(rawRole);
+
+      localStorage.setItem('invigilore_user', JSON.stringify({
+        name: apiUser?.name ?? formData.fullName,
+        email: apiUser?.email ?? formData.email,
+        role: rawRole,
+      }));
+
+      const dashboardPaths: Record<string, string> = {
+        admin: '/admin/dashboard',
+        teacher: '/teacher/dashboard',
+        student: '/student/dashboard',
+      };
+
+      setTimeout(() => {
+        navigate(dashboardPaths[roleName]);
+      }, 300);
+    } catch (err: unknown) {
       setError(extractApiError(err) || 'Signup failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-      const axiosError = err as AxiosError<{ message?: string; error?: string; errors?: Record<string, string[]>; [key: string]: any }>;
-
-      if (axiosError.response?.data && typeof axiosError.response.data === 'object') {
-        const errData = axiosError.response.data;
-
-        if (errData.errors && typeof errData.errors === 'object') {
-          const firstFieldError = Object.values(errData.errors)
-            .flat()
-            .find((msg): msg is string => typeof msg === 'string' && msg.length > 0);
-
-          setError(firstFieldError ?? errData.message ?? 'Registration failed');
-        } else {
-          setError(errData.message ?? errData.error ?? 'Registration failed');
-        }
-      } else {
-        setError('An unexpected error occurred. Please try again later.');
-      }
     } finally {
       setIsLoading(false);
     }
@@ -115,49 +117,47 @@ export default function SignUp() {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-gray-950 via-blue-950 to-gray-950 flex items-center justify-center p-3 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
-      
+    <div className="min-h-screen bg-background flex items-center justify-center p-3 relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+
       <div className="w-full max-w-md relative z-10 flex flex-col max-h-screen overflow-y-auto">
         {/* Header */}
         <div className="text-center mb-5 flex-shrink-0">
-          <h1 className="text-3xl font-bold text-white mb-1">Create Account</h1>
-          <p className="text-gray-400 text-xs">Join InvigiLORE and manage secure exams</p>
+          <h1 className="text-3xl font-bold text-foreground mb-1">Create Account</h1>
+          <p className="text-muted-foreground text-xs">Join InvigiLORE and manage secure exams</p>
         </div>
 
         {/* Signup Card */}
-        <div className="bg-gradient-to-br from-gray-900/80 to-gray-950/80 backdrop-blur-xl border border-gray-800/50 rounded-2xl shadow-2xl shadow-black/50 p-6 flex-shrink-0">
+        <Card className="backdrop-blur-xl border-border shadow-2xl shadow-black/30 p-0 overflow-hidden flex-shrink-0">
+          <CardContent className="p-6">
           {/* Error Alert */}
           {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2 animate-in">
-              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-red-300">Registration Failed</p>
-                <p className="text-xs text-red-400 mt-0.5">{error}</p>
-              </div>
-            </div>
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="w-4 h-4" />
+              <AlertTitle>Registration Failed</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3">
             {/* Full Name Input */}
             <div>
-              <label htmlFor="fullName" className="block text-sm font-semibold text-gray-300 mb-1.5">
+              <label htmlFor="fullName" className="block text-sm font-semibold text-foreground mb-1.5">
                 Full Name
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <User className="w-5 h-5 text-gray-500" />
+                  <User className="w-5 h-5 text-muted-foreground" />
                 </div>
-                <input
+                <Input
                   type="text"
                   id="fullName"
                   name="fullName"
                   value={formData.fullName}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-4 py-2 bg-gray-800/50 border border-gray-700/50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 text-white placeholder-gray-500 hover:border-gray-600/50 text-sm"
+                  className="w-full pl-12 pr-4 py-2 text-sm"
                   placeholder="John Doe"
                   required
                 />
@@ -166,20 +166,20 @@ export default function SignUp() {
 
             {/* Email Input */}
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-300 mb-2">
+              <label htmlFor="email" className="block text-sm font-semibold text-foreground mb-2">
                 Email Address
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="w-5 h-5 text-gray-500" />
+                  <Mail className="w-5 h-5 text-muted-foreground" />
                 </div>
-                <input
+                <Input
                   type="email"
                   id="email"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-4 py-2 bg-gray-800/50 border border-gray-700/50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 text-white placeholder-gray-500 hover:border-gray-600/50 text-sm"
+                  className="w-full pl-12 pr-4 py-2 text-sm"
                   placeholder="you@example.com"
                   required
                 />
@@ -188,27 +188,27 @@ export default function SignUp() {
 
             {/* Password Input */}
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-300 mb-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-foreground mb-2">
                 Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="w-5 h-5 text-gray-500" />
+                  <Lock className="w-5 h-5 text-muted-foreground" />
                 </div>
-                <input
+                <Input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-12 py-2 bg-gray-800/50 border border-gray-700/50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 text-white placeholder-gray-500 hover:border-gray-600/50 text-sm"
+                  className="w-full pl-12 pr-12 py-2 text-sm"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-400 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -221,27 +221,27 @@ export default function SignUp() {
 
             {/* Confirm Password Input */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-300 mb-2">
+              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-foreground mb-2">
                 Confirm Password
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="w-5 h-5 text-gray-500" />
+                  <Lock className="w-5 h-5 text-muted-foreground" />
                 </div>
-                <input
+                <Input
                   type={showConfirmPassword ? 'text' : 'password'}
                   id="confirmPassword"
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-12 py-2 bg-gray-800/50 border border-gray-700/50 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 text-white placeholder-gray-500 hover:border-gray-600/50 text-sm"
+                  className="w-full pl-12 pr-12 py-2 text-sm"
                   placeholder="••••••••"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-400 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -259,16 +259,15 @@ export default function SignUp() {
                 name="isTeacher"
                 checked={formData.isTeacher}
                 onChange={handleChange}
-                className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-blue-500
-                           focus:ring-blue-500/40 focus:ring-2"
+                className="w-4 h-4 rounded border-input bg-input-background text-primary focus:ring-primary/40 focus:ring-2"
               />
-              <span className="text-xs text-gray-300">I am a teacher</span>
+              <span className="text-xs text-muted-foreground">I am a teacher</span>
             </label>
 
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
-              className="w-full py-2.5 mt-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-xl font-semibold text-sm hover:from-blue-500 hover:to-blue-400 focus:ring-4 focus:ring-blue-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95"
+              className="w-full py-2.5 mt-4 h-auto font-semibold text-sm flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -281,24 +280,25 @@ export default function SignUp() {
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
-            </button>
+            </Button>
           </form>
 
           {/* Divider */}
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700/50"></div>
+              <div className="w-full border-t border-border"></div>
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="px-3 bg-gray-900/80 text-gray-500">OR SIGN UP WITH</span>
+              <span className="px-3 bg-card text-muted-foreground">OR SIGN UP WITH</span>
             </div>
           </div>
 
           {/* Social Button */}
-          <button
+          <Button
             type="button"
             onClick={() => handleSocialSignUp('Google')}
-            className="w-full py-2.5 bg-gray-800/50 border border-gray-700/50 rounded-xl font-medium text-sm text-gray-300 hover:bg-gray-800 hover:border-gray-600/50 focus:ring-4 focus:ring-gray-700/30 transition-all duration-200 flex items-center justify-center gap-3"
+            variant="outline"
+            className="w-full py-2.5 h-auto font-medium text-sm flex items-center justify-center gap-3"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -307,14 +307,15 @@ export default function SignUp() {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
             Google
-          </button>
-        </div>
+          </Button>
+          </CardContent>
+        </Card>
 
         {/* Footer */}
         <div className="mt-4 text-center space-y-2 flex-shrink-0">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-muted-foreground">
             Already have an account?{' '}
-            <Link to="/login" className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
+            <Link to="/login" className="text-primary hover:text-primary/80 font-semibold transition-colors">
               Sign In
             </Link>
           </p>

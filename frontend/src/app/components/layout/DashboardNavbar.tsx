@@ -1,43 +1,28 @@
-import {
-  Menu,
-  Bell,
-  HelpCircle,
-} from 'lucide-react';
+import { Menu, Bell, HelpCircle } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import NotificationsPanel from '../student/NotificationsPanel';
 import type { StudentNotification } from '../../pages/student/studentTypes';
 import { isStudentRole } from '../../navigation/roleRoutes';
 import UserMenuDropdown from './UserMenuDropdown';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+import api from '../../api';
+import { clearStoredAuthUser } from '../../utils/authUser';
 
 export interface NavbarUser {
   name: string;
   email: string;
-  /** Single uppercase letter for the avatar */
   initial: string;
   role: string;
   avatarUrl?: string | null;
 }
 
 export interface DashboardNavbarProps {
-  /** Page title shown next to the hamburger menu */
   pageTitle: string;
   user: NavbarUser;
-  /** Notification count — omit or pass 0 to hide the dot */
   notificationCount?: number;
-  /** Optional notifications payload to show rich dropdown panel */
   notifications?: StudentNotification[];
   onMenuClick: () => void;
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
-/**
- * DashboardNavbar — sticky top bar for all dashboard pages.
- *
- * Includes: mobile hamburger, page title, notification bell,
- * help button, and a profile dropdown with sign-out.
- */
 export default function DashboardNavbar({
   pageTitle,
   user,
@@ -45,69 +30,61 @@ export default function DashboardNavbar({
   notifications,
   onMenuClick,
 }: DashboardNavbarProps) {
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    try {
+      await api.post('/logout');
+    } catch {
+      // Local sign-out still proceeds if backend token is already invalid.
+    }
+
+    localStorage.removeItem('token');
+    clearStoredAuthUser();
+    navigate('/login');
+  }
+
+  const showStudentNotifications = isStudentRole(user.role) && Array.isArray(notifications);
+
   return (
-    <header
-      className="fixed top-0 right-0 z-30 h-16
-                 bg-gray-900/95 border-b border-gray-800 backdrop-blur-md
-                 left-0 lg:left-64
-                 flex items-center gap-4 px-4 lg:px-6"
-    >
-      {/* ── Left: hamburger + title ──────────────────────────────────────── */}
+    <header className="fixed top-0 right-0 z-30 h-16 bg-card border-b border-border backdrop-blur-md left-0 lg:left-64 flex items-center gap-4 px-4 lg:px-6">
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        {/* Hamburger — mobile only */}
         <button
           onClick={onMenuClick}
-          className="lg:hidden w-9 h-9 rounded-lg flex items-center justify-center
-                     text-gray-400 hover:text-white hover:bg-gray-800
-                     transition-all cursor-pointer flex-shrink-0"
-          aria-label="Open navigation menu"
+          className="lg:hidden w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label="Open sidebar menu"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Page title */}
-        <h1 className="text-sm font-semibold text-white truncate">{pageTitle}</h1>
+        <h1 className="text-sm sm:text-base font-semibold text-card-foreground truncate" title={pageTitle}>
+          {pageTitle}
+        </h1>
       </div>
 
-      {/* ── Right: actions + profile ─────────────────────────────────────── */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-
-        {/* Notification bell */}
-        {notifications ? (
+      <div className="flex items-center gap-2">
+        {showStudentNotifications ? (
           <NotificationsPanel notifications={notifications} />
         ) : (
           <button
-            className="relative w-9 h-9 rounded-lg flex items-center justify-center
-                       text-gray-400 hover:text-white hover:bg-gray-800
-                       transition-all duration-200 cursor-pointer"
+            className="relative w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Notifications"
           >
-            <Bell className="w-4.5 h-4.5" />
+            <Bell className="w-5 h-5" />
             {notificationCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-blue-500
-                               rounded-full ring-2 ring-gray-900" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-card" />
             )}
           </button>
         )}
 
-        {/* Help */}
         <button
-          className="hidden sm:flex w-9 h-9 rounded-lg items-center justify-center
-                     text-gray-400 hover:text-white hover:bg-gray-800
-                     transition-all duration-200 cursor-pointer"
+          className="hidden sm:flex w-9 h-9 rounded-lg items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 cursor-pointer focus-visible:ring-2 focus-visible:ring-primary"
           aria-label="Help"
         >
-          <HelpCircle className="w-4.5 h-4.5" />
+          <HelpCircle className="w-5 h-5" />
         </button>
 
-        {/* Profile dropdown */}
-        <UserMenuDropdown
-          user={user}
-          onSignOut={() => {
-            localStorage.removeItem('token');
-            localStorage.removeItem('invigilore_user');
-          }}
-        />
+        <UserMenuDropdown user={user} onSignOut={handleSignOut} />
       </div>
     </header>
   );

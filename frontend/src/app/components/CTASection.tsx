@@ -1,5 +1,6 @@
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
+import { Button } from './ui/button';
 
 export function CTASection() {
   return (
@@ -51,10 +52,10 @@ export function CTASection() {
             whileTap={{ scale: 0.95 }}
             className="inline-block"
           >
-            <button className="group px-10 py-5 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-500 text-white font-semibold text-lg flex items-center gap-3 hover:shadow-2xl hover:shadow-blue-500/30 transition-all duration-300 mx-auto cursor-pointer">
+            <Button size="lg" className="px-10 py-5 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-500 text-white font-semibold text-lg flex items-center gap-3 mx-auto cursor-pointer" aria-label="Request Institutional Access">
               Request Institutional Access
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
+            </Button>
           </motion.div>
 
           {/* Trust Indicators */}
