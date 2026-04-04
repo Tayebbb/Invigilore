@@ -8,7 +8,11 @@ import TeacherDashboard       from "./pages/TeacherDashboard";
 
 // Role-based dashboards
 import AdminDashboard         from "./pages/admin/AdminDashboard";
-import TeacherDashboardNew    from "./pages/teacher/TeacherDashboardNew";
+import TeacherTestsPage       from "./pages/teacher/TeacherTestsPage";
+import TeacherTestInfoPage    from "./pages/teacher/TeacherTestInfoPage";
+import TeacherResultsDatabasePage from "./pages/teacher/TeacherResultsDatabasePage";
+import TeacherAccountPage     from "./pages/teacher/TeacherAccountPage";
+import TeacherRespondentsPage from "./pages/teacher/TeacherRespondentsPage";
 import StudentDashboard       from "./pages/student/StudentDashboard";
 import StudentExamAttemptPage from "./pages/student/StudentExamAttemptPage";
 import StudentResultsPage     from "./pages/student/StudentResultsPage";
@@ -17,6 +21,7 @@ import StudentProfilePage     from "./pages/student/StudentProfilePage";
 import StudentAccountSettingsPage from "./pages/student/StudentAccountSettingsPage";
 import StudentHelpSupportPage from "./pages/student/StudentHelpSupportPage";
 import UserManagement         from "./pages/admin/UserManagement";
+import RoleDashboardPlaceholder from "./pages/role/RoleDashboardPlaceholder";
 
 // Auth guard
 import ProtectedRoute         from "./auth/ProtectedRoute";
@@ -66,7 +71,71 @@ export const router = createBrowserRouter([
     path: "/teacher/dashboard",
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
-        <TeacherDashboardNew />
+        <TeacherTestsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/teacher/tests/:testId",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <TeacherTestInfoPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/teacher/results-database",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <TeacherResultsDatabasePage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/teacher/account",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <TeacherAccountPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/teacher/respondents",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <TeacherRespondentsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/controller/dashboard",
+    element: (
+      <ProtectedRoute allowedRoles={["controller"]}>
+        <RoleDashboardPlaceholder roleName="Controller" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/invigilator/dashboard",
+    element: (
+      <ProtectedRoute allowedRoles={["invigilator"]}>
+        <RoleDashboardPlaceholder roleName="Invigilator" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/question-setter/dashboard",
+    element: (
+      <ProtectedRoute allowedRoles={["question-setter"]}>
+        <RoleDashboardPlaceholder roleName="Question Setter" />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/moderator/dashboard",
+    element: (
+      <ProtectedRoute allowedRoles={["moderator"]}>
+        <RoleDashboardPlaceholder roleName="Moderator" />
       </ProtectedRoute>
     ),
   },

@@ -3,12 +3,15 @@ import DashboardSidebar, { type SidebarNavItem } from './DashboardSidebar';
 import DashboardNavbar,  { type NavbarUser    } from './DashboardNavbar';
 import DashboardFooter                          from './DashboardFooter';
 import type { StudentNotification } from '../../pages/student/studentTypes';
+import { useAuthUser } from '../../context/AuthUserContext';
+import { resolveProfileImageUrl } from '../../utils/profileImage';
+import api from '../../api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface DashboardLayoutProps {
   /** Sidebar role badge and colour theming */
-  role: 'Admin' | 'Teacher' | 'Student';
+  role: string;
   /** Sidebar navigation items for this role */
   navItems: SidebarNavItem[];
   /** Currently active sidebar item (controlled by parent page) */
@@ -57,6 +60,22 @@ export default function DashboardLayout({
   children,
 }: DashboardLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const { user: authUser } = useAuthUser();
+
+  const resolvedName = authUser?.name || user.name;
+  const resolvedEmail = authUser?.email || user.email;
+  const resolvedRole = authUser?.role || user.role;
+  const resolvedInitial = (resolvedName?.[0] ?? user.initial ?? 'U').toUpperCase();
+  const resolvedAvatarUrl = resolveProfileImageUrl(authUser?.profile_picture, api.defaults.baseURL?.toString());
+
+  const mergedUser: NavbarUser = {
+    ...user,
+    name: resolvedName,
+    email: resolvedEmail,
+    role: resolvedRole,
+    initial: resolvedInitial,
+    avatarUrl: resolvedAvatarUrl,
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-white flex">
@@ -77,7 +96,7 @@ export default function DashboardLayout({
         {/* Navbar */}
         <DashboardNavbar
           pageTitle={pageTitle}
-          user={user}
+          user={mergedUser}
           notificationCount={notificationCount}
           notifications={notifications}
           onMenuClick={() => setMobileSidebarOpen(true)}
