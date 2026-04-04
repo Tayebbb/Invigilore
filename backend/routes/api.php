@@ -18,6 +18,7 @@ use App\Http\Controllers\StudentResultController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\ExamWorkflowController;
 use App\Http\Controllers\ExamAccessController;
+use App\Http\Controllers\ModeratorReviewController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -150,6 +151,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/exams/{exam}/access/public', [ExamAccessController::class, 'generatePublic']);
         Route::post('/exams/{exam}/access/private', [ExamAccessController::class, 'generatePrivate']);
     });
+
+    // Moderator paper review routes
+    Route::get('/exams/{id}/questions/review', [ModeratorReviewController::class, 'getQuestions']);
+    Route::post('/exams/{id}/approve', [ModeratorReviewController::class, 'approvePaper']);
 
     // Optional audit log route for testing
     Route::middleware('role:admin')->group(function () {

@@ -63,6 +63,7 @@ class ExamController extends Controller
             'question_setter_email' => 'nullable|email|exists:users,email',
             'moderator_email'       => 'nullable|email|exists:users,email',
             'invigilator_email'     => 'nullable|email|exists:users,email',
+            'exam_status'           => 'nullable|in:draft,active,scheduled,completed',
         ]);
 
         if ($validator->fails()) {
@@ -109,6 +110,7 @@ class ExamController extends Controller
             'question_setter_id' => $questionSetter?->id,
             'moderator_id' => $moderator?->id,
             'invigilator_id' => $invigilator?->id,
+            'exam_status' => $payload['exam_status'] ?? 'draft',
         ]);
 
         $this->syncExamRoleAssignments($exam);
@@ -172,6 +174,7 @@ class ExamController extends Controller
             'question_setter_email' => 'sometimes|nullable|email|exists:users,email',
             'moderator_email'       => 'sometimes|nullable|email|exists:users,email',
             'invigilator_email'     => 'sometimes|nullable|email|exists:users,email',
+            'exam_status'           => 'sometimes|nullable|in:draft,active,scheduled,completed',
         ]);
 
         if ($validator->fails()) {
@@ -179,13 +182,27 @@ class ExamController extends Controller
         }
 
         $actor = $request->user();
-        if ($actor && $actor->role?->name !== 'admin' && $exam->controller_id !== $actor->id) {
-            return response()->json([
-                'message' => 'Only the exam controller or admin can update this exam.',
-            ], 403);
-        }
+        $isControllerOrAdmin = $actor && ($actor->role?->name === 'admin' || $exam->controller_id === $actor->id);
 
-        $data = $validator->validated();
+        if (!$isControllerOrAdmin) {
+            $isOtherRoleOnExam = $actor && (
+                $exam->question_setter_id === $actor->id ||
+                $exam->moderator_id === $actor->id ||
+                $exam->invigilator_id === $actor->id
+            );
+
+            if (!$isOtherRoleOnExam) {
+                return response()->json([
+                    'message' => 'You do not have permission to update this exam.',
+                ], 403);
+            }
+
+            // Only allow specialized roles to change exam_status
+            $allowedKeys = ['exam_status'];
+            $data = array_intersect_key($validator->validated(), array_flip($allowedKeys));
+        } else {
+            $data = $validator->validated();
+        }
 
         if (array_key_exists('question_setter_email', $data)) {
             $exam->question_setter_id = $data['question_setter_email']
