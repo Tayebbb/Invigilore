@@ -1,6 +1,8 @@
 import { motion } from 'motion/react';
 import { TrendingUp } from 'lucide-react';
 import type { ElementType } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { Badge } from '../ui/badge';
 
 // ── Color token maps (full class strings so Tailwind can scan them) ───────────
 
@@ -58,11 +60,6 @@ export interface DashboardCardProps {
  */
 export default function DashboardCard({
   icon: Icon,
-import { Card, CardHeader, CardTitle, CardDescription } from '../ui/card';
-import { Badge } from '../ui/badge';
-
-export default function DashboardCard({
-  icon: Icon,
   title,
   value,
   subtitle,
@@ -91,19 +88,6 @@ export default function DashboardCard({
           <div className={`text-xs font-medium ${trendColors[color] ?? trendColors.blue}`}>{subtitle}</div>
         )}
       </Card>
-    </motion.div>
-  );
-}
-
-      {/* Title */}
-      <div className="text-xs text-gray-500 mb-2">{title}</div>
-
-      {/* Subtitle / trend */}
-      {subtitle && (
-        <div className={`text-xs font-medium ${trendColors[color] ?? trendColors.blue}`}>
-          {subtitle}
-        </div>
-      )}
     </motion.div>
   );
 }
