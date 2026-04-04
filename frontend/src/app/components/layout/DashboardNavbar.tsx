@@ -1,19 +1,12 @@
-import { useNavigate } from 'react-router';
 import {
   Menu,
   Bell,
   HelpCircle,
-  ChevronDown,
-  User,
-  Settings,
-  LayoutDashboard,
-  LogOut,
 } from 'lucide-react';
 import NotificationsPanel from '../student/NotificationsPanel';
 import type { StudentNotification } from '../../pages/student/studentTypes';
 import { isStudentRole } from '../../navigation/roleRoutes';
 import UserMenuDropdown from './UserMenuDropdown';
-import { clearStoredAuthUser } from '../../utils/authUser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,8 +45,6 @@ export default function DashboardNavbar({
   notifications,
   onMenuClick,
 }: DashboardNavbarProps) {
-  const navigate = useNavigate();
-
   return (
     <header
       className="fixed top-0 right-0 z-30 h-16
@@ -110,92 +101,13 @@ export default function DashboardNavbar({
         </button>
 
         {/* Profile dropdown */}
-        <div className="relative" ref={profileRef}>
-          <button
-            onClick={() => setProfileOpen(!profileOpen)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg
-                       hover:bg-gray-800 transition-all duration-200 cursor-pointer ml-1"
-          >
-            <div
-              className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-violet-500
-                         flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
-            >
-              {user.initial}
-            </div>
-            <span className="hidden sm:block text-sm text-gray-300 font-medium">
-              {user.name}
-            </span>
-            <ChevronDown
-              className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200
-                          ${profileOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
-
-          <AnimatePresence>
-            {profileOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-700
-                           rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
-              >
-                {/* User info */}
-                <div className="p-3.5 border-b border-gray-800">
-                  <p className="text-sm font-semibold text-white">{user.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{user.email}</p>
-                </div>
-
-                {/* Menu items */}
-                <div className="p-1.5">
-                  {user.role === 'Admin' && (
-                    <Link
-                      to="/admin/dashboard"
-                      onClick={() => setProfileOpen(false)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-                                 text-sm text-gray-300 hover:text-white hover:bg-gray-800
-                                 transition-all duration-150 cursor-pointer"
-                    >
-                      <LayoutDashboard className="w-4 h-4 text-gray-400" />
-                      Admin Panel
-                    </Link>
-                  )}
-
-                  {[
-                    { icon: User,     label: 'View Profile' },
-                    { icon: Settings, label: 'Account Settings' },
-                    { icon: HelpCircle, label: 'Help & Support' },
-                  ].map(({ icon: Icon, label }) => (
-                    <button
-                      key={label}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl
-                                 text-sm text-gray-300 hover:text-white hover:bg-gray-800
-                                 transition-all duration-150 cursor-pointer"
-                    >
-                      <Icon className="w-4 h-4 text-gray-400" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Sign out */}
-                <div className="p-1.5 border-t border-gray-800">
-                  <Link
-                    to="/login"
-                    onClick={() => localStorage.removeItem('invigilore_user')}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl
-                               text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10
-                               transition-all duration-150 cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                  </Link>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <UserMenuDropdown
+          user={user}
+          onSignOut={() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('invigilore_user');
+          }}
+        />
       </div>
     </header>
   );
