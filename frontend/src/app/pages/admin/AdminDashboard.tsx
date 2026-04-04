@@ -16,6 +16,7 @@ import {
   Zap,
   Clock,
   AlertCircle,
+  ShieldAlert,
 } from 'lucide-react';
 
 import DashboardLayout             from '../../components/layout/DashboardLayout';
@@ -103,7 +104,7 @@ export default function AdminDashboard() {
   }
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-400">Loading dashboard...</div>;
+    return <div className="p-8 text-center text-muted-foreground">Loading dashboard...</div>;
   }
   if (error) {
     return <div className="p-8 text-center text-red-500">{error}</div>;
@@ -126,18 +127,18 @@ export default function AdminDashboard() {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
       >
         <div>
-          <h2 className="text-2xl font-bold text-white mb-1">
+          <h2 className="text-2xl font-bold text-foreground mb-1">
             Welcome back, {currentUser.firstName} 👋
           </h2>
-          <p className="text-gray-400 text-sm">
+          <p className="text-muted-foreground text-sm">
             Manage users, roles, system settings, security, backups, audit logs, and incidents from one place.
           </p>
         </div>
         <button
           onClick={() => navigate('/admin/users')}
-          className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-500
-                     text-white rounded-xl font-semibold text-sm transition-all duration-200
-                     shadow-lg shadow-purple-500/20 hover:shadow-purple-500/40
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90
+                     text-primary-foreground rounded-xl font-semibold text-sm transition-all duration-200
+                     shadow-lg shadow-primary/20 hover:shadow-primary/40
                      cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap shrink-0"
         >
           <Users className="w-4 h-4" />
@@ -154,13 +155,13 @@ export default function AdminDashboard() {
 
       {/* Recent Activity */}
       <div className="mb-8">
-        <h3 className="text-lg font-semibold text-white mb-3">Recent Activity</h3>
-        <ul className="divide-y divide-gray-800 bg-gray-900 rounded-xl">
-          {recentActivity.length === 0 && <li className="p-4 text-gray-500">No recent activity.</li>}
+        <h3 className="text-lg font-semibold text-foreground mb-3">Recent Activity</h3>
+        <ul className="divide-y divide-border bg-card border border-border rounded-xl">
+          {recentActivity.length === 0 && <li className="p-4 text-muted-foreground">No recent activity.</li>}
           {recentActivity.map((item: any, idx: number) => (
             <li key={idx} className="p-4 flex items-center justify-between">
               <span>{item.description}</span>
-              <span className="text-xs text-gray-400">{new Date(item.created_at).toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString()}</span>
             </li>
           ))}
         </ul>
@@ -168,11 +169,11 @@ export default function AdminDashboard() {
 
       {/* System Health */}
       <div className="mb-8">
-        <h3 className="text-lg font-semibold text-white mb-3">System Monitoring</h3>
+        <h3 className="text-lg font-semibold text-foreground mb-3">System Monitoring</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {systemHealth.map((service: any, idx: number) => (
-            <div key={idx} className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex items-center gap-4">
-              <span className="font-medium text-white w-40">{service.service}</span>
+            <div key={idx} className="bg-card border border-border rounded-xl p-4 flex items-center gap-4">
+              <span className="font-medium text-foreground w-40">{service.service}</span>
               <span className={
                 service.status === 'Operational' ? 'text-green-400' :
                 service.status === 'Degraded' ? 'text-yellow-400' :
