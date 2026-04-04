@@ -32,7 +32,7 @@ WORKDIR /var/www/html
 
 # Copy only composer manifests first to optimize build layer caching
 COPY composer.json composer.lock ./
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-scripts --ignore-platform-req=php
 
 # Copy application source
 COPY . .
@@ -45,4 +45,4 @@ RUN mkdir -p storage bootstrap/cache && \
 EXPOSE 9000
 
 # Ensure dependencies exist even when vendor is mounted as an empty volume first run
-CMD ["sh", "-lc", "if [ ! -f vendor/autoload.php ]; then composer install --no-interaction --prefer-dist; fi; php-fpm"]
+CMD ["sh", "-lc", "if [ ! -f vendor/autoload.php ]; then composer install --no-interaction --prefer-dist --ignore-platform-req=php; fi; php-fpm"]
