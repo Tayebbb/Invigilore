@@ -6,22 +6,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Question extends Model
+class ExamReview extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'exam_id',
-        'created_by',
-        'question_text',
-        'type',
-        'options',
-        'correct_answer',
-        'marks',
-    ];
-
-    protected $casts = [
-        'options' => 'array',
+        'reviewer_id',
+        'from_status',
+        'to_status',
+        'comments',
     ];
 
     public function exam(): BelongsTo
@@ -29,8 +23,8 @@ class Question extends Model
         return $this->belongsTo(Exam::class);
     }
 
-    public function creator(): BelongsTo
+    public function reviewer(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'reviewer_id');
     }
 }

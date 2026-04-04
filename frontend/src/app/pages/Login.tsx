@@ -4,11 +4,19 @@ import { Link, useNavigate } from 'react-router';
 import api from '../api';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
-  const role = String(rawRole ?? '').toLowerCase();
+  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
   if (role === 'admin' || role === 'teacher' || role === 'student') {
     return role;
   }
+  if (role === 'controller' || role === 'moderator' || role === 'question_setter' || role === 'invigilator') {
+    return 'teacher';
+  }
   return 'student';
+}
+
+function normalizeStoredRoleValue(rawRole: unknown): string {
+  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
+  return role || 'student';
 }
 
 export default function Login() {
@@ -46,11 +54,12 @@ export default function Login() {
 
         // Store user info for ProtectedRoute and dashboard display
         const apiUser = response.data.user;
-        const roleName = normalizeRole(apiUser?.role?.name ?? apiUser?.role);
+        const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
+        const roleName = normalizeRole(rawRole);
         localStorage.setItem('invigilore_user', JSON.stringify({
           name:  apiUser.name,
           email: apiUser.email,
-          role:  roleName,
+          role:  rawRole,
         }));
 
         const dashboardPaths: Record<string, string> = {
@@ -64,7 +73,11 @@ export default function Login() {
         }, 500);
       }
     } catch (err: any) {
-      if (err.response?.data?.error) {
+      if (err.code === 'ECONNABORTED') {
+        setError('Login request timed out. Please check if backend server/database is running.');
+      } else if (!err.response) {
+        setError('Cannot reach server. Check API URL and backend status.');
+      } else if (err.response?.data?.error) {
         setError(err.response.data.error);
       } else if (err.response?.data?.message) {
         setError(err.response.data.message);

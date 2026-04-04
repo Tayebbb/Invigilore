@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Exam extends Model
 {
@@ -23,6 +24,9 @@ class Exam extends Model
         'total_marks',
         'start_time',
         'end_time',
+        'paper_status',
+        'exam_status',
+        'instructions',
     ];
 
     protected function casts(): array
@@ -66,5 +70,30 @@ class Exam extends Model
     public function invigilator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invigilator_id');
+    }
+
+    public function examRoles(): HasMany
+    {
+        return $this->hasMany(ExamRole::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(ExamReview::class);
+    }
+
+    public function incidentReports(): HasMany
+    {
+        return $this->hasMany(ExamIncidentReport::class);
+    }
+
+    public function accessConfig(): HasOne
+    {
+        return $this->hasOne(ExamAccess::class, 'exam_id');
+    }
+
+    public function accessUsers(): HasMany
+    {
+        return $this->hasMany(ExamAccessUser::class);
     }
 }

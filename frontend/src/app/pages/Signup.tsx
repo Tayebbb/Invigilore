@@ -6,11 +6,19 @@ import api from '../api';
 import { AxiosError } from 'axios';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
-  const role = String(rawRole ?? '').toLowerCase();
+  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
   if (role === 'admin' || role === 'teacher' || role === 'student') {
     return role;
   }
+  if (role === 'controller' || role === 'moderator' || role === 'question_setter' || role === 'invigilator') {
+    return 'teacher';
+  }
   return 'student';
+}
+
+function normalizeStoredRoleValue(rawRole: unknown): string {
+  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
+  return role || 'student';
 }
 
 export default function SignUp() {
@@ -60,11 +68,12 @@ export default function SignUp() {
         localStorage.setItem('token', response.data.token);
 
         const apiUser = response.data.user;
-        const roleName = normalizeRole(apiUser?.role?.name ?? apiUser?.role);
+        const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
+        const roleName = normalizeRole(rawRole);
         localStorage.setItem('invigilore_user', JSON.stringify({
           name:  apiUser.name,
           email: apiUser.email,
-          role:  roleName,
+          role:  rawRole,
         }));
 
         const dashboardPaths: Record<string, string> = {

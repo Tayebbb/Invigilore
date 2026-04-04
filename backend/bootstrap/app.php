@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => \App\Http\Middleware\CheckRole::class,
+            'exam.role' => \App\Http\Middleware\EnsureExamRole::class,
+            'exam.paper_status' => \App\Http\Middleware\EnsureExamPaperStatus::class,
+            'exam.live_window' => \App\Http\Middleware\EnsureExamLiveWindow::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -6,31 +6,26 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Question extends Model
+class ExamAccess extends Model
 {
     use HasFactory;
 
+    protected $table = 'exam_access';
+
     protected $fillable = [
         'exam_id',
-        'created_by',
-        'question_text',
-        'type',
-        'options',
-        'correct_answer',
-        'marks',
+        'channel',
+        'access_type',
+        'access_token',
+        'require_email',
     ];
 
     protected $casts = [
-        'options' => 'array',
+        'require_email' => 'boolean',
     ];
 
     public function exam(): BelongsTo
     {
         return $this->belongsTo(Exam::class);
-    }
-
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
     }
 }

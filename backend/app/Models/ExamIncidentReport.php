@@ -6,22 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Question extends Model
+class ExamIncidentReport extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'exam_id',
-        'created_by',
-        'question_text',
-        'type',
-        'options',
-        'correct_answer',
-        'marks',
+        'invigilator_id',
+        'message',
+        'severity',
+        'metadata',
     ];
 
     protected $casts = [
-        'options' => 'array',
+        'metadata' => 'array',
     ];
 
     public function exam(): BelongsTo
@@ -29,8 +27,8 @@ class Question extends Model
         return $this->belongsTo(Exam::class);
     }
 
-    public function creator(): BelongsTo
+    public function invigilator(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'invigilator_id');
     }
 }

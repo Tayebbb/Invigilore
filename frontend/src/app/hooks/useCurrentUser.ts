@@ -5,6 +5,15 @@ import { getStoredUser } from '../auth/ProtectedRoute';
 
 type UserRole = 'admin' | 'teacher' | 'student';
 
+const TEACHER_LIKE_ROLES = new Set([
+  'teacher',
+  'controller',
+  'moderator',
+  'question_setter',
+  'question setter',
+  'invigilator',
+]);
+
 type ApiMeResponse = {
   name?: string;
   email?: string;
@@ -12,9 +21,12 @@ type ApiMeResponse = {
 };
 
 function normalizeRole(rawRole: unknown): UserRole {
-  const role = String(rawRole ?? '').toLowerCase();
+  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
   if (role === 'admin' || role === 'teacher' || role === 'student') {
     return role;
+  }
+  if (TEACHER_LIKE_ROLES.has(role)) {
+    return 'teacher';
   }
   return 'student';
 }
@@ -31,6 +43,7 @@ export default function useCurrentUser() {
   const [user, setUser] = useState(() => ({
     name: stored?.name ?? 'User',
     email: stored?.email ?? '',
+    rawRole: String(stored?.role ?? 'student').toLowerCase().replace(/[-\s]+/g, '_'),
     role: normalizeRole(stored?.role),
   }));
 
@@ -43,9 +56,13 @@ export default function useCurrentUser() {
         if (!mounted) return;
 
         const role = normalizeRole((data?.role as { name?: string } | undefined)?.name ?? data?.role);
+        const rawRole = String((data?.role as { name?: string } | undefined)?.name ?? data?.role ?? user.rawRole)
+          .toLowerCase()
+          .replace(/[-\s]+/g, '_');
         const next = {
           name: data?.name ?? user.name,
           email: data?.email ?? user.email,
+          rawRole,
           role,
         };
 
@@ -69,6 +86,7 @@ export default function useCurrentUser() {
       email: user.email,
       initial: (user.name?.[0] ?? 'U').toUpperCase(),
       roleBadge: toBadgeRole(user.role),
+      roleKey: user.rawRole,
       firstName: (user.name ?? 'User').trim().split(' ')[0] || 'User',
     }),
     [user],
