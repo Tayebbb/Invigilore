@@ -19,7 +19,7 @@ import {
 import DashboardLayout             from '../../components/layout/DashboardLayout';
 import DashboardCard               from '../../components/dashboard/DashboardCard';
 import type { SidebarNavItem }     from '../../components/layout/DashboardSidebar';
-import { getStoredUser }           from '../../auth/ProtectedRoute';
+import useCurrentUser              from '../../hooks/useCurrentUser';
 
 // ── Sidebar nav ───────────────────────────────────────────────────────────────
 
@@ -56,13 +56,13 @@ const RECENT_ACTIVITY = [
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeItem, setActiveItem] = useState('Dashboard Overview');
+  const currentUser = useCurrentUser();
 
-  const storedUser = getStoredUser();
   const adminUser = {
-    name:    storedUser?.name    ?? 'Admin',
-    email:   storedUser?.email   ?? '',
-    initial: (storedUser?.name?.[0] ?? 'A').toUpperCase(),
-    role:    'Admin' as const,
+    name: currentUser.name,
+    email: currentUser.email,
+    initial: currentUser.initial,
+    role: 'Admin' as const,
   };
 
   function handleNavChange(label: string) {
@@ -97,7 +97,7 @@ export default function AdminDashboard() {
       >
         <div>
           <h2 className="text-2xl font-bold text-white mb-1">
-            Welcome back, Admin 👋
+            Welcome back, {currentUser.firstName} 👋
           </h2>
           <p className="text-gray-400 text-sm">
             Manage users, monitor exams, and review system health from one place.

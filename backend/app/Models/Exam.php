@@ -14,6 +14,11 @@ class Exam extends Model
     protected $fillable = [
         'subject_id',
         'title',
+        'teacher_id',
+        'controller_id',
+        'question_setter_id',
+        'moderator_id',
+        'invigilator_id',
         'duration',
         'total_marks',
         'start_time',
@@ -36,5 +41,30 @@ class Exam extends Model
     public function questions(): HasMany
     {
         return $this->hasMany(Question::class);
+    }
+
+    public function teacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function controller(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'controller_id');
+    }
+
+    public function questionSetter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'question_setter_id');
+    }
+
+    public function moderator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'moderator_id');
+    }
+
+    public function invigilator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'invigilator_id');
     }
 }

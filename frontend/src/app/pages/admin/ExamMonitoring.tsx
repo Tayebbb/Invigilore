@@ -20,7 +20,7 @@ import api from '../../api';
 import DashboardCard from '../../components/dashboard/DashboardCard';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
-import { getStoredUser } from '../../auth/ProtectedRoute';
+import useCurrentUser from '../../hooks/useCurrentUser';
 
 type MonitorResponse = {
   status?: string;
@@ -57,12 +57,12 @@ export default function ExamMonitoring() {
   const [sessions, setSessions] = useState<ExamSession[]>([]);
   const [monitor, setMonitor] = useState<MonitorResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const currentUser = useCurrentUser();
 
-  const storedUser = getStoredUser();
   const adminUser = {
-    name: storedUser?.name ?? 'Admin',
-    email: storedUser?.email ?? '',
-    initial: (storedUser?.name?.[0] ?? 'A').toUpperCase(),
+    name: currentUser.name,
+    email: currentUser.email,
+    initial: currentUser.initial,
     role: 'Admin' as const,
   };
 

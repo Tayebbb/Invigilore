@@ -9,6 +9,7 @@ import TeacherDashboard       from "./pages/TeacherDashboard";
 // Role-based dashboards
 import AdminDashboard         from "./pages/admin/AdminDashboard";
 import TeacherDashboardNew    from "./pages/teacher/TeacherDashboardNew";
+import CreateExam             from "./pages/teacher/CreateExam";
 import StudentDashboard       from "./pages/student/StudentDashboard";
 import UserManagement         from "./pages/admin/UserManagement";
 import ExamMonitoring         from "./pages/admin/ExamMonitoring";
@@ -62,6 +63,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
         <TeacherDashboardNew />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/teacher/exams/new",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <CreateExam />
       </ProtectedRoute>
     ),
   },
