@@ -23,6 +23,9 @@ class User extends Authenticatable implements JWTSubject
     protected $fillable = [
         'name',
         'email',
+        'profile_picture',
+        'restrict_login_to_one_device',
+        'preferences',
         'password',
         'role_id',
     ];
@@ -46,6 +49,8 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'email_verified_at' => 'datetime',
+            'restrict_login_to_one_device' => 'boolean',
+            'preferences' => 'array',
             'password' => 'hashed',
         ];
     }

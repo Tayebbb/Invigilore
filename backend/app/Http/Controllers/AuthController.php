@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AuditTrailService;
+use App\Services\IncidentService;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\AuditService;
@@ -26,7 +28,7 @@ class AuthController extends Controller
             'name'     => 'required|string|between:2,100',
             'email'    => 'required|string|email|max:100|unique:users',
             'password' => 'required|string|min:8',
-            'role'     => 'sometimes|in:student,teacher,admin',
+            'role'     => 'sometimes|in:student,teacher,admin,controller,question_setter,viewer',
         ]);
 
         if ($validator->fails()) {
@@ -65,7 +67,7 @@ class AuthController extends Controller
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    public function login(Request $request)
+    public function login(Request $request, AuditTrailService $auditTrailService, IncidentService $incidentService)
     {
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',

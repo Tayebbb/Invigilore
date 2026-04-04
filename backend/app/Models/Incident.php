@@ -5,33 +5,26 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class ExamAttempt extends Model
+class Incident extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
         'exam_id',
-        'start_time',
-        'end_time',
-        'duration',
-        'status',
-        'last_ip',
-        'last_user_agent',
-        'started_at',
-        'submitted_at',
+        'attempt_id',
+        'incident_type',
+        'severity',
+        'metadata',
+        'ip_address',
+        'user_agent',
     ];
 
     protected function casts(): array
     {
         return [
-            'start_time' => 'datetime',
-            'end_time' => 'datetime',
-            'started_at' => 'datetime',
-            'submitted_at' => 'datetime',
-            'duration' => 'integer',
+            'metadata' => 'array',
         ];
     }
 
@@ -45,8 +38,8 @@ class ExamAttempt extends Model
         return $this->belongsTo(Exam::class);
     }
 
-    public function answers(): HasMany
+    public function attempt(): BelongsTo
     {
-        return $this->hasMany(AttemptAnswer::class, 'attempt_id');
+        return $this->belongsTo(ExamAttempt::class, 'attempt_id');
     }
 }
