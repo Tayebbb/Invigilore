@@ -298,7 +298,16 @@ export default function MyExamsDashboard() {
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
       >
         <div>
-          <h2 className="text-2xl font-bold text-white mb-1">Welcome back, {currentUser.firstName} 👋</h2>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 mb-3">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+            <span className="text-xs text-blue-400 font-medium">Teacher Portal</span>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-1">
+            Welcome back,{' '}
+            <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+              {currentUser.firstName} 👋
+            </span>
+          </h2>
           <p className="text-gray-400 text-sm">
             Review only the exams assigned to you by role (controller, question setter, moderator, or invigilator).
           </p>
@@ -306,7 +315,7 @@ export default function MyExamsDashboard() {
 
         <button
           onClick={() => navigate('/teacher/exams/new')}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap flex-shrink-0"
+          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap flex-shrink-0"
         >
           <FilePlus className="w-4 h-4" />
           Create New Exam
@@ -435,10 +444,10 @@ export default function MyExamsDashboard() {
                       openCreateExam(exam.id);
                     }
                   }}
-                  className={`group rounded-2xl border bg-gray-950/60 p-5 transition-all ${
+                  className={`group rounded-2xl border bg-gray-950/60 p-5 transition-all duration-200 ${
                     exam.hasAccess
-                      ? 'border-gray-800 hover:border-gray-700 hover:bg-gray-950 cursor-pointer'
-                      : 'border-gray-800/70 opacity-85 cursor-not-allowed'
+                      ? 'border-gray-800 hover:border-blue-500/30 hover:bg-gray-900 hover:shadow-lg hover:shadow-blue-500/5 cursor-pointer'
+                      : 'border-gray-800/70 opacity-70 cursor-not-allowed'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -527,7 +536,12 @@ export default function MyExamsDashboard() {
           transition={{ duration: 0.4, delay: 0.24 }}
           className="xl:col-span-2 bg-gray-900 border border-gray-800 rounded-2xl p-6"
         >
-          <h3 className="text-sm font-semibold text-white mb-4">Role Access Summary</h3>
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center">
+              <ShieldCheck className="w-3.5 h-3.5 text-white" />
+            </div>
+            <h3 className="text-sm font-semibold text-white">Role Access Summary</h3>
+          </div>
           <div className="space-y-3">
             {[
               { label: 'Created by me', value: createdCount, color: 'text-emerald-400' },
@@ -551,13 +565,18 @@ export default function MyExamsDashboard() {
           transition={{ duration: 0.4, delay: 0.3 }}
           className="bg-gray-900 border border-gray-800 rounded-2xl p-6"
         >
-          <h3 className="text-sm font-semibold text-white mb-4">Upcoming Exams</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
+              <Calendar className="w-3.5 h-3.5 text-white" />
+            </div>
+            <h3 className="text-sm font-semibold text-white">Upcoming Exams</h3>
+          </div>
           <div className="space-y-3">
             {UPCOMING.map((item) => (
-              <div key={item.name} className="flex items-start gap-3">
+              <div key={item.name} className="flex items-start gap-3 p-3 rounded-xl border border-gray-800 bg-gray-950/50 hover:border-gray-700 transition-colors">
                 <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${item.dot}`} />
                 <div>
-                  <p className="text-sm text-gray-300 font-medium">{item.name}</p>
+                  <p className="text-sm text-gray-200 font-medium">{item.name}</p>
                   <p className="text-xs text-gray-500 mt-0.5">{item.time}</p>
                 </div>
               </div>

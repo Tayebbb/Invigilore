@@ -6,6 +6,7 @@ import { Card, CardContent } from '../components/ui/card';
 import useCurrentUser from '../hooks/useCurrentUser';
 
 type ExamWithAssignments = {
+  controller_id?: number | null;
   moderator?: { email?: string } | null;
   invigilator?: { email?: string } | null;
   questionSetter?: { email?: string } | null;
@@ -46,6 +47,7 @@ function isWithinExamWindow(startTime?: string | null, endTime?: string | null):
 export default function ExamRoleAccessRoute({ requiredRole, requireLiveWindow = false, children }: ExamRoleAccessRouteProps) {
   const { id } = useParams();
   const currentUser = useCurrentUser();
+  const currentUserId = Number((currentUser as { id?: number | string }).id ?? NaN);
 
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
@@ -62,11 +64,13 @@ export default function ExamRoleAccessRoute({ requiredRole, requireLiveWindow = 
     api.get(`/exams/${examId}`)
       .then((res) => {
         const exam = (res.data ?? {}) as ExamWithAssignments;
+        const controllerId = Number(exam.controller_id ?? NaN);
         const expectedEmail = normalizeText(resolveRoleEmail(exam, requiredRole));
         const controllerEmail = normalizeText(resolveRoleEmail(exam, 'controller'));
         const currentEmail = normalizeText(currentUser.email);
         const hasRole = Boolean(expectedEmail) && expectedEmail === currentEmail;
-        const isController = Boolean(controllerEmail) && controllerEmail === currentEmail;
+        const isController = (Number.isFinite(currentUserId) && Number.isFinite(controllerId) && controllerId === currentUserId)
+          || (Boolean(controllerEmail) && controllerEmail === currentEmail);
 
         if (!hasRole && !isController) {
           setAllowed(false);
@@ -86,7 +90,7 @@ export default function ExamRoleAccessRoute({ requiredRole, requireLiveWindow = 
       .finally(() => {
         setChecking(false);
       });
-  }, [currentUser.email, id, requiredRole, requireLiveWindow]);
+  }, [currentUser.email, currentUserId, id, requiredRole, requireLiveWindow]);
 
   if (checking) {
     return (
