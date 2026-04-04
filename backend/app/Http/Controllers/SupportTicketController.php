@@ -43,12 +43,13 @@ class SupportTicketController extends Controller
             'status' => 'pending',
         ]);
 
-        AuditLog::create([
-            'user_id' => $request->user()->id,
-            'action' => 'support.ticket_created',
-            'description' => json_encode(['ticket_id' => $ticket->id, 'category' => $ticket->category], JSON_UNESCAPED_SLASHES),
-            'ip_address' => $request->ip(),
-        ]);
+        AuditLog::writeEntry(
+            $request->user()->id,
+            'support.ticket_created',
+            json_encode(['ticket_id' => $ticket->id, 'category' => $ticket->category], JSON_UNESCAPED_SLASHES),
+            $request->ip(),
+            $request->userAgent()
+        );
 
         return response()->json([
             'success' => true,

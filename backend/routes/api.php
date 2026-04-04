@@ -14,6 +14,7 @@ use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\StudentExamController;
 use App\Http\Controllers\ExamSessionController;
 use App\Http\Controllers\ExamAttemptController;
+use App\Http\Controllers\TeacherPortalController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -71,6 +72,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/exams/{exam}',   [ExamController::class, 'show']);
         Route::put('/exams/{exam}',   [ExamController::class, 'update']);
         Route::delete('/exams/{exam}',[ExamController::class, 'destroy']);
+
+        Route::prefix('teacher/portal')->group(function () {
+            Route::get('/tests', [TeacherPortalController::class, 'tests']);
+            Route::get('/tests/{exam}', [TeacherPortalController::class, 'testInfo']);
+            Route::post('/tests/{exam}/activate', [TeacherPortalController::class, 'activate']);
+            Route::post('/tests/{exam}/end', [TeacherPortalController::class, 'end']);
+            Route::get('/results-database', [TeacherPortalController::class, 'resultsDatabase']);
+            Route::get('/respondents', [TeacherPortalController::class, 'respondents']);
+        });
     });
 
     // Admin-only question bank routes

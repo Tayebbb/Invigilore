@@ -1,18 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertCircle, Calendar, Clock, HelpCircle, MessageSquare, Send, Trophy, User } from 'lucide-react';
+import { AlertCircle, Send } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import api from '../../api';
-
-const NAV_ITEMS: SidebarNavItem[] = [
-  { label: 'Dashboard', icon: Calendar },
-  { label: 'My Results', icon: Trophy },
-  { label: 'Submission History', icon: Clock },
-  { label: 'Profile', icon: User },
-  { label: 'Account Settings', icon: HelpCircle },
-  { label: 'Help & Support', icon: MessageSquare },
-];
+import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 
 const FAQS = [
   {
@@ -58,12 +49,10 @@ export default function StudentHelpSupportPage() {
   }, []);
 
   const handleNav = (label: string) => {
-    if (label === 'Dashboard') navigate('/student/dashboard');
-    if (label === 'My Results') navigate('/student/results');
-    if (label === 'Submission History') navigate('/student/submissions');
-    if (label === 'Profile') navigate('/student/profile');
-    if (label === 'Account Settings') navigate('/student/account-settings');
-    if (label === 'Help & Support') navigate('/student/help-support');
+    const route = getStudentSidebarRoute(label);
+    if (route) {
+      navigate(route);
+    }
   };
 
   const submitTicket = async () => {
@@ -99,7 +88,7 @@ export default function StudentHelpSupportPage() {
   return (
     <DashboardLayout
       role="Student"
-      navItems={NAV_ITEMS}
+      navItems={STUDENT_NAV_ITEMS}
       activeItem="Help & Support"
       onNavChange={handleNav}
       user={{ name: 'Student', email: 'student@invigilore.com', initial: 'S', role: 'Student' }}

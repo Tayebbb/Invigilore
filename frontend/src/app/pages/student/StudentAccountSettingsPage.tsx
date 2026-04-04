@@ -1,18 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertCircle, Bell, Calendar, Clock, Lock, Save, ShieldCheck, Trophy, Upload, User } from 'lucide-react';
+import { AlertCircle, Lock, Save, ShieldCheck, Upload } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import api from '../../api';
-
-const NAV_ITEMS: SidebarNavItem[] = [
-  { label: 'Dashboard', icon: Calendar },
-  { label: 'My Results', icon: Trophy },
-  { label: 'Submission History', icon: Clock },
-  { label: 'Profile', icon: User },
-  { label: 'Account Settings', icon: Lock },
-  { label: 'Help & Support', icon: Bell },
-];
+import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
+import { writeStoredAuthUser } from '../../utils/authUser';
 
 export default function StudentAccountSettingsPage() {
   const navigate = useNavigate();
@@ -67,17 +59,25 @@ export default function StudentAccountSettingsPage() {
   const canSaveProfile = useMemo(() => fullName.trim().length >= 2, [fullName]);
 
   const handleNav = (label: string) => {
-    if (label === 'Dashboard') navigate('/student/dashboard');
-    if (label === 'My Results') navigate('/student/results');
-    if (label === 'Submission History') navigate('/student/submissions');
-    if (label === 'Profile') navigate('/student/profile');
-    if (label === 'Account Settings') navigate('/student/account-settings');
-    if (label === 'Help & Support') navigate('/student/help-support');
+    const route = getStudentSidebarRoute(label);
+    if (route) {
+      navigate(route);
+    }
   };
 
   const showApiError = (fallback: string, err: any) => {
     const apiMessage = err?.response?.data?.message;
-    setError(apiMessage ?? fallback);
+    const apiErrors = err?.response?.data?.errors;
+
+    let detailedMessage = apiMessage ?? fallback;
+    if (apiErrors && typeof apiErrors === 'object') {
+      const firstErrorList = Object.values(apiErrors).find((value) => Array.isArray(value) && value.length > 0) as string[] | undefined;
+      if (firstErrorList?.[0]) {
+        detailedMessage = firstErrorList[0];
+      }
+    }
+
+    setError(detailedMessage);
     setMessage('');
   };
 
@@ -88,14 +88,34 @@ export default function StudentAccountSettingsPage() {
 
     try {
       const formData = new FormData();
-      formData.append('name', fullName.trim());
+      const trimmedName = fullName.trim();
+      if (trimmedName.length >= 2) {
+        formData.append('name', trimmedName);
+      }
+
       if (profileFile) {
         formData.append('profile_picture', profileFile);
+      }
+
+      if (!profileFile && trimmedName.length < 2) {
+        setError('Name must be at least 2 characters to update profile details.');
+        return;
       }
 
       await api.put('/student/account-settings/profile', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
+      const meResponse = await api.get('/me');
+      const meData = meResponse.data;
+      writeStoredAuthUser({
+        name: meData?.name ?? fullName,
+        email: meData?.email ?? email,
+        role: meData?.role?.name ?? meData?.role ?? role,
+        profile_picture: meData?.profile_picture ?? null,
+      });
+      setProfilePicture(meData?.profile_picture ?? null);
+      setFullName(meData?.name ?? fullName);
 
       setMessage('Profile updated successfully');
       setProfileFile(null);
@@ -170,7 +190,7 @@ export default function StudentAccountSettingsPage() {
   return (
     <DashboardLayout
       role="Student"
-      navItems={NAV_ITEMS}
+      navItems={STUDENT_NAV_ITEMS}
       activeItem="Account Settings"
       onNavChange={handleNav}
       user={{ name: fullName || 'Student', email: email || 'student@invigilore.com', initial: (fullName?.[0] ?? 'S').toUpperCase(), role: 'Student' }}

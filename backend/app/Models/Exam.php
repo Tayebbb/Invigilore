@@ -14,10 +14,17 @@ class Exam extends Model
     protected $fillable = [
         'subject_id',
         'title',
+        'teacher_id',
+        'controller_id',
+        'question_setter_id',
+        'moderator_id',
+        'invigilator_id',
         'duration',
         'total_marks',
         'start_time',
         'end_time',
+        'paper_status',
+        'instructions',
     ];
 
     protected function casts(): array
@@ -36,5 +43,15 @@ class Exam extends Model
     public function questions(): HasMany
     {
         return $this->hasMany(Question::class);
+    }
+
+    public function attempts(): HasMany
+    {
+        return $this->hasMany(ExamAttempt::class);
+    }
+
+    public function teacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
     }
 }

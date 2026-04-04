@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { X, LayoutDashboard, LogOut, type LucideIcon } from 'lucide-react';
 import api from '../../api';
+import { getHomeRouteByRole } from '../../navigation/roleRoutes';
+import { clearStoredAuthUser } from '../../utils/authUser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -14,7 +16,7 @@ export interface SidebarNavItem {
 
 export interface DashboardSidebarProps {
   /** Role label shown in the header chip */
-  role: 'Admin' | 'Teacher' | 'Student';
+  role: string;
   navItems: SidebarNavItem[];
   activeItem: string;
   onSelect: (label: string) => void;
@@ -29,6 +31,10 @@ const roleChip: Record<string, string> = {
   Admin:   'bg-purple-500/15 text-purple-400 border border-purple-500/30',
   Teacher: 'bg-blue-500/15   text-blue-400   border border-blue-500/30',
   Student: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+  Controller: 'bg-amber-500/15 text-amber-400 border border-amber-500/30',
+  Invigilator: 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30',
+  'Question Setter': 'bg-fuchsia-500/15 text-fuchsia-400 border border-fuchsia-500/30',
+  Moderator: 'bg-slate-500/15 text-slate-300 border border-slate-500/30',
 };
 
 // ── Sidebar inner content (shared between desktop & mobile) ───────────────────
@@ -41,6 +47,7 @@ function SidebarContent({
   onMobileClose,
 }: Omit<DashboardSidebarProps, 'mobileOpen'>) {
   const navigate = useNavigate();
+  const homeRoute = getHomeRouteByRole(role);
 
   async function handleLogout() {
     try {
@@ -49,7 +56,7 @@ function SidebarContent({
       // token may already be expired — clear locally regardless
     }
     localStorage.removeItem('token');
-    localStorage.removeItem('invigilore_user');
+    clearStoredAuthUser();
     navigate('/login');
   }
 
@@ -57,18 +64,22 @@ function SidebarContent({
     <div className="flex flex-col h-full">
 
       {/* ── Logo ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-gray-800">
+      <button
+        type="button"
+        onClick={() => navigate(homeRoute)}
+        className="flex items-center gap-3 px-4 py-5 border-b border-gray-800 text-left transition-colors duration-200 hover:bg-gray-800/40"
+        aria-label="Go to home dashboard"
+      >
         <img src="/logo.png" alt="Invigilore" className="w-9 h-9 rounded-xl shadow-lg shadow-blue-500/20 shrink-0" />
         <div className="min-w-0">
           <span className="text-base font-bold text-white tracking-tight block leading-none">
             Invigilore
           </span>
-          <span className={`mt-1 inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full
-                            ${roleChip[role] ?? roleChip.Student}`}>
+          <span className={`mt-1 inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full ${roleChip[role] ?? roleChip.Student}`}>
             {role}
           </span>
         </div>
-      </div>
+      </button>
 
       {/* ── Nav items ─────────────────────────────────────────────────────── */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
