@@ -19,6 +19,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\ExamWorkflowController;
 use App\Http\Controllers\ExamAccessController;
 use App\Http\Controllers\ModeratorReviewController;
+use App\Http\Controllers\AdminDashboardController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -65,6 +66,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // System Administrator (IT-only) Admin routes
     Route::middleware('role:admin')->group(function () {
+        // Dashboard stats
+        Route::get('/admin/dashboard',      [AdminDashboardController::class, 'index']);
+
         // User (faculty) management
         Route::get('/admin/users',          [UserController::class, 'index']);
         Route::post('/admin/users',         [UserController::class, 'store']);
