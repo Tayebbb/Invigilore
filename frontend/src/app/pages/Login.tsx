@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Eye, EyeOff, Lock, Mail, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import api from '../api';
+import { getHomeRouteByRole } from '../navigation/roleRoutes';
+import { writeStoredAuthUser } from '../utils/authUser';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -33,26 +35,23 @@ export default function Login() {
         password: formData.password,
       });
 
-      if (response.data.access_token) {
-        localStorage.setItem('token', response.data.access_token);
+      const token = response.data.access_token ?? response.data.token;
+
+      if (token) {
+        localStorage.setItem('token', token);
 
         // Store user info for ProtectedRoute and dashboard display
         const apiUser = response.data.user;
         const roleName: string = apiUser?.role?.name ?? 'student';
-        localStorage.setItem('invigilore_user', JSON.stringify({
+        writeStoredAuthUser({
           name:  apiUser.name,
           email: apiUser.email,
           role:  roleName,
-        }));
-
-        const dashboardPaths: Record<string, string> = {
-          admin:   '/admin/dashboard',
-          teacher: '/teacher/dashboard',
-          student: '/student/dashboard',
-        };
+          profile_picture: apiUser?.profile_picture ?? null,
+        });
 
         setTimeout(() => {
-          navigate(dashboardPaths[roleName] ?? '/dashboard');
+          navigate(getHomeRouteByRole(roleName));
         }, 500);
       }
     } catch (err: any) {

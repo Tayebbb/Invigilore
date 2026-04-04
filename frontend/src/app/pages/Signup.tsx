@@ -4,6 +4,8 @@ import { Link, useNavigate } from 'react-router';
 
 import api from '../api';
 import { AxiosError } from 'axios';
+import { getHomeRouteByRole } from '../navigation/roleRoutes';
+import { writeStoredAuthUser } from '../utils/authUser';
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -54,19 +56,14 @@ export default function SignUp() {
 
         const apiUser = response.data.user;
         const roleName: string = apiUser?.role?.name ?? 'student';
-        localStorage.setItem('invigilore_user', JSON.stringify({
+        writeStoredAuthUser({
           name:  apiUser.name,
           email: apiUser.email,
           role:  roleName,
-        }));
+          profile_picture: apiUser?.profile_picture ?? null,
+        });
 
-        const dashboardPaths: Record<string, string> = {
-          admin:   '/admin/dashboard',
-          teacher: '/teacher/dashboard',
-          student: '/student/dashboard',
-        };
-
-        navigate(dashboardPaths[roleName] ?? '/dashboard');
+        navigate(getHomeRouteByRole(roleName));
       } else {
         setError('Registration succeeded, but no auth token was returned. Please log in.');
       }

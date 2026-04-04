@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Shield, Menu, X, LogOut } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { getStoredUser } from '../auth/ProtectedRoute';
+import { getHomeRouteByRole } from '../navigation/roleRoutes';
+import { clearStoredAuthUser } from '../utils/authUser';
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -17,7 +19,7 @@ export function Navbar() {
   const handleLogout = () => {
     // Clear auth data from localStorage
     localStorage.removeItem('token');
-    localStorage.removeItem('invigilore_user');
+    clearStoredAuthUser();
     setIsLoggedIn(false);
     setIsMobileMenuOpen(false);
     // Redirect to home page
@@ -32,12 +34,15 @@ export function Navbar() {
     { label: 'Help', href: '#help' },
   ];
 
+  const user = getStoredUser();
+  const logoTarget = user ? getHomeRouteByRole(user.role) : '/';
+
   return (
     <nav className="sticky top-0 left-0 right-0 z-50 bg-gray-900/95 border-b border-gray-800 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left - Logo */}
-          <Link to="/" className="flex items-center gap-3 group">
+          <Link to={logoTarget} className="flex items-center gap-3 group">
             <img src="/logo.png" alt="Invigilore" className="w-9 h-9 rounded-lg shadow-md shadow-blue-500/20 group-hover:shadow-lg group-hover:shadow-blue-500/30 transition-all duration-200 group-hover:scale-105" />
             <span className="text-xl font-semibold text-white">
               Invigilore

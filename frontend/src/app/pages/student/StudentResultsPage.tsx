@@ -1,17 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertCircle, Clock, Trophy, User, Calendar } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import api from '../../api';
+import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import type { StudentResult } from './studentTypes';
-
-const NAV_ITEMS: SidebarNavItem[] = [
-  { label: 'Dashboard', icon: Calendar },
-  { label: 'My Results', icon: Trophy },
-  { label: 'Submission History', icon: Clock },
-  { label: 'Profile', icon: User },
-];
 
 export default function StudentResultsPage() {
   const navigate = useNavigate();
@@ -37,10 +30,10 @@ export default function StudentResultsPage() {
   }, []);
 
   const handleNav = (label: string) => {
-    if (label === 'Dashboard') navigate('/student/dashboard');
-    if (label === 'My Results') navigate('/student/results');
-    if (label === 'Submission History') navigate('/student/submissions');
-    if (label === 'Profile') navigate('/student/profile');
+    const route = getStudentSidebarRoute(label);
+    if (route) {
+      navigate(route);
+    }
   };
 
   const notifications = [
@@ -56,7 +49,7 @@ export default function StudentResultsPage() {
   return (
     <DashboardLayout
       role="Student"
-      navItems={NAV_ITEMS}
+      navItems={STUDENT_NAV_ITEMS}
       activeItem="My Results"
       onNavChange={handleNav}
       user={{ name: 'Student', email: 'student@invigilore.com', initial: 'S', role: 'Student' }}

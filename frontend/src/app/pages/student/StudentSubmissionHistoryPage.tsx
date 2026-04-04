@@ -1,17 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Calendar, Clock, History, Search, Trophy, User } from 'lucide-react';
+import { Search } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import api from '../../api';
+import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import type { StudentSubmission } from './studentTypes';
-
-const NAV_ITEMS: SidebarNavItem[] = [
-  { label: 'Dashboard', icon: Calendar },
-  { label: 'My Results', icon: Trophy },
-  { label: 'Submission History', icon: History },
-  { label: 'Profile', icon: User },
-];
 
 export default function StudentSubmissionHistoryPage() {
   const navigate = useNavigate();
@@ -47,10 +40,10 @@ export default function StudentSubmissionHistoryPage() {
   }, [rows, filter, sortNewest]);
 
   const handleNav = (label: string) => {
-    if (label === 'Dashboard') navigate('/student/dashboard');
-    if (label === 'My Results') navigate('/student/results');
-    if (label === 'Submission History') navigate('/student/submissions');
-    if (label === 'Profile') navigate('/student/profile');
+    const route = getStudentSidebarRoute(label);
+    if (route) {
+      navigate(route);
+    }
   };
 
   const notifications = [
@@ -66,7 +59,7 @@ export default function StudentSubmissionHistoryPage() {
   return (
     <DashboardLayout
       role="Student"
-      navItems={NAV_ITEMS}
+      navItems={STUDENT_NAV_ITEMS}
       activeItem="Submission History"
       onNavChange={handleNav}
       user={{ name: 'Student', email: 'student@invigilore.com', initial: 'S', role: 'Student' }}

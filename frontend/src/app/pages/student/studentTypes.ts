@@ -13,6 +13,16 @@ export interface StudentExam {
   attemptId?: number;
 }
 
+export interface StudentSubject {
+  id: number;
+  subjectId: string;
+  subjectName: string;
+  subjectCode: string;
+  department?: string | null;
+  creditHours?: number | null;
+  description?: string | null;
+}
+
 export interface StudentAttemptQuestion {
   id: number;
   type: 'mcq' | 'true_false' | 'descriptive';

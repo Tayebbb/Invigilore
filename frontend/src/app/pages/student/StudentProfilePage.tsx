@@ -1,25 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Bell, Calendar, Clock, Save, Settings, Trophy, User } from 'lucide-react';
+import { Save } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
-import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import api from '../../api';
-
-const NAV_ITEMS: SidebarNavItem[] = [
-  { label: 'Dashboard', icon: Calendar },
-  { label: 'My Results', icon: Trophy },
-  { label: 'Submission History', icon: Clock },
-  { label: 'Profile', icon: User },
-  { label: 'Account Settings', icon: Settings },
-  { label: 'Help & Support', icon: Bell },
-];
+import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
+import { resolveProfileImageUrl } from '../../utils/profileImage';
+import { writeStoredAuthUser } from '../../utils/authUser';
 
 export default function StudentProfilePage() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('student');
-  const [password, setPassword] = useState('');
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [status, setStatus] = useState('');
 
   useEffect(() => {
@@ -29,18 +22,17 @@ export default function StudentProfilePage() {
       setName(user?.name ?? '');
       setEmail(user?.email ?? '');
       setRole(user?.role?.name ?? 'student');
+      setProfilePicture(user?.profile_picture ?? null);
     }
 
     load().catch(() => setStatus('Unable to load profile'));
   }, []);
 
   const handleNav = (label: string) => {
-    if (label === 'Dashboard') navigate('/student/dashboard');
-    if (label === 'My Results') navigate('/student/results');
-    if (label === 'Submission History') navigate('/student/submissions');
-    if (label === 'Profile') navigate('/student/profile');
-    if (label === 'Account Settings') navigate('/student/account-settings');
-    if (label === 'Help & Support') navigate('/student/help-support');
+    const route = getStudentSidebarRoute(label);
+    if (route) {
+      navigate(route);
+    }
   };
 
   const canSave = useMemo(() => name.trim().length >= 2, [name]);
@@ -50,14 +42,35 @@ export default function StudentProfilePage() {
     try {
       await api.put('/me', {
         name: name.trim(),
-        ...(password ? { password } : {}),
       });
-      setPassword('');
+
+      const meResponse = await api.get('/me');
+      const meData = meResponse.data;
+      const nextName = meData?.name ?? name.trim();
+      const nextEmail = meData?.email ?? email;
+      const nextRole = meData?.role?.name ?? meData?.role ?? role;
+      const nextPicture = meData?.profile_picture ?? profilePicture;
+
+      setName(nextName);
+      setEmail(nextEmail);
+      setRole(nextRole);
+      setProfilePicture(nextPicture ?? null);
+
+      writeStoredAuthUser({
+        name: nextName,
+        email: nextEmail,
+        role: nextRole,
+        profile_picture: nextPicture ?? null,
+      });
+
       setStatus('Profile updated successfully');
     } catch {
       setStatus('Profile update failed');
     }
   };
+
+  const pictureUrl = resolveProfileImageUrl(profilePicture, api.defaults.baseURL?.toString());
+  const avatarLetter = (name?.trim()?.[0] ?? 'S').toUpperCase();
 
   const notifications = [
     {
@@ -72,15 +85,34 @@ export default function StudentProfilePage() {
   return (
     <DashboardLayout
       role="Student"
-      navItems={NAV_ITEMS}
+      navItems={STUDENT_NAV_ITEMS}
       activeItem="Profile"
       onNavChange={handleNav}
-      user={{ name: name || 'Student', email: email || 'student@invigilore.com', initial: 'S', role: 'Student' }}
+      user={{ name: name || 'Student', email: email || 'student@invigilore.com', initial: avatarLetter, role: 'Student' }}
       notifications={notifications}
       pageTitle="My Profile"
     >
       <div className="mx-auto max-w-3xl rounded-xl border border-gray-800 bg-gray-900 p-5">
         <h2 className="mb-5 text-xl font-semibold text-white">Student Profile</h2>
+
+        <div className="mb-6 flex items-center gap-4 rounded-xl border border-gray-800 bg-gray-950 p-4">
+          {pictureUrl ? (
+            <img
+              src={pictureUrl}
+              alt={`${name || 'Student'} profile`}
+              className="h-16 w-16 rounded-2xl object-cover border border-gray-700"
+            />
+          ) : (
+            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center text-xl font-bold text-white">
+              {avatarLetter}
+            </div>
+          )}
+          <div>
+            <p className="text-sm font-semibold text-white">{name || 'Student'}</p>
+            <p className="text-xs text-gray-400">{email || 'student@invigilore.com'}</p>
+            <p className="mt-1 text-xs text-gray-500">Profile photo is managed in Account Settings.</p>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="text-sm">
@@ -101,21 +133,10 @@ export default function StudentProfilePage() {
             <span className="mb-1 block text-gray-400">Role</span>
             <input value={role} disabled className="w-full rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-gray-400" />
           </label>
-
-          <label className="text-sm">
-            <span className="mb-1 block text-gray-400">New Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Optional"
-              className="w-full rounded-lg border border-gray-700 bg-gray-950 px-3 py-2 text-gray-100"
-            />
-          </label>
         </div>
 
         <div className="mt-5 flex items-center justify-between">
-          <p className="text-xs text-gray-400">Restricted fields like role remain immutable.</p>
+          <p className="text-xs text-gray-400">Restricted fields like role and password are managed in dedicated settings pages.</p>
           <button
             type="button"
             disabled={!canSave}

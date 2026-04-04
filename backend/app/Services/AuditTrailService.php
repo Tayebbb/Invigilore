@@ -12,12 +12,7 @@ class AuditTrailService
     {
         $description = json_encode($payload, JSON_UNESCAPED_SLASHES);
 
-        AuditLog::create([
-            'user_id' => $user?->id,
-            'action' => $action,
-            'description' => $description,
-            'ip_address' => $ipAddress,
-        ]);
+        AuditLog::writeEntry($user?->id, $action, $description, $ipAddress, null);
 
         Log::info('Audit trail event', [
             'user_id' => $user?->id,
