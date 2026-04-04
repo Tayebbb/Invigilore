@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AttemptAnswer;
 use App\Models\Exam;
 use App\Models\ExamAttempt;
+use App\Services\AuditService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,10 @@ use Illuminate\Support\Facades\Validator;
 
 class ExamAttemptController extends Controller
 {
+    public function __construct(private readonly AuditService $auditService)
+    {
+    }
+
     public function start(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
@@ -77,6 +82,15 @@ class ExamAttemptController extends Controller
         }
 
         $attempt = ExamAttempt::create($attemptData);
+
+        try {
+            $this->auditService->log(
+                'exam_start',
+                'Exam attempt started. attempt_id='.$attempt->id.', exam_id='.$attempt->exam_id
+            );
+        } catch (\Throwable) {
+            // Do not block exam start when audit logging fails.
+        }
 
         $questions = $exam->questions()
             ->inRandomOrder()
@@ -210,6 +224,15 @@ class ExamAttemptController extends Controller
         }
 
         $summary = $this->finalizeAttempt($attempt, 'submitted');
+
+        try {
+            $this->auditService->log(
+                'exam_submit',
+                'Exam attempt submitted. attempt_id='.$attempt->id.', exam_id='.$attempt->exam_id
+            );
+        } catch (\Throwable) {
+            // Do not block submit when audit logging fails.
+        }
 
         return response()->json([
             'message' => 'Attempt submitted successfully',

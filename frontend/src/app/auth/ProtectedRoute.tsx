@@ -1,17 +1,24 @@
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import { getHomeRouteByRole, normalizeRole } from '../navigation/roleRoutes';
-import { readStoredAuthUser } from '../utils/authUser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type UserRole = 'admin' | 'teacher' | 'student' | 'controller' | 'invigilator' | 'question-setter' | 'moderator';
 
+const TEACHER_LIKE_ROLES = new Set([
+  'teacher',
+  'controller',
+  'moderator',
+  'question_setter',
+  'question setter',
+  'invigilator',
+]);
+
 export interface StoredUser {
   name: string;
   email: string;
-  role: UserRole;
-  profile_picture?: string | null;
+  role: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -23,7 +30,24 @@ export interface StoredUser {
  *       once the authentication system is implemented.
  */
 export function getStoredUser(): StoredUser | null {
-  return readStoredAuthUser() as StoredUser | null;
+  try {
+    const raw = localStorage.getItem('invigilore_user');
+    if (!raw) return null;
+    return JSON.parse(raw) as StoredUser;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeStoredRole(rawRole: unknown): UserRole {
+  const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
+  if (role === 'admin' || role === 'teacher' || role === 'student') {
+    return role;
+  }
+  if (TEACHER_LIKE_ROLES.has(role)) {
+    return 'teacher';
+  }
+  return 'student';
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────

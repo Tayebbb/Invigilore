@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router';
-import { AlertCircle, BookOpenText, CalendarClock, PlayCircle } from 'lucide-react';
+import { motion } from 'motion/react';
+import { AlertCircle, BookOpenText, CalendarClock, ClipboardList, PlayCircle } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import { useStudentAccess } from '../../context/StudentAccessContext';
 import type { StudentExam, StudentSubject } from './studentTypes';
+import useCurrentUser from '../../hooks/useCurrentUser';
 
 function computeCountdown(startIso: string): string {
   const diff = new Date(startIso).getTime() - Date.now();
@@ -32,12 +33,6 @@ function isWithinExamWindow(exam: StudentExam): boolean {
   return now >= start && now <= end;
 }
 
-function examStatusTone(status: StudentExam['status']) {
-  if (status === 'upcoming') return 'bg-blue-500/20 text-blue-300';
-  if (status === 'ongoing') return 'bg-emerald-500/20 text-emerald-300';
-  return 'bg-gray-700/70 text-gray-300';
-}
-
 function EmptyAccessState() {
   return (
     <section className="rounded-2xl border border-gray-800 bg-gradient-to-br from-gray-900 to-gray-950 p-8 text-center">
@@ -46,7 +41,7 @@ function EmptyAccessState() {
       </div>
       <h3 className="text-lg font-semibold text-white">No subjects or exams available yet</h3>
       <p className="mx-auto mt-2 max-w-xl text-sm text-gray-400">
-        Your dashboard will automatically populate once authorized staff create subjects and publish exam schedules for your account.
+        Your dashboard will populate once authorized staff publish subjects and assign exams to your account.
       </p>
     </section>
   );
@@ -81,9 +76,7 @@ function ExamCard({ exam, onEnter }: { exam: StudentExam; onEnter: (examId: numb
           <p className="text-sm font-semibold text-white">{exam.examName}</p>
           <p className="text-xs text-gray-400">{exam.courseName}</p>
         </div>
-        <span
-          className={`rounded-md px-2 py-1 text-[11px] font-semibold ${examStatusTone(exam.status)}`}
-        >
+        <span className="rounded-md bg-gray-700/70 px-2 py-1 text-[11px] font-semibold text-gray-300">
           {exam.status.toUpperCase()}
         </span>
       </div>
@@ -117,17 +110,8 @@ function ExamCard({ exam, onEnter }: { exam: StudentExam; onEnter: (examId: numb
 }
 
 export default function StudentDashboard() {
-  const navigate = useNavigate();
-  const {
-    subjects,
-    upcoming,
-    ongoing,
-    completed,
-    loading,
-    error,
-    warnings,
-  } = useStudentAccess();
-
+  const currentUser = useCurrentUser();
+  const { subjects, upcoming, ongoing, completed, loading, error, warnings: accessWarnings = [] } = useStudentAccess();
   const hasAnyAccessData = useMemo(
     () => subjects.length > 0 || upcoming.length > 0 || ongoing.length > 0 || completed.length > 0,
     [subjects.length, upcoming.length, ongoing.length, completed.length],
@@ -136,21 +120,20 @@ export default function StudentDashboard() {
   const handleNav = (label: string) => {
     const route = getStudentSidebarRoute(label);
     if (route) {
-      navigate(route);
+      window.location.href = route;
     }
   };
 
-  const enterExam = (examId: number) => navigate(`/student/exams/${examId}/attempt`);
+  const enterExam = (examId: number) => {
+    window.location.href = `/student/exams/${examId}/attempt`;
+  };
 
-  const notifications = [
-    {
-      id: 'exam-window',
-      title: 'Upcoming Exam Window',
-      message: 'Your next exam will be accessible only during the official window.',
-      timestamp: new Date().toISOString(),
-      read: false,
-    },
-  ];
+  const studentUser = {
+    name: currentUser.name,
+    email: currentUser.email,
+    initial: currentUser.initial,
+    role: 'Student' as const,
+  };
 
   return (
     <DashboardLayout
@@ -158,15 +141,30 @@ export default function StudentDashboard() {
       navItems={STUDENT_NAV_ITEMS}
       activeItem="Dashboard"
       onNavChange={handleNav}
-      user={{ name: 'Student', email: 'student@invigilore.com', initial: 'S', role: 'Student' }}
+      user={studentUser}
       notificationCount={0}
-      notifications={notifications}
       pageTitle="Student Dashboard"
     >
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold text-white">Academic Access Overview</h2>
-        <p className="text-sm text-gray-400">Your subjects and exams appear as soon as they are configured by authorized roles.</p>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-center"
+      >
+        <div>
+          <h2 className="mb-1 text-2xl font-bold text-white">Welcome back, {currentUser.firstName}</h2>
+          <p className="text-sm text-gray-400">View your subjects, upcoming exams, and published results.</p>
+        </div>
+
+        <button
+          type="button"
+          className="flex items-center gap-2 whitespace-nowrap rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-500 hover:scale-[1.02] active:scale-95"
+          onClick={() => handleNav('Available Exams')}
+        >
+          <ClipboardList className="h-4 w-4" />
+          View Available Exams
+        </button>
+      </motion.div>
 
       {error && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-200">
@@ -175,7 +173,7 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {warnings.map((warning) => (
+      {accessWarnings.map((warning) => (
         <div key={warning} className="mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
           <AlertCircle className="h-4 w-4" />
           {warning}

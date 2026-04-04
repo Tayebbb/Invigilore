@@ -12,6 +12,7 @@ class QuestionAdminResource extends JsonResource
         return [
             'id' => $this->id,
             'exam_id' => $this->exam_id,
+            'created_by' => $this->created_by,
             'question_text' => $this->question_text,
             'type' => $this->type,
             'options' => $this->options,
