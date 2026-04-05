@@ -5,7 +5,35 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api';
 import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
-import type { StudentResult } from './studentTypes';
+import type { StudentResult, SubmissionResultItem } from './studentTypes';
+
+function getStoredUserId(): number | null {
+  const raw = localStorage.getItem('invigilore_user');
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as { id?: number | string };
+    const id = Number(parsed?.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+function mapResult(item: SubmissionResultItem): StudentResult {
+  return {
+    resultId: item.id,
+    examId: item.exam_id,
+    examName: item.exam?.title ?? `Exam #${item.exam_id}`,
+    courseName: '-',
+    score: Number(item.score ?? 0),
+    totalMarks: Number(item.total_marks ?? 0),
+    grade: `${Number(item.percentage ?? 0).toFixed(2)}%`,
+    publishedAt: item.evaluated_at ?? item.created_at,
+    submittedAt: item.created_at,
+    feedback: null,
+  };
+}
 
 export default function StudentResultsPage() {
   const navigate = useNavigate();
@@ -18,11 +46,20 @@ export default function StudentResultsPage() {
       setLoading(true);
       setError('');
       try {
-        const res = await api.get('/student/results');
+        const userId = getStoredUserId();
+        if (!userId) {
+          setResults([]);
+          setError('User session not found. Please log in again.');
+          return;
+        }
+
+        const res = await api.get(`/users/${userId}/results`);
         const data = extractApiData(res);
-        setResults(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data as SubmissionResultItem[] : [];
+        setResults(list.map(mapResult));
       } catch (err: any) {
-        setError(extractApiError(err));
+        const message = extractApiError(err);
+        setError(typeof message === 'string' ? message : 'Failed to load results.');
       } finally {
         setLoading(false);
       }
@@ -60,7 +97,7 @@ export default function StudentResultsPage() {
     >
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-white">Published Results</h2>
-        <p className="text-sm text-gray-400">Results are visible only after official publication by Controller/Admin.</p>
+        <p className="text-sm text-gray-400">Results shown here are from evaluated submissions.</p>
       </div>
 
       {error && (

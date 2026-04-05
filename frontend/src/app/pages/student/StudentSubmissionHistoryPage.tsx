@@ -3,9 +3,34 @@ import { useNavigate } from 'react-router';
 import { Search } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api';
-import { extractApiData, extractApiError } from '../../utils/apiHelpers';
+import { extractApiData } from '../../utils/apiHelpers';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
-import type { StudentSubmission } from './studentTypes';
+import type { StudentSubmission, SubmissionResultItem } from './studentTypes';
+
+function getStoredUserId(): number | null {
+  const raw = localStorage.getItem('invigilore_user');
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as { id?: number | string };
+    const id = Number(parsed?.id);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+function mapSubmission(item: SubmissionResultItem): StudentSubmission {
+  return {
+    attemptId: item.id,
+    examId: item.exam_id,
+    examName: item.exam?.title ?? `Exam #${item.exam_id}`,
+    courseName: '-',
+    submissionDateTime: item.evaluated_at ?? item.created_at,
+    durationTakenMinutes: null,
+    status: item.status ?? 'evaluated',
+  };
+}
 
 export default function StudentSubmissionHistoryPage() {
   const navigate = useNavigate();
@@ -18,10 +43,17 @@ export default function StudentSubmissionHistoryPage() {
     async function load() {
       setLoading(true);
       try {
-        const res = await api.get('/student/submissions');
+        const userId = getStoredUserId();
+        if (!userId) {
+          setRows([]);
+          return;
+        }
+
+        const res = await api.get(`/users/${userId}/results`);
         const data = extractApiData(res);
-        setRows(Array.isArray(data) ? data : []);
-      } catch (err: any) {
+        const list = Array.isArray(data) ? data as SubmissionResultItem[] : [];
+        setRows(list.map(mapSubmission));
+      } catch {
         setRows([]);
       } finally {
         setLoading(false);
@@ -73,7 +105,7 @@ export default function StudentSubmissionHistoryPage() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold text-white">Submission History</h2>
-          <p className="text-sm text-gray-400">Track all submitted attempts and time spent per exam.</p>
+          <p className="text-sm text-gray-400">Track all evaluated submissions from the new submission engine.</p>
         </div>
 
         <div className="flex gap-2">
