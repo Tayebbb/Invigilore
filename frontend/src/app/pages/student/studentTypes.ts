@@ -64,7 +64,22 @@ export interface StudentSubmission {
   courseName: string;
   submissionDateTime: string;
   durationTakenMinutes: number | null;
-  status: 'submitted' | 'timeout';
+  status: string;
+}
+
+export interface SubmissionResultItem {
+  id: number;
+  exam_id: number;
+  exam?: {
+    id: number;
+    title: string;
+  };
+  status: string;
+  score: number;
+  total_marks: number;
+  percentage: number;
+  evaluated_at: string;
+  created_at: string;
 }
 
 export interface StudentNotification {
