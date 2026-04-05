@@ -15,6 +15,7 @@ use App\Http\Controllers\StudentExamController;
 use App\Http\Controllers\ExamSessionController;
 use App\Http\Controllers\ExamAttemptController;
 use App\Http\Controllers\StudentResultController;
+use App\Http\Controllers\SubmissionController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\ExamWorkflowController;
 use App\Http\Controllers\ExamAccessController;
@@ -52,6 +53,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/support-tickets', [SupportTicketController::class, 'store']);
     });
 
+    Route::middleware('role:student')->group(function () {
+        Route::post('/submissions', [SubmissionController::class, 'store']);
+    });
+
+    Route::get('/submissions/{submission}', [SubmissionController::class, 'show']);
+    Route::get('/users/{user}/results', [SubmissionController::class, 'userResults']);
+
     // Subject read routes (all authenticated roles)
     Route::get('/subjects', [SubjectController::class, 'index']);
     Route::get('/subjects/{subject}', [SubjectController::class, 'show']);
@@ -79,6 +87,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('/admin/users/{user}/status', [UserController::class, 'updateStatus']);
             Route::delete('/admin/users/{user}',[UserController::class, 'destroy']);
         });
+
+        Route::get('/exams/{exam}/results', [SubmissionController::class, 'examResults']);
     });
 
     // Admin or Teacher routes
