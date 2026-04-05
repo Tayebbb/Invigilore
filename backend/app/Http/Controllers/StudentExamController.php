@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\AttemptAnswer;
 use App\Models\Exam;
+use App\Models\ExamAccess;
+use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
-use App\Models\Result;
+use App\Models\Submission;
 use App\Services\AuditTrailService;
 use App\Services\IncidentService;
 use Carbon\Carbon;
@@ -19,9 +21,13 @@ class StudentExamController extends Controller
     public function index(Request $request): JsonResponse
     {
         $now = now();
+        $studentEmail = strtolower((string) $request->user()->email);
 
         $exams = Exam::query()
             ->with(['subject:id,name,subject_code'])
+            ->whereHas('accessUsers', function ($userQuery) use ($studentEmail) {
+                $userQuery->whereRaw('LOWER(email) = ?', [$studentEmail]);
+            })
             ->orderBy('start_time')
             ->get()
             ->map(function (Exam $exam) use ($now, $request) {
@@ -58,6 +64,13 @@ class StudentExamController extends Controller
 
     public function start(Request $request, Exam $exam, IncidentService $incidentService, AuditTrailService $auditTrailService): JsonResponse
     {
+        if (! $this->hasStudentAccess($exam, strtolower((string) $request->user()->email))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not assigned to this exam.',
+            ], 403);
+        }
+
         if (! $this->isWithinExamWindow($exam)) {
             return response()->json([
                 'success' => false,
@@ -280,29 +293,27 @@ class StudentExamController extends Controller
 
     public function results(Request $request): JsonResponse
     {
-        $results = Result::query()
-            ->with(['attempt.exam.subject'])
-            ->whereHas('attempt', function ($query) use ($request) {
-                $query->where('user_id', $request->user()->id);
-            })
-            ->where('is_published', true)
-            ->latest('published_at')
+        $results = Submission::query()
+            ->with(['exam.subject'])
+            ->where('user_id', $request->user()->id)
+            ->where('status', 'evaluated')
+            ->latest('evaluated_at')
             ->get()
-            ->map(function (Result $result) {
-                $attempt = $result->attempt;
-                $exam = $attempt?->exam;
+            ->map(function (Submission $submission) {
+                $exam = $submission->exam;
+                $percentage = (float) $submission->percentage;
 
                 return [
-                    'resultId' => $result->id,
+                    'resultId' => $submission->id,
                     'examId' => $exam?->id,
                     'examName' => $exam?->title,
                     'courseName' => $exam?->subject?->name,
-                    'score' => (int) $result->score,
-                    'totalMarks' => (int) $result->total_marks,
-                    'grade' => $result->grade,
-                    'publishedAt' => $result->published_at?->toISOString(),
-                    'submittedAt' => $attempt?->submitted_at?->toISOString() ?? $attempt?->end_time?->toISOString(),
-                    'feedback' => $result->feedback,
+                    'score' => (int) $submission->score,
+                    'totalMarks' => (int) $submission->total_marks,
+                    'grade' => $this->gradeFromPercentage($percentage),
+                    'publishedAt' => $submission->evaluated_at?->toISOString() ?? $submission->created_at?->toISOString(),
+                    'submittedAt' => $submission->evaluated_at?->toISOString() ?? $submission->created_at?->toISOString(),
+                    'feedback' => null,
                 ];
             });
 
@@ -315,33 +326,30 @@ class StudentExamController extends Controller
 
     public function submissions(Request $request): JsonResponse
     {
-        $attempts = ExamAttempt::query()
+        $submissions = Submission::query()
             ->with(['exam.subject'])
             ->where('user_id', $request->user()->id)
-            ->whereIn('status', ['submitted', 'timeout'])
-            ->latest('submitted_at')
-            ->latest('end_time')
+            ->latest('evaluated_at')
+            ->latest('created_at')
             ->get()
-            ->map(function (ExamAttempt $attempt) {
-                $started = $attempt->start_time ?? $attempt->started_at;
-                $ended = $attempt->submitted_at ?? $attempt->end_time;
-                $durationTaken = ($started && $ended) ? Carbon::parse($started)->diffInMinutes(Carbon::parse($ended)) : null;
+            ->map(function (Submission $submission) {
+                $exam = $submission->exam;
 
                 return [
-                    'attemptId' => $attempt->id,
-                    'examId' => $attempt->exam?->id,
-                    'examName' => $attempt->exam?->title,
-                    'courseName' => $attempt->exam?->subject?->name,
-                    'submissionDateTime' => $ended?->toISOString(),
-                    'durationTakenMinutes' => $durationTaken,
-                    'status' => $attempt->status,
+                    'attemptId' => $submission->id,
+                    'examId' => $exam?->id,
+                    'examName' => $exam?->title,
+                    'courseName' => $exam?->subject?->name,
+                    'submissionDateTime' => $submission->evaluated_at?->toISOString() ?? $submission->created_at?->toISOString(),
+                    'durationTakenMinutes' => null,
+                    'status' => $submission->status,
                 ];
             });
 
         return response()->json([
             'success' => true,
             'message' => 'Submission history fetched successfully',
-            'data' => $attempts,
+            'data' => $submissions,
         ]);
     }
 
@@ -380,6 +388,26 @@ class StudentExamController extends Controller
         $now = now();
 
         return $exam->start_time <= $now && $exam->end_time >= $now;
+    }
+
+    private function hasStudentAccess(Exam $exam, string $studentEmail): bool
+    {
+        return ExamAccessUser::query()
+            ->where('exam_id', $exam->id)
+            ->whereRaw('LOWER(email) = ?', [$studentEmail])
+            ->exists();
+    }
+
+    private function gradeFromPercentage(float $percentage): string
+    {
+        return match (true) {
+            $percentage >= 90 => 'A+',
+            $percentage >= 80 => 'A',
+            $percentage >= 70 => 'B',
+            $percentage >= 60 => 'C',
+            $percentage >= 50 => 'D',
+            default => 'F',
+        };
     }
 
     private function examStatus(Exam $exam, ?ExamAttempt $attempt, Carbon $now): string

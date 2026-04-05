@@ -27,7 +27,7 @@ export interface StudentAttemptQuestion {
   id: number;
   type: 'mcq' | 'true_false' | 'descriptive';
   questionText: string;
-  options?: string[] | null;
+  options?: string[] | Record<string, string> | null;
   marks: number;
   selectedAnswer?: string | null;
 }

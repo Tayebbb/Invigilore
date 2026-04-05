@@ -24,4 +24,20 @@ class AuditLog extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public static function writeEntry(
+        ?int $userId,
+        string $eventType,
+        ?string $description = null,
+        ?string $ipAddress = null,
+        ?string $userAgent = null
+    ): self {
+        return self::query()->create([
+            'user_id' => $userId,
+            'event_type' => $eventType,
+            'description' => $description,
+            'ip_address' => $ipAddress,
+            'user_agent' => $userAgent,
+        ]);
+    }
 }

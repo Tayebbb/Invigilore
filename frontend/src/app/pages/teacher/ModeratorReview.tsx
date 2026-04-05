@@ -92,7 +92,7 @@ export default function ModeratorReview() {
         <div className="flex items-center justify-between">
           <div>
             <button 
-              onClick={() => navigate(`/teacher/exams/${id}/settings`)}
+              onClick={() => navigate(`/teacher/exams/new?examId=${id}&step=settings`)}
               className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-2"
             >
               <ArrowLeft className="w-4 h-4" /> Back to Exam Dashboard
