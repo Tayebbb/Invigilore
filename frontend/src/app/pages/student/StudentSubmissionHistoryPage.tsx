@@ -3,34 +3,8 @@ import { useNavigate } from 'react-router';
 import { Search } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api';
-import { extractApiData } from '../../utils/apiHelpers';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import type { StudentSubmission, SubmissionResultItem } from './studentTypes';
-
-function getStoredUserId(): number | null {
-  const raw = localStorage.getItem('invigilore_user');
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as { id?: number | string };
-    const id = Number(parsed?.id);
-    return Number.isFinite(id) && id > 0 ? id : null;
-  } catch {
-    return null;
-  }
-}
-
-function mapSubmission(item: SubmissionResultItem): StudentSubmission {
-  return {
-    attemptId: item.id,
-    examId: item.exam_id,
-    examName: item.exam?.title ?? `Exam #${item.exam_id}`,
-    courseName: '-',
-    submissionDateTime: item.evaluated_at ?? item.created_at,
-    durationTakenMinutes: null,
-    status: item.status ?? 'evaluated',
-  };
-}
 
 export default function StudentSubmissionHistoryPage() {
   const navigate = useNavigate();
@@ -43,16 +17,9 @@ export default function StudentSubmissionHistoryPage() {
     async function load() {
       setLoading(true);
       try {
-        const userId = getStoredUserId();
-        if (!userId) {
-          setRows([]);
-          return;
-        }
-
-        const res = await api.get(`/users/${userId}/results`);
-        const data = extractApiData(res);
-        const list = Array.isArray(data) ? data as SubmissionResultItem[] : [];
-        setRows(list.map(mapSubmission));
+        const res = await api.get('/student/submissions');
+        const list = Array.isArray(res.data?.data) ? (res.data.data as StudentSubmission[]) : [];
+        setRows(list);
       } catch {
         setRows([]);
       } finally {

@@ -4,12 +4,32 @@ import { AlertCircle, Clock, CheckCircle } from 'lucide-react';
 import api from '../../api';
 import type { StudentAttemptPayload } from './studentTypes';
 
+type SubmissionResultSummary = {
+  examName?: string;
+  score: number;
+  totalMarks: number;
+  percentage?: number;
+};
+
 function formatTimer(seconds: number) {
   const safe = Math.max(0, seconds);
   const h = Math.floor(safe / 3600);
   const m = Math.floor((safe % 3600) / 60);
   const s = safe % 60;
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function getQuestionOptions(options: StudentAttemptPayload['questions'][number]['options']): string[] {
+  if (!options) return [];
+
+  if (Array.isArray(options)) {
+    return options.filter((option): option is string => typeof option === 'string' && option.trim().length > 0);
+  }
+
+  return Object.entries(options)
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+    .map(([, value]) => value)
+    .filter((option): option is string => typeof option === 'string' && option.trim().length > 0);
 }
 
 export default function StudentExamAttemptPage() {
@@ -25,6 +45,7 @@ export default function StudentExamAttemptPage() {
   const [submitting, setSubmitting] = useState(false);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
+  const [submissionSummary, setSubmissionSummary] = useState<SubmissionResultSummary | null>(null);
 
   const submissionKeyRef = useRef(`exam-${examId ?? 'unknown'}-${Date.now()}`);
 
@@ -75,7 +96,14 @@ export default function StudentExamAttemptPage() {
       };
 
       api.post('/submissions', payload)
-        .then(() => {
+        .then((response) => {
+          const data = response?.data?.data ?? {};
+          setSubmissionSummary({
+            examName: data?.exam?.title ?? attempt.examName,
+            score: Number(data?.score ?? 0),
+            totalMarks: Number(data?.total_marks ?? 0),
+            percentage: Number(data?.percentage ?? 0),
+          });
           setShowSubmitSuccess(true);
         })
         .catch(() => {
@@ -135,7 +163,14 @@ export default function StudentExamAttemptPage() {
         })),
       };
 
-      await api.post('/submissions', payload);
+      const response = await api.post('/submissions', payload);
+      const data = response?.data?.data ?? {};
+      setSubmissionSummary({
+        examName: data?.exam?.title ?? attempt.examName,
+        score: Number(data?.score ?? 0),
+        totalMarks: Number(data?.total_marks ?? 0),
+        percentage: Number(data?.percentage ?? 0),
+      });
       setShowSubmitSuccess(true);
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Submission failed');
@@ -160,6 +195,25 @@ export default function StudentExamAttemptPage() {
               ? 'Your exam was automatically submitted because the time limit expired.'
               : 'Thank you for completing your exam. Your responses have been recorded.'}
           </div>
+          {submissionSummary && (
+            <div className="mb-5 w-full rounded-lg border border-emerald-500/30 bg-gray-950/50 p-4 text-sm text-gray-100">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-gray-400">Evaluated marks</span>
+                <span className="font-semibold text-emerald-300">
+                  {submissionSummary.score}/{submissionSummary.totalMarks}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <span className="text-gray-400">Percentage</span>
+                <span className="font-semibold text-teal-300">
+                  {Number.isFinite(submissionSummary.percentage ?? NaN) ? (submissionSummary.percentage ?? 0).toFixed(2) : '0.00'}%
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-gray-500">
+                MCQ answers were auto-evaluated as soon as the timer ended.
+              </p>
+            </div>
+          )}
           <button className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white" onClick={() => navigate('/student/submissions')}>Go to Submission History</button>
         </div>
       </div>
@@ -228,7 +282,7 @@ export default function StudentExamAttemptPage() {
             />
           ) : (
             <div className="space-y-2">
-              {(currentQuestion.options ?? []).map((option) => (
+              {getQuestionOptions(currentQuestion.options).map((option) => (
                 <label key={option} className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-800 bg-gray-950 p-3 text-sm">
                   <input
                     type="radio"

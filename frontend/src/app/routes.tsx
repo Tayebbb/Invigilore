@@ -18,6 +18,8 @@ import StudentProfilePage     from "./pages/student/StudentProfilePage";
 import StudentAccountSettingsPage from "./pages/student/StudentAccountSettingsPage";
 import StudentHelpSupportPage from "./pages/student/StudentHelpSupportPage";
 import UserManagement         from "./pages/admin/UserManagement";
+import NotFound              from "./pages/NotFound";
+import RouteErrorBoundary    from "./pages/RouteErrorBoundary";
 import RoleDashboardPlaceholder from "./pages/role/RoleDashboardPlaceholder";
 
 // Auth guard
@@ -25,7 +27,7 @@ import ProtectedRoute         from "./auth/ProtectedRoute";
 import ExamQuestionSetterRoute from "./auth/ExamQuestionSetterRoute";
 import ExamRoleAccessRoute    from "./auth/ExamRoleAccessRoute";
 
-export const router = createBrowserRouter([
+const routes = [
   // ── Public routes ────────────────────────────────────────────────────────
   {
     path: "/",
@@ -116,9 +118,7 @@ export const router = createBrowserRouter([
     path: "/exam/:id/access",
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
-        <ExamRoleAccessRoute requiredRole="controller">
-          <CreateExam />
-        </ExamRoleAccessRoute>
+        <CreateExam />
       </ProtectedRoute>
     ),
   },
@@ -186,4 +186,15 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
   },
-]);
+  {
+    path: "*",
+    Component: NotFound,
+  },
+];
+
+export const router = createBrowserRouter(
+  routes.map((route) => ({
+    ...route,
+    errorElement: <RouteErrorBoundary />,
+  }))
+);
