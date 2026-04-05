@@ -55,27 +55,11 @@ export default function Login() {
         email: formData.email,
         password: formData.password,
       });
+      const data = extractApiData(response) ?? response.data;
 
-      const token = response.data?.token ?? response.data?.access_token;
+      const token = data?.token ?? data?.access_token;
 
-      if (token) {
-        localStorage.setItem('token', token);
-
-        // Store user info for ProtectedRoute and dashboard display
-        const apiUser = response.data.user;
-        const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
-        const roleName = normalizeRole(rawRole);
-        localStorage.setItem('invigilore_user', JSON.stringify({
-          id: apiUser.id,
-          name:  apiUser.name,
-          email: apiUser.email,
-          role:  rawRole,
-        }));
-
-        setTimeout(() => {
-          navigate(getHomeRouteByRole(roleName));
-        }, 500);
-      } else {
+      if (!token) {
         setError('Login succeeded, but no auth token was returned. Please try again.');
         return;
       }
@@ -87,6 +71,7 @@ export default function Login() {
       const roleName = normalizeRole(rawRole);
 
       localStorage.setItem('invigilore_user', JSON.stringify({
+        id: apiUser?.id,
         name: apiUser?.name ?? '',
         email: apiUser?.email ?? formData.email,
         role: rawRole,

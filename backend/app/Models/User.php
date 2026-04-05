@@ -27,6 +27,7 @@ class User extends Authenticatable implements JWTSubject
         'profile_picture',
         'restrict_login_to_one_device',
         'preferences',
+        'is_active',
         'password',
         'role_id',
     ];
@@ -52,6 +53,7 @@ class User extends Authenticatable implements JWTSubject
             'email_verified_at' => 'datetime',
             'restrict_login_to_one_device' => 'boolean',
             'preferences' => 'array',
+            'is_active' => 'boolean',
             'password' => 'hashed',
         ];
     }
