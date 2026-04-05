@@ -21,6 +21,7 @@ use App\Http\Controllers\ExamWorkflowController;
 use App\Http\Controllers\ExamAccessController;
 use App\Http\Controllers\ModeratorReviewController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\TeacherPortalController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -99,6 +100,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/exams/{exam}',   [ExamController::class, 'update']);
         Route::delete('/exams/{exam}',[ExamController::class, 'destroy']);
 
+        Route::get('/exams/{exam}/access', [ExamAccessController::class, 'show']);
+        Route::post('/exams/{exam}/access/public', [ExamAccessController::class, 'generatePublic']);
+        Route::post('/exams/{exam}/access/private', [ExamAccessController::class, 'generatePrivate']);
+
         Route::prefix('teacher/portal')->group(function () {
             Route::get('/tests', [TeacherPortalController::class, 'tests']);
             Route::get('/tests/{exam}', [TeacherPortalController::class, 'testInfo']);
@@ -168,9 +173,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/exam/{exam}/settings', [ExamWorkflowController::class, 'settings']);
         Route::put('/exam/{exam}/settings', [ExamWorkflowController::class, 'updateSettings']);
         Route::post('/exam/{exam}/activate', [ExamWorkflowController::class, 'activate']);
-        Route::get('/exams/{exam}/access', [ExamAccessController::class, 'show']);
-        Route::post('/exams/{exam}/access/public', [ExamAccessController::class, 'generatePublic']);
-        Route::post('/exams/{exam}/access/private', [ExamAccessController::class, 'generatePrivate']);
     });
 
     // Moderator paper review routes

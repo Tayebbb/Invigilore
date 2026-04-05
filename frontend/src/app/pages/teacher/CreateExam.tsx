@@ -71,6 +71,13 @@ type ApiQuestion = {
 type AccessChannel = 'web' | 'teams';
 type AccessType = 'public' | 'private' | 'group' | 'training';
 
+type PrivateRecipient = {
+  id?: number;
+  email: string;
+  status?: string;
+  expires_at?: string | null;
+};
+
 const CATEGORIES = ['python', 'java', 'javascript', 'database'];
 const LANGUAGES = ['English', 'French', 'Spanish'];
 
@@ -203,7 +210,9 @@ export default function CreateExam() {
   const [requirePublicEmail, setRequirePublicEmail] = useState(false);
   const [publicAccessLink, setPublicAccessLink] = useState('');
   const [privateEmailsInput, setPrivateEmailsInput] = useState('');
-  const [privateLinks, setPrivateLinks] = useState<Array<{ email: string; link: string }>>([]);
+  const [registeredStudents, setRegisteredStudents] = useState<string[]>([]);
+  const [pendingRegistrations, setPendingRegistrations] = useState<string[]>([]);
+  const [privateRecipients, setPrivateRecipients] = useState<PrivateRecipient[]>([]);
   const [savingAccess, setSavingAccess] = useState(false);
 
   const normalizedCurrentUserEmail = normalizeText(currentUser.email);
@@ -221,6 +230,10 @@ export default function CreateExam() {
   const isModeratorOnCurrentExam =
     !!examContext &&
     normalizeText(examContext.moderator?.email) === normalizedCurrentUserEmail;
+
+  const isTeacherOnCurrentExam =
+    !!examContext &&
+    normalizeText(examContext.teacher?.email) === normalizedCurrentUserEmail;
 
   const isInvigilatorOnCurrentExam =
     !!examContext &&
@@ -243,9 +256,10 @@ export default function CreateExam() {
   const canEditQuestionsManager = canEditControllerOnly || (!!examId && isAssignedQuestionSetterOnCurrentExam);
   const canEditModeratorPanel = canEditControllerOnly || (!!examId && isModeratorOnCurrentExam);
   const canEditInvigilatorPanel = canEditControllerOnly || (!!examId && isInvigilatorOnCurrentExam);
-  const canEditTestAccess = canEditControllerOnly || (!!examId && isModeratorOnCurrentExam);
+  const canEditTestAccess = canEditControllerOnly || (!!examId && (isModeratorOnCurrentExam || isTeacherOnCurrentExam));
 
   const activeExamContext = examContext ?? setterExams[0] ?? null;
+  const targetExamId = activeExamContext?.id ?? ((examId && !Number.isNaN(examId)) ? examId : null);
   const canActivateExam = canEditControllerOnly || (!!examId && isModeratorOnCurrentExam && activeExamContext?.exam_status === 'completed');
 
   async function refreshExamQuestions(examIdToLoad: number) {
@@ -373,11 +387,12 @@ export default function CreateExam() {
   useEffect(() => {
     if (activeStep !== 'test_access') return;
     if (!canAccessControllerOnly) return;
-    if (!activeExamContext?.id) return;
+    if (!targetExamId) return;
 
-    api.get(`/exams/${activeExamContext.id}/access`)
+    api.get(`/exams/${targetExamId}/access`)
       .then((res) => {
         const config = res.data?.config;
+        const recipients = Array.isArray(res.data?.private_recipients) ? res.data.private_recipients : [];
         if (config?.channel === 'web' || config?.channel === 'teams') {
           setAccessChannel(config.channel);
         }
@@ -386,11 +401,15 @@ export default function CreateExam() {
         }
         setRequirePublicEmail(Boolean(config?.require_email));
         setPublicAccessLink(String(res.data?.public_link ?? ''));
+        setPrivateRecipients(recipients);
+        setRegisteredStudents([]);
+        setPendingRegistrations([]);
       })
       .catch(() => {
         // Keep defaults when no access config is available yet.
+        setPrivateRecipients([]);
       });
-  }, [activeExamContext?.id, activeStep, canAccessControllerOnly]);
+  }, [activeStep, canAccessControllerOnly, targetExamId]);
 
   useEffect(() => {
     api.get('/exams')
@@ -588,7 +607,7 @@ export default function CreateExam() {
         const res = await api.post('/exams', payload);
         setSuccess(`Exam "${examLabel}" created and activated successfully.`);
         if (res.data?.id) {
-          navigate(`/teacher/exams/${res.data.id}`);
+          navigate(`/exam/${res.data.id}/access`);
         }
       }
     } catch (err: any) {
@@ -648,7 +667,7 @@ export default function CreateExam() {
         const res = await api.post('/exams', payload);
         setSuccess(`Exam "${examLabel}" saved as draft. You can activate it when ready.`);
         if (res.data?.id) {
-          navigate(`/teacher/exams/${res.data.id}/settings`);
+          navigate(`/teacher/exams/new?examId=${res.data.id}&step=settings`);
         }
       }
     } catch (err: any) {
@@ -1387,19 +1406,22 @@ export default function CreateExam() {
 
                 {accessType === 'private' && (
                   <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/60 p-4">
-                    <p className="text-sm text-gray-300">Add one or more emails (comma or new line separated).</p>
+                    <p className="text-sm text-gray-300">Add one or more Gmail addresses (comma or new line separated).</p>
                     <textarea
                       rows={5}
                       value={privateEmailsInput}
                       onChange={(e) => setPrivateEmailsInput(e.target.value)}
-                      placeholder="student1@example.com, student2@example.com"
+                      placeholder="student1@gmail.com, student2@gmail.com"
                       className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white"
                     />
                     <button
                       type="button"
-                      disabled={savingAccess || !activeExamContext?.id}
+                      disabled={savingAccess || !targetExamId}
                       onClick={async () => {
-                        if (!activeExamContext?.id) return;
+                        if (!targetExamId) {
+                          setError('Save or open an exam first, then assign students.');
+                          return;
+                        }
                         const emails = privateEmailsInput
                           .split(/[\n,;]/)
                           .map((e) => e.trim())
@@ -1412,31 +1434,69 @@ export default function CreateExam() {
 
                         setSavingAccess(true);
                         try {
-                          const res = await api.post(`/exams/${activeExamContext.id}/access/private`, {
+                          const res = await api.post(`/exams/${targetExamId}/access/private`, {
                             channel: accessChannel,
                             emails,
                           });
-                          setPrivateLinks(Array.isArray(res.data?.links) ? res.data.links : []);
-                          setSuccess('Private access links generated and email dispatch triggered.');
+                          setRegisteredStudents(Array.isArray(res.data?.registered_students) ? res.data.registered_students : []);
+                          setPendingRegistrations(Array.isArray(res.data?.pending_registration) ? res.data.pending_registration : []);
+                          setPrivateRecipients((prev) => {
+                            const existingByEmail = new Set(prev.map((item) => normalizeText(item.email)));
+                            const additions = emails
+                              .map((value) => normalizeText(value))
+                              .filter((value) => !existingByEmail.has(value))
+                              .map((value) => ({ email: value, status: 'pending' as const }));
+
+                            return [...prev, ...additions];
+                          });
+                          setSuccess('Private access assigned. Registered students can now access this exam after login.');
                           setError('');
                         } catch (err: any) {
-                          setError(err?.response?.data?.message ?? 'Failed to generate private links.');
+                          setError(err?.response?.data?.message ?? 'Failed to assign private access.');
                         } finally {
                           setSavingAccess(false);
                         }
                       }}
                       className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-60"
                     >
-                      {savingAccess ? 'Sending...' : 'Send Access Link'}
+                      {savingAccess ? 'Assigning...' : 'Assign Students'}
                     </button>
 
-                    {privateLinks.length > 0 && (
+                    {!targetExamId && (
+                      <p className="text-xs text-amber-300">Save or open an exam first to enable student assignment.</p>
+                    )}
+
+                    {(registeredStudents.length > 0 || pendingRegistrations.length > 0) && (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div className="rounded-lg border border-emerald-700/40 bg-emerald-900/15 px-3 py-2">
+                          <p className="text-xs uppercase tracking-wide text-emerald-300">Registered students</p>
+                          <p className="mt-1 text-sm text-emerald-100">{registeredStudents.length} assigned and eligible</p>
+                        </div>
+                        <div className="rounded-lg border border-amber-700/40 bg-amber-900/15 px-3 py-2">
+                          <p className="text-xs uppercase tracking-wide text-amber-300">Pending registration</p>
+                          <p className="mt-1 text-sm text-amber-100">{pendingRegistrations.length} emails not registered yet</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {pendingRegistrations.length > 0 && (
+                      <div className="rounded-lg border border-amber-800 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+                        <p className="font-semibold">These emails must register first:</p>
+                        <p className="mt-1 break-all">{pendingRegistrations.join(', ')}</p>
+                      </div>
+                    )}
+
+                    {privateRecipients.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-xs uppercase tracking-wide text-gray-500">Generated links</p>
-                        {privateLinks.map((item, idx) => (
+                        <p className="text-xs uppercase tracking-wide text-gray-500">Assigned recipients</p>
+                        {privateRecipients.map((item, idx) => (
                           <div key={`${item.email}-${idx}`} className="rounded-lg border border-gray-800 bg-gray-900 px-3 py-2 text-xs text-gray-300">
-                            <p className="font-semibold text-gray-200">{item.email}</p>
-                            <p className="break-all mt-1">{item.link}</p>
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-semibold text-gray-200 break-all">{item.email}</p>
+                              <span className="rounded-full border border-gray-700 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-300">
+                                {item.status ?? 'pending'}
+                              </span>
+                            </div>
                           </div>
                         ))}
                       </div>

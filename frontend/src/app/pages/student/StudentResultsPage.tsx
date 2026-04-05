@@ -3,35 +3,22 @@ import { useNavigate } from 'react-router';
 import { AlertCircle } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import api from '../../api';
-import { extractApiData, extractApiError } from '../../utils/apiHelpers';
+import { extractApiError } from '../../utils/apiHelpers';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
-import type { StudentResult, SubmissionResultItem } from './studentTypes';
+import type { StudentResult } from './studentTypes';
 
-function getStoredUserId(): number | null {
-  const raw = localStorage.getItem('invigilore_user');
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as { id?: number | string };
-    const id = Number(parsed?.id);
-    return Number.isFinite(id) && id > 0 ? id : null;
-  } catch {
-    return null;
-  }
-}
-
-function mapResult(item: SubmissionResultItem): StudentResult {
+function mapResult(item: StudentResult): StudentResult {
   return {
-    resultId: item.id,
-    examId: item.exam_id,
-    examName: item.exam?.title ?? `Exam #${item.exam_id}`,
-    courseName: '-',
+    resultId: item.resultId,
+    examId: item.examId,
+    examName: item.examName,
+    courseName: item.courseName,
     score: Number(item.score ?? 0),
-    totalMarks: Number(item.total_marks ?? 0),
-    grade: `${Number(item.percentage ?? 0).toFixed(2)}%`,
-    publishedAt: item.evaluated_at ?? item.created_at,
-    submittedAt: item.created_at,
-    feedback: null,
+    totalMarks: Number(item.totalMarks ?? 0),
+    grade: item.grade,
+    publishedAt: item.publishedAt,
+    submittedAt: item.submittedAt,
+    feedback: item.feedback ?? null,
   };
 }
 
@@ -46,16 +33,8 @@ export default function StudentResultsPage() {
       setLoading(true);
       setError('');
       try {
-        const userId = getStoredUserId();
-        if (!userId) {
-          setResults([]);
-          setError('User session not found. Please log in again.');
-          return;
-        }
-
-        const res = await api.get(`/users/${userId}/results`);
-        const data = extractApiData(res);
-        const list = Array.isArray(data) ? data as SubmissionResultItem[] : [];
+        const res = await api.get('/student/results');
+        const list = Array.isArray(res.data?.data) ? (res.data.data as StudentResult[]) : [];
         setResults(list.map(mapResult));
       } catch (err: any) {
         const message = extractApiError(err);
@@ -78,8 +57,8 @@ export default function StudentResultsPage() {
   const notifications = [
     {
       id: 'results-published',
-      title: 'Result Publication Policy',
-      message: 'Results appear only after controller publication.',
+      title: 'Auto Evaluation Enabled',
+      message: 'MCQ results appear after your submission is evaluated.',
       timestamp: new Date().toISOString(),
       read: false,
     },
@@ -110,7 +89,7 @@ export default function StudentResultsPage() {
       {loading ? (
         <div className="h-56 animate-pulse rounded-xl border border-gray-800 bg-gray-900" />
       ) : results.length === 0 ? (
-        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 text-sm text-gray-400">No published results yet.</div>
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 text-sm text-gray-400">No evaluated results yet.</div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-900">
           <table className="w-full text-sm">

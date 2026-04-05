@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Exam;
 use App\Models\ExamAccess;
 use App\Models\ExamAccessUser;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class ExamAccessController extends Controller
@@ -65,6 +65,12 @@ class ExamAccessController extends Controller
             'emails.*' => ['required', 'email'],
         ]);
 
+        $normalizedEmails = collect($payload['emails'])
+            ->map(fn ($email) => strtolower(trim((string) $email)))
+            ->filter()
+            ->unique()
+            ->values();
+
         ExamAccess::query()->updateOrCreate(
             ['exam_id' => $exam->id],
             [
@@ -75,12 +81,21 @@ class ExamAccessController extends Controller
             ]
         );
 
-        $links = [];
-        foreach (array_unique($payload['emails']) as $email) {
+        $registeredStudentEmails = User::query()
+            ->whereIn('email', $normalizedEmails->all())
+            ->whereHas('role', function ($query) {
+                $query->where('name', 'student');
+            })
+            ->pluck('email')
+            ->map(fn ($email) => strtolower((string) $email))
+            ->all();
+
+        $assigned = 0;
+        foreach ($normalizedEmails as $email) {
             $plainToken = Str::uuid()->toString() . Str::random(16);
             $hashedToken = hash('sha256', $plainToken);
 
-            $row = ExamAccessUser::query()->updateOrCreate(
+            ExamAccessUser::query()->updateOrCreate(
                 ['exam_id' => $exam->id, 'email' => $email],
                 [
                     'access_token' => $hashedToken,
@@ -88,24 +103,14 @@ class ExamAccessController extends Controller
                     'expires_at' => $exam->end_time,
                 ]
             );
-
-            $link = url("/test/{$exam->id}?token={$plainToken}&email=" . urlencode($email));
-            $links[] = ['email' => $email, 'link' => $link, 'id' => $row->id];
-
-            try {
-                Mail::raw("You have been granted private access to exam {$exam->title}. Link: {$link}", function ($message) use ($email, $exam) {
-                    $message->to($email)
-                        ->subject("Exam Access Link: {$exam->title}");
-                });
-            } catch (\Throwable) {
-                // Mail failures should not block token issuance.
-            }
+            $assigned++;
         }
 
         return response()->json([
-            'message' => 'Private access links generated and emails dispatched.',
-            'sent' => count($links),
-            'links' => $links,
+            'message' => 'Private exam access assigned successfully.',
+            'assigned' => $assigned,
+            'registered_students' => $registeredStudentEmails,
+            'pending_registration' => array_values(array_diff($normalizedEmails->all(), $registeredStudentEmails)),
         ]);
     }
 

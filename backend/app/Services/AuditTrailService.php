@@ -12,7 +12,16 @@ class AuditTrailService
     {
         $description = json_encode($payload, JSON_UNESCAPED_SLASHES);
 
-        AuditLog::writeEntry($user?->id, $action, $description, $ipAddress, null);
+        try {
+            AuditLog::writeEntry($user?->id, $action, $description, $ipAddress, null);
+        } catch (\Throwable $exception) {
+            Log::warning('Audit trail persistence failed', [
+                'user_id' => $user?->id,
+                'action' => $action,
+                'ip_address' => $ipAddress,
+                'error' => $exception->getMessage(),
+            ]);
+        }
 
         Log::info('Audit trail event', [
             'user_id' => $user?->id,

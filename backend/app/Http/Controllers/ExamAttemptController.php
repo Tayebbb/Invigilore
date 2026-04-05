@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AttemptAnswer;
 use App\Models\Exam;
+use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
 use App\Services\AuditService;
 use Carbon\Carbon;
@@ -31,6 +32,12 @@ class ExamAttemptController extends Controller
 
         $user = $request->user();
         $exam = Exam::findOrFail($request->integer('exam_id'));
+        $isStudent = strtolower((string) ($user?->role?->name ?? '')) === 'student';
+        if ($isStudent && ! $this->hasAssignedExamAccess($exam->id, strtolower((string) $user->email))) {
+            return response()->json([
+                'message' => 'You are not assigned to this exam.',
+            ], 403);
+        }
 
         $hasActiveAttempt = ExamAttempt::query()
             ->where('user_id', $user->id)
@@ -340,6 +347,14 @@ class ExamAttemptController extends Controller
         }
 
         return (int) ($exam?->duration ?? 0);
+    }
+
+    private function hasAssignedExamAccess(int $examId, string $email): bool
+    {
+        return ExamAccessUser::query()
+            ->where('exam_id', $examId)
+            ->whereRaw('LOWER(email) = ?', [$email])
+            ->exists();
     }
 
     private function attemptStatus(ExamAttempt $attempt): string
