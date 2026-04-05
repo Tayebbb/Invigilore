@@ -71,9 +71,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // User (faculty) management
         Route::get('/admin/users',          [UserController::class, 'index']);
-        Route::post('/admin/users',         [UserController::class, 'store']);
-        Route::put('/admin/users/{user}',   [UserController::class, 'update']);
-        Route::delete('/admin/users/{user}',[UserController::class, 'destroy']);
+        Route::get('/admin/users/{user}',    [UserController::class, 'show']);
+
+        Route::middleware('throttle:admin-actions')->group(function () {
+            Route::post('/admin/users',         [UserController::class, 'store']);
+            Route::match(['put', 'patch'], '/admin/users/{user}', [UserController::class, 'update']);
+            Route::patch('/admin/users/{user}/status', [UserController::class, 'updateStatus']);
+            Route::delete('/admin/users/{user}',[UserController::class, 'destroy']);
+        });
     });
 
     // Admin or Teacher routes
