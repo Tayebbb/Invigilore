@@ -26,7 +26,7 @@ export default function StudentExamAttemptPage() {
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
 
-  const autosaveTimer = useRef<number | null>(null);
+  const submissionKeyRef = useRef(`exam-${examId ?? 'unknown'}-${Date.now()}`);
 
   useEffect(() => {
     async function start() {
@@ -65,7 +65,16 @@ export default function StudentExamAttemptPage() {
       // Auto-submit when time runs out
       setAutoSubmitted(true);
       setSubmitting(true);
-      api.post(`/student/attempts/${attempt.attemptId}/submit`)
+      const payload = {
+        exam_id: attempt.examId,
+        idempotency_key: submissionKeyRef.current,
+        answers: attempt.questions.map((question) => ({
+          question_id: question.id,
+          submitted_answer: answers[question.id] ?? null,
+        })),
+      };
+
+      api.post('/submissions', payload)
         .then(() => {
           setShowSubmitSuccess(true);
         })
@@ -78,7 +87,7 @@ export default function StudentExamAttemptPage() {
     if (remaining <= 0) return;
     const timer = window.setInterval(() => setRemaining((prev) => Math.max(0, prev - 1)), 1000);
     return () => window.clearInterval(timer);
-  }, [remaining, attempt, autoSubmitted]);
+  }, [remaining, attempt, autoSubmitted, answers]);
 
   useEffect(() => {
     if (!attempt) return;
@@ -104,31 +113,8 @@ export default function StudentExamAttemptPage() {
 
   const currentQuestion = useMemo(() => attempt?.questions[currentIndex] ?? null, [attempt, currentIndex]);
 
-  const saveAnswer = async (questionId: number, value: string) => {
-    if (!attempt) return;
-    try {
-      await api.post(`/student/attempts/${attempt.attemptId}/answers`, {
-        question_id: questionId,
-        selected_answer: value,
-      });
-    } catch {
-      setError('Failed to save answer. Please check your connection.');
-    }
-  };
-
-  const scheduleSave = (questionId: number, value: string) => {
-    if (autosaveTimer.current) {
-      window.clearTimeout(autosaveTimer.current);
-    }
-
-    autosaveTimer.current = window.setTimeout(() => {
-      saveAnswer(questionId, value).catch(() => undefined);
-    }, 600);
-  };
-
   const handleAnswer = (questionId: number, value: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
-    scheduleSave(questionId, value);
   };
 
   const submitExam = async () => {
@@ -140,7 +126,16 @@ export default function StudentExamAttemptPage() {
     setError('');
 
     try {
-      await api.post(`/student/attempts/${attempt.attemptId}/submit`);
+      const payload = {
+        exam_id: attempt.examId,
+        idempotency_key: submissionKeyRef.current,
+        answers: attempt.questions.map((question) => ({
+          question_id: question.id,
+          submitted_answer: answers[question.id] ?? null,
+        })),
+      };
+
+      await api.post('/submissions', payload);
       setShowSubmitSuccess(true);
     } catch (e: any) {
       setError(e?.response?.data?.message ?? 'Submission failed');
