@@ -28,7 +28,7 @@
         <env name="DB_PORT" value="21642"/>
         <env name="DB_DATABASE" value="defaultdb"/>
         <env name="DB_USERNAME" value="avnadmin"/>
-        <env name="DB_PASSWORD" value="REMOVED_SECRET"/>
+        <!-- <env name="DB_PASSWORD" value="REMOVED_SECRET"/> -->
         <env name="MYSQL_ATTR_SSL_CA" value="E:/Invigilore/backend/ca.pem"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
