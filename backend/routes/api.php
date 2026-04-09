@@ -1,3 +1,4 @@
+// Contract-compliant exam attempt creation endpoint
 <?php
 
 use Illuminate\Http\Request;

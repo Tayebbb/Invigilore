@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\AttemptAnswer;
@@ -14,10 +13,77 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
+
+
 class ExamAttemptController extends Controller
 {
     public function __construct(private readonly AuditService $auditService)
     {
+    }
+
+    /**
+     * Contract-compliant endpoint: POST /api/attempts
+     * Starts a new exam attempt for the authenticated student.
+     * Returns 201 with attempt and questions, 409 if already active, 403 if not allowed, 404 if exam not found.
+     */
+    public function store(Request $request)
+    {
+        $user = $request->user();
+        $examId = $request->input('exam_id');
+        if (!$examId) {
+            return response()->json(['message' => 'exam_id is required'], 422);
+        }
+        $exam = \App\Models\Exam::find($examId);
+        if (!$exam) {
+            return response()->json(['message' => 'Exam not found'], 404);
+        }
+        // Only students can start attempts
+        if (strtolower((string)($user?->role?->name ?? '')) !== 'student') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+        // Check if student is assigned to this exam (if access control is enforced)
+        if (method_exists($this, 'hasAssignedExamAccess') && !$this->hasAssignedExamAccess($exam->id, strtolower((string)$user->email))) {
+            return response()->json(['message' => 'You are not assigned to this exam.'], 403);
+        }
+        // Only one active attempt per student per exam
+        $hasActiveAttempt = \App\Models\ExamAttempt::query()
+            ->where('user_id', $user->id)
+            ->where('exam_id', $exam->id)
+            ->where(function($query) {
+                $query->where('status', 'in_progress')
+                    ->orWhereNull('submitted_at');
+            })
+            ->exists();
+        if ($hasActiveAttempt) {
+            return response()->json(['message' => 'An active attempt already exists for this exam.'], 409);
+        }
+        $startTime = now();
+        $attemptData = [
+            'user_id' => $user->id,
+            'exam_id' => $exam->id,
+            'start_time' => $startTime,
+            'started_at' => $startTime,
+            'duration' => (int) $exam->duration,
+            'status' => 'in_progress',
+            'last_ip' => $request->ip(),
+            'last_user_agent' => $request->userAgent(),
+            'submitted_at' => null,
+        ];
+        $attempt = \App\Models\ExamAttempt::create($attemptData);
+        // Return attempt and randomized questions (without correct answers)
+        $questions = $exam->questions()
+            ->inRandomOrder()
+            ->get(['id', 'exam_id', 'question_text', 'type', 'options', 'marks']);
+        return response()->json([
+            'attempt' => [
+                'id' => $attempt->id,
+                'exam_id' => $attempt->exam_id,
+                'start_time' => $attempt->start_time,
+                'duration' => $attempt->duration,
+                'status' => $attempt->status,
+            ],
+            'questions' => $questions,
+        ], 201);
     }
 
     public function start(Request $request): JsonResponse
