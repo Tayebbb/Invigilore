@@ -17,6 +17,8 @@ class RoleSeeder extends Seeder
             ['name' => 'viewer', 'description' => 'Viewer with read-only access'],
             ['name' => 'teacher', 'description' => 'Teacher with course management access'],
             ['name' => 'student', 'description' => 'Student with limited access'],
+            ['name' => 'moderator', 'description' => 'Moderator for exam review'],
+            ['name' => 'invigilator', 'description' => 'Invigilator for live exam monitoring'],
         ];
 
         $hasDescriptionColumn = Schema::hasColumn('roles', 'description');
@@ -24,8 +26,7 @@ class RoleSeeder extends Seeder
         foreach ($roles as $role) {
             $attributes = ['name' => $role['name']];
             $values = $hasDescriptionColumn ? $role : ['name' => $role['name']];
-
-            Role::firstOrCreate($attributes, $values);
+            Role::updateOrCreate($attributes, $values);
         }
     }
 }

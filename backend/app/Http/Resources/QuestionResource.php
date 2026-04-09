@@ -16,6 +16,7 @@ class QuestionResource extends JsonResource
             'type' => $this->type,
             'options' => $this->options,
             'marks' => $this->marks,
+            'difficulty' => $this->difficulty,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

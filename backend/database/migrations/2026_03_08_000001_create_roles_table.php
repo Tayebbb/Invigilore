@@ -15,18 +15,21 @@ return new class extends Migration
 
         Schema::create('roles', function (Blueprint $table) {
             $table->id();
-            $table->enum('name', ['student', 'teacher', 'admin'])->unique();
+            $table->enum('name', [
+                'student',
+                'teacher',
+                'admin',
+                'controller',
+                'question_setter',
+                'moderator',
+                'invigilator',
+                'viewer',
+            ])->unique();
             $table->string('description')->nullable();
             $table->timestamps();
         });
 
-        $now = now();
-
-        DB::table('roles')->insert([
-            ['name' => 'student', 'description' => 'Student with limited access', 'created_at' => $now, 'updated_at' => $now],
-            ['name' => 'teacher', 'description' => 'Teacher with course management access', 'created_at' => $now, 'updated_at' => $now],
-            ['name' => 'admin', 'description' => 'Administrator with full access', 'created_at' => $now, 'updated_at' => $now],
-        ]);
+        // Role creation moved to RoleSeeder for single source of truth
     }
 
     public function down(): void

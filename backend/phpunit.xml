@@ -23,8 +23,13 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="DB_CONNECTION" value="mysql"/>
+        <env name="DB_HOST" value="invigilore-learnova.a.aivencloud.com"/>
+        <env name="DB_PORT" value="21642"/>
+        <env name="DB_DATABASE" value="defaultdb"/>
+        <env name="DB_USERNAME" value="avnadmin"/>
+        <env name="DB_PASSWORD" value="REMOVED_SECRET"/>
+        <env name="MYSQL_ATTR_SSL_CA" value="E:/Invigilore/backend/ca.pem"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

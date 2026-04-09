@@ -17,8 +17,8 @@ class SubmissionEvaluationTest extends TestCase
 
     public function test_student_submission_is_evaluated_and_saved_with_breakdown(): void
     {
-        $studentRole = Role::create(['name' => 'student', 'description' => 'Student']);
-        Role::create(['name' => 'admin', 'description' => 'Administrator']);
+        $studentRole = Role::where('name', 'student')->first();
+        $adminRole = Role::where('name', 'admin')->first();
 
         $student = User::factory()->create([
             'role_id' => $studentRole->id,
@@ -78,8 +78,8 @@ class SubmissionEvaluationTest extends TestCase
 
     public function test_users_cannot_view_other_users_results(): void
     {
-        $studentRole = Role::create(['name' => 'student', 'description' => 'Student']);
-        Role::create(['name' => 'admin', 'description' => 'Administrator']);
+        $studentRole = Role::where('name', 'student')->first();
+        $adminRole = Role::where('name', 'admin')->first();
 
         $studentA = User::factory()->create(['role_id' => $studentRole->id, 'is_active' => true]);
         $studentB = User::factory()->create(['role_id' => $studentRole->id, 'is_active' => true]);
@@ -106,8 +106,8 @@ class SubmissionEvaluationTest extends TestCase
 
     public function test_admin_can_view_exam_results_aggregate(): void
     {
-        $studentRole = Role::create(['name' => 'student', 'description' => 'Student']);
-        $adminRole = Role::create(['name' => 'admin', 'description' => 'Administrator']);
+        $studentRole = Role::where('name', 'student')->first();
+        $adminRole = Role::where('name', 'admin')->first();
 
         $admin = User::factory()->create(['role_id' => $adminRole->id, 'is_active' => true]);
         $student = User::factory()->create(['role_id' => $studentRole->id, 'is_active' => true]);

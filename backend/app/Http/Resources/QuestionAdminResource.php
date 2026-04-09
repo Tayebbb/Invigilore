@@ -18,6 +18,7 @@ class QuestionAdminResource extends JsonResource
             'options' => $this->options,
             'correct_answer' => $this->correct_answer,
             'marks' => $this->marks,
+            'difficulty' => $this->difficulty,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

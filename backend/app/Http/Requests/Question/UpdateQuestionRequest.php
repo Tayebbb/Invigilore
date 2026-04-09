@@ -24,6 +24,7 @@ class UpdateQuestionRequest extends FormRequest
             'option_d' => ['sometimes', 'string', 'max:255'],
             'correct_answer' => ['sometimes', Rule::in(['A', 'B', 'C', 'D'])],
             'marks' => ['sometimes', 'integer', 'min:1'],
+            'difficulty' => ['sometimes', Rule::in(['easy', 'medium', 'hard'])],
         ];
     }
 }

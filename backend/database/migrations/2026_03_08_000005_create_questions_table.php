@@ -16,6 +16,7 @@ return new class extends Migration
             $table->json('options')->nullable();
             $table->string('correct_answer')->nullable();
             $table->unsignedInteger('marks');
+            $table->enum('difficulty', ['easy', 'medium', 'hard'])->default('easy');
             $table->timestamps();
         });
     }

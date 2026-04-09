@@ -24,6 +24,7 @@ class StoreQuestionRequest extends FormRequest
             'option_d' => ['required', 'string', 'max:255'],
             'correct_answer' => ['required', Rule::in(['A', 'B', 'C', 'D'])],
             'marks' => ['required', 'integer', 'min:1'],
+            'difficulty' => ['required', Rule::in(['easy', 'medium', 'hard'])],
         ];
     }
 }

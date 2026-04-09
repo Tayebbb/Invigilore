@@ -14,9 +14,9 @@ class AdminUserManagementTest extends TestCase
 
     public function test_admin_can_create_view_update_and_toggle_user_accounts(): void
     {
-        $adminRole = Role::create(['name' => 'admin', 'description' => 'Administrator']);
-        $teacherRole = Role::create(['name' => 'teacher', 'description' => 'Teacher']);
-        $studentRole = Role::create(['name' => 'student', 'description' => 'Student']);
+        $adminRole = Role::where('name', 'admin')->first();
+        $teacherRole = Role::where('name', 'teacher')->first();
+        $studentRole = Role::where('name', 'student')->first();
 
         $admin = User::factory()->create([
             'role_id' => $adminRole->id,
@@ -97,8 +97,8 @@ class AdminUserManagementTest extends TestCase
 
     public function test_non_admin_cannot_access_admin_user_endpoints(): void
     {
-        $studentRole = Role::create(['name' => 'student', 'description' => 'Student']);
-        $adminRole = Role::create(['name' => 'admin', 'description' => 'Administrator']);
+        $studentRole = Role::where('name', 'student')->first();
+        $adminRole = Role::where('name', 'admin')->first();
 
         $student = User::factory()->create([
             'role_id' => $studentRole->id,
@@ -126,7 +126,7 @@ class AdminUserManagementTest extends TestCase
 
     public function test_inactive_users_cannot_login(): void
     {
-        $studentRole = Role::create(['name' => 'student', 'description' => 'Student']);
+        $studentRole = Role::where('name', 'student')->first();
 
         $user = User::factory()->create([
             'email' => 'inactive@example.com',

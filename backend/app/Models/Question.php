@@ -18,6 +18,7 @@ class Question extends Model
         'options',
         'correct_answer',
         'marks',
+        'difficulty',
         'status',
         'review_comment',
     ];

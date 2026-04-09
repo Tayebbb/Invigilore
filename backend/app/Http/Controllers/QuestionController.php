@@ -52,6 +52,7 @@ class QuestionController extends Controller
             ],
             'correct_answer' => $validated['correct_answer'],
             'marks' => $validated['marks'] ?? 1,
+            'difficulty' => $validated['difficulty'],
         ]);
 
         return (new QuestionAdminResource($question))->response()->setStatusCode(201);
@@ -64,6 +65,10 @@ class QuestionController extends Controller
 
         if (array_key_exists('exam_id', $validated)) {
             $payload['exam_id'] = $validated['exam_id'];
+        }
+
+        if (array_key_exists('difficulty', $validated)) {
+            $payload['difficulty'] = $validated['difficulty'];
         }
 
         if (array_key_exists('question_text', $validated)) {
