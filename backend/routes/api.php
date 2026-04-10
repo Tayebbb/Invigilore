@@ -1,5 +1,5 @@
-// Contract-compliant exam attempt creation endpoint
 <?php
+// Contract-compliant exam attempt creation endpoint
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
