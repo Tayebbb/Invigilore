@@ -5,6 +5,7 @@ use App\Models\AttemptAnswer;
 use App\Models\Exam;
 use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
+use App\Models\Result;
 use App\Services\AuditService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -19,6 +20,11 @@ class ExamAttemptController extends Controller
 {
     public function __construct(private readonly AuditService $auditService)
     {
+    }
+
+    public function startAttempt(Request $request): JsonResponse
+    {
+        return $this->start($request);
     }
 
     /**
@@ -283,6 +289,11 @@ class ExamAttemptController extends Controller
 
     public function submit(Request $request, int $id): JsonResponse
     {
+        return $this->submitExam($request, $id);
+    }
+
+    public function submitExam(Request $request, int $id): JsonResponse
+    {
         $attempt = ExamAttempt::with('exam.questions', 'answers')->findOrFail($id);
 
         if ((int) $attempt->user_id !== (int) $request->user()->id) {
@@ -296,7 +307,7 @@ class ExamAttemptController extends Controller
             ], 409);
         }
 
-        $summary = $this->finalizeAttempt($attempt, 'submitted');
+        $summary = $this->calculateResult($attempt, 'submitted');
 
         try {
             $this->auditService->log(
@@ -322,7 +333,7 @@ class ExamAttemptController extends Controller
         }
 
         if ($this->remainingSeconds($attempt) <= 0) {
-            $this->finalizeAttempt($attempt, 'timeout');
+            $this->calculateResult($attempt, 'timeout');
         }
     }
 
@@ -340,7 +351,7 @@ class ExamAttemptController extends Controller
         return max(0, $remaining);
     }
 
-    private function finalizeAttempt(ExamAttempt $attempt, string $status): array
+    private function calculateResult(ExamAttempt $attempt, string $status): array
     {
         return DB::transaction(function () use ($attempt, $status) {
             $attempt->loadMissing('exam.questions', 'answers');
@@ -350,16 +361,21 @@ class ExamAttemptController extends Controller
 
             $score = 0;
             $correctCount = 0;
+            $answeredCount = 0;
 
             foreach ($questions as $question) {
                 $answer = $answers->get($question->id);
+                $selectedAnswer = $answer?->selected_answer;
 
-                if (! $answer) {
-                    continue;
+                if ($answer) {
+                    $answeredCount++;
                 }
 
-                $isCorrect = (string) $answer->selected_answer === (string) $question->correct_answer;
-                $answer->update(['is_correct' => $isCorrect]);
+                $isCorrect = $selectedAnswer !== null && (string) $selectedAnswer === (string) $question->correct_answer;
+
+                if ($answer) {
+                    $answer->update(['is_correct' => $isCorrect]);
+                }
 
                 if ($isCorrect) {
                     $correctCount++;
@@ -386,10 +402,19 @@ class ExamAttemptController extends Controller
                 $attempt->update($updateData);
             }
 
+            $result = Result::updateOrCreate(
+                ['attempt_id' => $attempt->id],
+                [
+                    'score' => $score,
+                    'total_marks' => (int) $questions->sum('marks'),
+                ]
+            );
+
             return [
+                'result_id' => $result->id,
                 'score' => $score,
                 'correct_answers' => $correctCount,
-                'answered_questions' => $attempt->answers()->count(),
+                'answered_questions' => $answeredCount,
                 'total_questions' => $questions->count(),
                 'total_marks' => (int) $questions->sum('marks'),
             ];
@@ -417,6 +442,14 @@ class ExamAttemptController extends Controller
 
     private function hasAssignedExamAccess(int $examId, string $email): bool
     {
+        $hasPrivateAssignments = ExamAccessUser::query()
+            ->where('exam_id', $examId)
+            ->exists();
+
+        if (! $hasPrivateAssignments) {
+            return true;
+        }
+
         return ExamAccessUser::query()
             ->where('exam_id', $examId)
             ->whereRaw('LOWER(email) = ?', [$email])
