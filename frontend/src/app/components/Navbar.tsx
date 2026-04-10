@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { getStoredUser } from '../auth/ProtectedRoute';
 import { getHomeRouteByRole } from '../navigation/roleRoutes';
 import { clearStoredAuthUser } from '../utils/authUser';
+import { clearAuthToken, getAuthToken } from '../utils/authToken';
 
 export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -13,12 +14,12 @@ export function Navbar() {
   // Check if user is logged in
   useEffect(() => {
     const user = getStoredUser();
-    setIsLoggedIn(!!user);
+    setIsLoggedIn(Boolean(user && getAuthToken()));
   }, []);
 
   const handleLogout = () => {
-    // Clear auth data from localStorage
-    localStorage.removeItem('token');
+    // Clear auth data from storage
+    clearAuthToken();
     clearStoredAuthUser();
     setIsLoggedIn(false);
     setIsMobileMenuOpen(false);

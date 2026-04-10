@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import api from '../api';
 import { extractApiData, extractApiError } from '../utils/apiHelpers';
+import { clearAuthToken, getAuthToken } from '../utils/authToken';
 import {
   ClipboardCheck,
   LayoutDashboard,
@@ -150,7 +151,7 @@ export default function TeacherDashboard() {
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (!token) {
       navigate('/login');
       return;
@@ -174,7 +175,7 @@ export default function TeacherDashboard() {
     } catch(e) {
       // Optionally handle error
     } finally {
-      localStorage.removeItem('token');
+      clearAuthToken();
       navigate('/login');
     }
   }

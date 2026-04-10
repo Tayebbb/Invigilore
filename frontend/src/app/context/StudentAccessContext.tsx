@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import api from '../api';
 import type { StudentExam, StudentSubject } from '../pages/student/studentTypes';
 import { isStudentRole } from '../navigation/roleRoutes';
+import { getAuthToken } from '../utils/authToken';
+import { readStoredAuthUser } from '../utils/authUser';
 
 type ExamsResponse = {
   success?: boolean;
@@ -98,10 +100,10 @@ export function StudentAccessProvider({ children }: { children: ReactNode }) {
   const [warnings, setWarnings] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
-    const rawUser = localStorage.getItem('invigilore_user');
-    const token = localStorage.getItem('token');
+    const storedUser = readStoredAuthUser();
+    const token = getAuthToken();
 
-    if (!rawUser || !token) {
+    if (!storedUser || !token) {
       setSubjects([]);
       setUpcoming([]);
       setOngoing([]);
@@ -112,12 +114,7 @@ export function StudentAccessProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    let userRole = '';
-    try {
-      userRole = JSON.parse(rawUser)?.role ?? '';
-    } catch {
-      userRole = '';
-    }
+    const userRole = storedUser.role ?? '';
 
     if (!isStudentRole(userRole)) {
       setSubjects([]);

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import api from '../api';
+import { getAuthToken } from '../utils/authToken';
 import { clearStoredAuthUser, readStoredAuthUser, userUpdatedEventName, writeStoredAuthUser, type AuthUserRecord } from '../utils/authUser';
 
 interface AuthUserContextValue {
@@ -35,7 +36,7 @@ export function AuthUserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (!token) {
       setUser(null);
       return;

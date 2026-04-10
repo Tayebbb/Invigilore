@@ -6,6 +6,7 @@ import { isStudentRole } from '../../navigation/roleRoutes';
 import UserMenuDropdown from './UserMenuDropdown';
 import api from '../../api';
 import { clearStoredAuthUser } from '../../utils/authUser';
+import { clearAuthToken } from '../../utils/authToken';
 
 export interface NavbarUser {
   name: string;
@@ -39,7 +40,7 @@ export default function DashboardNavbar({
       // Local sign-out still proceeds if backend token is already invalid.
     }
 
-    localStorage.removeItem('token');
+    clearAuthToken();
     clearStoredAuthUser();
     navigate('/login');
   }

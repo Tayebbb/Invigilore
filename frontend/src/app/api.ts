@@ -1,4 +1,6 @@
 import axios, { InternalAxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import { clearAuthToken, getAuthToken } from './utils/authToken';
+import { clearStoredAuthUser } from './utils/authUser';
 
 // Simple in-memory cache for GET requests (max 5 min TTL)
 const requestCache = new Map<string, { data: any; timestamp: number }>();
@@ -19,7 +21,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (token && config.headers) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -55,7 +57,8 @@ api.interceptors.response.use(
     const isAuthEndpoint = requestUrl.includes('/login') || requestUrl.includes('/register');
 
     if (error.response && error.response.status === 401 && !isAuthEndpoint) {
-      localStorage.removeItem('token');
+      clearAuthToken();
+      clearStoredAuthUser();
       window.location.href = '/login';
     }
     return Promise.reject(error);

@@ -8,6 +8,8 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { getHomeRouteByRole } from '../navigation/roleRoutes';
+import { setAuthToken } from '../utils/authToken';
+import { writeStoredAuthUser } from '../utils/authUser';
 import { extractApiData, extractApiError } from '../utils/apiHelpers';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
@@ -45,6 +47,19 @@ export default function Login() {
     password: '',
   });
 
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('invigilore_remember_email');
+    if (!rememberedEmail) {
+      return;
+    }
+
+    setRememberMe(true);
+    setFormData((prev) => ({
+      ...prev,
+      email: rememberedEmail,
+    }));
+  }, []);
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
@@ -64,18 +79,18 @@ export default function Login() {
         return;
       }
 
-      localStorage.setItem('token', token);
+      setAuthToken(token, rememberMe);
 
       const apiUser = data?.user ?? {};
       const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
       const roleName = normalizeRole(rawRole);
 
-      localStorage.setItem('invigilore_user', JSON.stringify({
+      writeStoredAuthUser({
         id: apiUser?.id,
         name: apiUser?.name ?? '',
         email: apiUser?.email ?? formData.email,
         role: rawRole,
-      }));
+      }, rememberMe);
 
       if (rememberMe) {
         localStorage.setItem('invigilore_remember_email', formData.email);
