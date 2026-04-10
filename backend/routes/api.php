@@ -25,6 +25,8 @@ use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\TeacherPortalController;
 
 Route::post('/register', [AuthController::class, 'register']);
+Route::post('/register/verify-code', [AuthController::class, 'verifyRegistrationCode']);
+Route::post('/register/resend-code', [AuthController::class, 'resendRegistrationCode']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test/{exam}', [ExamAccessController::class, 'verify']);
 
