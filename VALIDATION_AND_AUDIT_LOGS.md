@@ -7,11 +7,13 @@ This change adds input validation and audit logging for the Exam Attempt and Res
 ## 2. Validation Rules Added
 
 ### Start Attempt
+
 - `exam_id`: required, integer, `exists:exams,id`
 - Non-student users are rejected with `403`
 - Private exam access is still enforced through the existing assignment check
 
 ### Save Answer
+
 - `question_id`: required, integer, `exists:questions,id`
 - `selected_answer`: required, string, max length `1000`
 - `selected_answer` is trimmed before persistence
@@ -20,12 +22,14 @@ This change adds input validation and audit logging for the Exam Attempt and Res
 - The attempt must still be in progress
 
 ### Submit Exam
+
 - `attempt_id` is validated against `exam_attempts,id`
 - The attempt must belong to the authenticated user
 - Duplicate submissions are rejected with `409`
 - Only in-progress attempts can be submitted
 
 ### General Validation Behavior
+
 - Invalid payloads return `422`
 - Ownership checks still return `403`
 - Existing response payloads are unchanged for successful requests
@@ -35,18 +39,22 @@ This change adds input validation and audit logging for the Exam Attempt and Res
 A small controller helper was added to write audit events through the existing `AuditLog` model.
 
 ### Helper Used
+
 ```php
 private function logAudit(Request $request, string $action, array $payload = []): void
 ```
 
 ### Logged Actions
+
 - `attempt_started`
 - `answer_saved`
 - `exam_submitted`
 - `result_calculated`
 
 ### Logging Fields
+
 Each log entry uses the current `audit_logs` schema:
+
 - `user_id`
 - `event_type` as the action name
 - `description` as JSON-encoded metadata
@@ -59,6 +67,7 @@ Because the table does not have `attempt_id`, `exam_id`, or `metadata` columns, 
 ## 4. Existing `audit_logs` Table Usage
 
 Current schema in use:
+
 - `id`
 - `user_id`
 - `event_type`

@@ -114,6 +114,15 @@ function normalizeText(value: unknown): string {
   return String(value ?? '').trim().toLowerCase();
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function parseEmails(value: string): string[] {
+  return value
+    .split(/[\n,;]/)
+    .map((entry) => normalizeText(entry))
+    .filter(Boolean);
+}
+
 function toDateTimeLocalValue(value: string | null | undefined): string {
   if (!value) return '';
   const date = new Date(value);
@@ -236,6 +245,7 @@ export default function CreateExam() {
   const [requirePublicEmail, setRequirePublicEmail] = useState(false);
   const [publicAccessLink, setPublicAccessLink] = useState('');
   const [privateEmailsInput, setPrivateEmailsInput] = useState('');
+  const [privateEmailError, setPrivateEmailError] = useState('');
   const [registeredStudents, setRegisteredStudents] = useState<string[]>([]);
   const [pendingRegistrations, setPendingRegistrations] = useState<string[]>([]);
   const [privateRecipients, setPrivateRecipients] = useState<PrivateRecipient[]>([]);
@@ -1650,10 +1660,16 @@ export default function CreateExam() {
                     <textarea
                       rows={5}
                       value={privateEmailsInput}
-                      onChange={(e) => setPrivateEmailsInput(e.target.value)}
+                      onChange={(e) => {
+                        setPrivateEmailsInput(e.target.value);
+                        setPrivateEmailError('');
+                      }}
                       placeholder="student1@gmail.com, student2@gmail.com"
                       className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white"
                     />
+                    {privateEmailError && (
+                      <p className="text-xs text-red-300">{privateEmailError}</p>
+                    )}
                     <button
                       type="button"
                       disabled={savingAccess || !targetExamId}
@@ -1662,27 +1678,35 @@ export default function CreateExam() {
                           setError('Save or open an exam first, then assign students.');
                           return;
                         }
-                        const emails = privateEmailsInput
-                          .split(/[\n,;]/)
-                          .map((e) => e.trim())
-                          .filter(Boolean);
 
-                        if (emails.length === 0) {
+                        const emails = parseEmails(privateEmailsInput);
+                        const invalidEmails = emails.filter((email) => !EMAIL_REGEX.test(email) || email.length > 255);
+                        const uniqueEmails = Array.from(new Set(emails));
+
+                        if (uniqueEmails.length === 0) {
+                          setPrivateEmailError('Invalid email format');
                           setError('Add at least one valid email.');
                           return;
                         }
 
+                        if (invalidEmails.length > 0) {
+                          setPrivateEmailError('Invalid email format');
+                          setError('One or more email addresses are invalid.');
+                          return;
+                        }
+
                         setSavingAccess(true);
+                        setPrivateEmailError('');
                         try {
                           const res = await api.post(`/exams/${targetExamId}/access/private`, {
                             channel: accessChannel,
-                            emails,
+                            emails: uniqueEmails,
                           });
                           setRegisteredStudents(Array.isArray(res.data?.registered_students) ? res.data.registered_students : []);
                           setPendingRegistrations(Array.isArray(res.data?.pending_registration) ? res.data.pending_registration : []);
                           setPrivateRecipients((prev) => {
                             const existingByEmail = new Set(prev.map((item) => normalizeText(item.email)));
-                            const additions = emails
+                            const additions = uniqueEmails
                               .map((value) => normalizeText(value))
                               .filter((value) => !existingByEmail.has(value))
                               .map((value) => ({ email: value, status: 'pending' as const }));
@@ -1692,7 +1716,20 @@ export default function CreateExam() {
                           setSuccess('Private access assigned. Registered students can now access this exam after login.');
                           setError('');
                         } catch (err: any) {
-                          setError(err?.response?.data?.message ?? 'Failed to assign private access.');
+                          const status = Number(err?.response?.status ?? 0);
+                          const apiErrors = err?.response?.data?.errors;
+                          if (status === 422) {
+                            const firstError = apiErrors && typeof apiErrors === 'object'
+                              ? String(Object.values(apiErrors).flat()[0] ?? 'Invalid email format')
+                              : 'Invalid email format';
+                            setPrivateEmailError('Invalid email format');
+                            setError(firstError);
+                          } else if (status === 409) {
+                            setPrivateEmailError('Email already assigned');
+                            setError(err?.response?.data?.message ?? 'Email already assigned');
+                          } else {
+                            setError(err?.response?.data?.message ?? 'Failed to assign private access.');
+                          }
                         } finally {
                           setSavingAccess(false);
                         }

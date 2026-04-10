@@ -61,10 +61,17 @@ class ExamAccessController extends Controller
 
     public function generatePrivate(Request $request, Exam $exam)
     {
+        $request->merge([
+            'emails' => collect((array) $request->input('emails', []))
+                ->map(fn ($email) => strtolower(trim((string) $email)))
+                ->values()
+                ->all(),
+        ]);
+
         $payload = $request->validate([
             'channel' => ['required', 'in:web,teams'],
             'emails' => ['required', 'array', 'min:1'],
-            'emails.*' => ['required', 'email'],
+            'emails.*' => ['required', 'string', 'email:rfc', 'max:255'],
         ]);
 
         $normalizedEmails = collect($payload['emails'])
@@ -72,6 +79,34 @@ class ExamAccessController extends Controller
             ->filter()
             ->unique()
             ->values();
+
+        if ($normalizedEmails->isEmpty()) {
+            return response()->json([
+                'message' => 'The given data was invalid.',
+                'errors' => [
+                    'emails' => ['Add at least one valid email address.'],
+                ],
+            ], 422);
+        }
+
+        $alreadyAssigned = ExamAccessUser::query()
+            ->where('exam_id', $exam->id)
+            ->where(function ($query) use ($normalizedEmails) {
+                foreach ($normalizedEmails as $email) {
+                    $query->orWhereRaw('LOWER(email) = ?', [$email]);
+                }
+            })
+            ->pluck('email')
+            ->map(fn ($email) => strtolower((string) $email))
+            ->unique()
+            ->values();
+
+        if ($alreadyAssigned->isNotEmpty()) {
+            return response()->json([
+                'message' => 'Email already assigned',
+                'duplicate_emails' => $alreadyAssigned->all(),
+            ], 409);
+        }
 
         ExamAccess::query()->updateOrCreate(
             ['exam_id' => $exam->id],
