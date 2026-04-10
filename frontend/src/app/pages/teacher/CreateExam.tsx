@@ -59,6 +59,12 @@ type QuestionDraft = {
   marks?: number;
 };
 
+type SubjectOption = {
+  id: number;
+  name: string;
+  subject_code?: string | null;
+};
+
 type ApiQuestion = {
   id: number;
   question_text?: string;
@@ -85,6 +91,8 @@ type ExamContext = {
   id: number;
   controller_id?: number | null;
   title?: string;
+  description?: string | null;
+  subject?: { name?: string } | null;
   subject_id?: number | null;
   duration?: number | string | null;
   total_marks?: number | string | null;
@@ -179,13 +187,12 @@ export default function CreateExam() {
   const [setterExams, setSetterExams] = useState<ExamContext[]>([]);
   const [loadingExam, setLoadingExam] = useState(false);
 
-  const [testName, setTestName] = useState('mytest');
-  const [category, setCategory] = useState('python');
-  const [description, setDescription] = useState('python exam');
+  const [testName, setTestName] = useState('');
+  const [subjectName, setSubjectName] = useState('');
+  const [description, setDescription] = useState('');
   const [language, setLanguage] = useState('English');
-  const [subjectId, setSubjectId] = useState('1');
-  const [duration, setDuration] = useState('60');
-  const [totalMarks, setTotalMarks] = useState('100');
+  const [duration, setDuration] = useState('');
+  const [totalMarks, setTotalMarks] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [questionSetterEmail, setQuestionSetterEmail] = useState('');
@@ -214,6 +221,7 @@ export default function CreateExam() {
   const [pendingRegistrations, setPendingRegistrations] = useState<string[]>([]);
   const [privateRecipients, setPrivateRecipients] = useState<PrivateRecipient[]>([]);
   const [savingAccess, setSavingAccess] = useState(false);
+  const [subjectOptions, setSubjectOptions] = useState<SubjectOption[]>([]);
 
   const normalizedCurrentUserEmail = normalizeText(currentUser.email);
 
@@ -296,6 +304,8 @@ export default function CreateExam() {
         const loadedExam: ExamContext = {
           id: exam.id,
           title: exam.title ?? exam.name,
+          description: exam.description ?? null,
+          subject: exam.subject ?? null,
           subject_id: exam.subject_id ?? null,
           duration: exam.duration ?? null,
           total_marks: exam.total_marks ?? null,
@@ -314,7 +324,8 @@ export default function CreateExam() {
         setExamContext(loadedExam);
 
         setTestName(String(loadedExam.title ?? ''));
-        if (loadedExam.subject_id != null) setSubjectId(String(loadedExam.subject_id));
+        setDescription(String(loadedExam.description ?? ''));
+        if (loadedExam.subject?.name) setSubjectName(String(loadedExam.subject.name));
         if (loadedExam.duration != null) setDuration(String(loadedExam.duration));
         if (loadedExam.total_marks != null) setTotalMarks(String(loadedExam.total_marks));
         setStartTime(toDateTimeLocalValue(loadedExam.start_time));
@@ -433,6 +444,21 @@ export default function CreateExam() {
         setSetterExams([]);
       });
   }, [normalizedCurrentUserEmail]);
+
+  useEffect(() => {
+    api.get('/subjects?limit=200')
+      .then((res) => {
+        const rows = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+        setSubjectOptions(rows.map((item: any) => ({
+          id: Number(item.id),
+          name: String(item.name ?? item.subject_name ?? '').trim(),
+          subject_code: item.subject_code ?? null,
+        })).filter((item: SubjectOption) => item.name && Number.isFinite(item.id)));
+      })
+      .catch(() => {
+        setSubjectOptions([]);
+      });
+  }, []);
 
   function handleNavChange(label: string) {
     if (label === 'Dashboard') {
@@ -584,9 +610,18 @@ export default function CreateExam() {
         throw new Error('Start time and end time are required.');
       }
 
+      if (!subjectName.trim()) {
+        throw new Error('Course/subject name is required to create exam.');
+      }
+
+      const normalizedSubjectName = subjectName.trim().toLowerCase();
+      const matchedSubject = subjectOptions.find((item) => item.name.trim().toLowerCase() === normalizedSubjectName);
+
       const payload = {
         title: testName,
-        subject_id: Number(subjectId),
+        subject_id: matchedSubject?.id,
+        subject_name: subjectName.trim(),
+        description: description.trim() || null,
         duration: Number(duration),
         total_marks: Number(totalMarks),
         start_time: new Date(startTime).toISOString(),
@@ -642,11 +677,21 @@ export default function CreateExam() {
       return;
     }
 
+    if (!subjectName.trim()) {
+      setError('Course/subject name is required to create exam.');
+      return;
+    }
+
+    const normalizedSubjectName = subjectName.trim().toLowerCase();
+    const matchedSubject = subjectOptions.find((item) => item.name.trim().toLowerCase() === normalizedSubjectName);
+
     setSubmitting(true);
     try {
       const payload = {
         title: testName,
-        subject_id: Number(subjectId),
+        subject_id: matchedSubject?.id,
+        subject_name: subjectName.trim(),
+        description: description.trim() || null,
         duration: Number(duration),
         total_marks: Number(totalMarks),
         start_time: new Date(startTime).toISOString(),
@@ -839,25 +884,23 @@ export default function CreateExam() {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+                <div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Category</label>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
+                    <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Course / Subject name</label>
+                    <input
+                      list="subject-options"
+                      value={subjectName}
+                      onChange={(e) => setSubjectName(e.target.value)}
+                      placeholder="Type course or subject name"
                       className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                    >
-                      {CATEGORIES.map((item) => (
-                        <option key={item} value={item}>{item}</option>
+                    />
+                    <datalist id="subject-options">
+                      {subjectOptions.map((item) => (
+                        <option key={item.id} value={item.name} />
                       ))}
-                    </select>
-                    <p className="text-[11px] text-gray-500 mt-1.5">Select test category to keep track of your tests.</p>
+                    </datalist>
+                    <p className="text-[11px] text-gray-500 mt-1.5">Type the course or subject name. It must match an existing subject.</p>
                   </div>
-
-                  <button className="md:mb-5 px-3.5 py-2.5 rounded-lg border border-gray-700 text-sm text-gray-200 hover:bg-gray-800 hover:border-gray-600 transition-colors cursor-pointer inline-flex items-center gap-1.5">
-                    <Plus className="w-4 h-4" />
-                    Create category
-                  </button>
                 </div>
 
                 <div>
@@ -887,17 +930,7 @@ export default function CreateExam() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Subject ID</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={subjectId}
-                      onChange={(e) => setSubjectId(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Duration (mins)</label>
                     <input

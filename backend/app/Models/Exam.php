@@ -26,6 +26,7 @@ class Exam extends Model
         'end_time',
         'paper_status',
         'exam_status',
+        'description',
         'instructions',
         'review_comment',
     ];

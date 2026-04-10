@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Exam;
 use App\Models\ExamRole;
+use App\Models\Subject;
 use App\Models\User;
 use App\Support\ExamRoles;
 use Illuminate\Http\Request;
@@ -55,7 +56,9 @@ class ExamController extends Controller
 
         $validator = Validator::make($request->all(), [
             'title'       => 'required|string|max:255',
-            'subject_id'  => 'required|integer|exists:subjects,id',
+            'subject_id'  => 'nullable|integer|exists:subjects,id|required_without:subject_name',
+            'subject_name' => 'nullable|string|max:255|required_without:subject_id',
+            'description' => 'nullable|string|max:2000',
             'duration'    => 'required|integer|min:1',
             'total_marks' => 'required|integer|min:1',
             'start_time'  => 'required|date',
@@ -71,6 +74,16 @@ class ExamController extends Controller
         }
 
         $payload = $validator->validated();
+        $subjectId = $this->resolveSubjectIdFromPayload($payload);
+
+        if (! $subjectId) {
+            return response()->json([
+                'errors' => [
+                    'subject_name' => ['Subject not found. Please type a valid existing course/subject name.'],
+                ],
+            ], 422);
+        }
+
         $questionSetter = null;
         $moderator = null;
         $invigilator = null;
@@ -99,7 +112,8 @@ class ExamController extends Controller
 
         $exam = Exam::create([
             'title' => $payload['title'],
-            'subject_id' => $payload['subject_id'],
+            'subject_id' => $subjectId,
+            'description' => $payload['description'] ?? null,
             'duration' => $payload['duration'],
             'total_marks' => $payload['total_marks'],
             'start_time' => $payload['start_time'],
@@ -166,7 +180,9 @@ class ExamController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'title'       => 'sometimes|string|max:255',
-            'subject_id'  => 'sometimes|integer|exists:subjects,id',
+            'subject_id'  => 'sometimes|nullable|integer|exists:subjects,id',
+            'subject_name' => 'sometimes|nullable|string|max:255',
+            'description' => 'sometimes|nullable|string|max:2000',
             'duration'    => 'sometimes|integer|min:1',
             'total_marks' => 'sometimes|integer|min:1',
             'start_time'  => 'sometimes|date',
@@ -225,6 +241,21 @@ class ExamController extends Controller
             unset($data['invigilator_email']);
         }
 
+        if (array_key_exists('subject_name', $data) || array_key_exists('subject_id', $data)) {
+            $subjectId = $this->resolveSubjectIdFromPayload($data);
+
+            if (! $subjectId) {
+                return response()->json([
+                    'errors' => [
+                        'subject_name' => ['Subject not found. Please type a valid existing course/subject name.'],
+                    ],
+                ], 422);
+            }
+
+            $data['subject_id'] = $subjectId;
+            unset($data['subject_name']);
+        }
+
         if (
             $exam->controller_id === $exam->question_setter_id ||
             $exam->controller_id === $exam->moderator_id ||
@@ -248,6 +279,60 @@ class ExamController extends Controller
             'moderator',
             'invigilator',
         ]));
+    }
+
+    private function resolveSubjectIdFromPayload(array $payload): ?int
+    {
+        $subjectId = isset($payload['subject_id']) ? (int) $payload['subject_id'] : 0;
+        if ($subjectId > 0) {
+            return $subjectId;
+        }
+
+        $subjectName = trim((string) ($payload['subject_name'] ?? ''));
+        if ($subjectName === '') {
+            $subjectName = 'General';
+        }
+
+        // 1) Exact case-insensitive match (including soft-deleted rows).
+        $exactMatch = Subject::withTrashed()
+            ->whereRaw('LOWER(name) = ?', [strtolower($subjectName)])
+            ->first();
+
+        if ($exactMatch) {
+            if (method_exists($exactMatch, 'trashed') && $exactMatch->trashed()) {
+                $exactMatch->restore();
+            }
+
+            return (int) $exactMatch->id;
+        }
+
+        // 2) Partial case-insensitive match for near-typed names.
+        $partialMatch = Subject::withTrashed()
+            ->where('name', 'like', '%' . $subjectName . '%')
+            ->orderBy('id')
+            ->first();
+
+        if ($partialMatch) {
+            if (method_exists($partialMatch, 'trashed') && $partialMatch->trashed()) {
+                $partialMatch->restore();
+            }
+
+            return (int) $partialMatch->id;
+        }
+
+        // 3) Create subject on-the-fly if no match exists.
+        $subject = Subject::create([
+            'name' => $subjectName,
+            'department' => 'General',
+            'credit_hours' => 3,
+            'description' => null,
+        ]);
+
+        $subject->subject_id = sprintf('SUBJ-%06d', (int) $subject->id);
+        $subject->subject_code = sprintf('SUBJ%03d', (int) $subject->id);
+        $subject->save();
+
+        return (int) $subject->id;
     }
 
     /**
