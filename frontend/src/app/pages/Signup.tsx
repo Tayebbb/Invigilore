@@ -308,6 +308,9 @@ export default function SignUp() {
                   required
                 />
               </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Use a valid email with a real domain (for example: gmail.com, yahoo.com, outlook.com).
+              </p>
             </div>
 
             {/* Password Input */}

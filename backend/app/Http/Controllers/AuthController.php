@@ -34,9 +34,17 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
-            'email' => 'required|string|email|max:100|unique:users',
+            'email' => [
+                'required',
+                'string',
+                'email:rfc,dns',
+                'max:100',
+                'unique:users',
+            ],
             'password' => 'required|string|min:8',
             'role' => 'sometimes|in:student,teacher,admin,controller,question_setter,viewer,moderator,invigilator',
+        ], [
+            'email.email' => 'Please use a valid email address with a real domain.',
         ]);
 
         if ($validator->fails()) {
