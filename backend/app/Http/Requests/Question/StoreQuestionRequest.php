@@ -3,13 +3,16 @@
 namespace App\Http\Requests\Question;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Role;
 use Illuminate\Validation\Rule;
 
 class StoreQuestionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->role?->name === 'admin';
+        $adminRoleId = Role::query()->where('name', 'admin')->value('id');
+
+        return $adminRoleId !== null && (int) $this->user()?->role_id === (int) $adminRoleId;
     }
 
     public function rules(): array

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Exam;
+use App\Models\ExamAttempt;
 use App\Models\ExamRole;
 use App\Models\User;
 use App\Support\ExamRoles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class ExamController extends Controller
 {
@@ -47,10 +49,14 @@ class ExamController extends Controller
      */
     public function store(Request $request)
     {
-        $creator = $request->user();
+        $creator = $this->resolveBearerActor($request) ?? $request->user();
 
         if (! $creator) {
             return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        if (! in_array($creator->role?->name, ['admin', 'teacher'], true)) {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
         }
 
         $validator = Validator::make($request->all(), [
@@ -255,6 +261,10 @@ class ExamController extends Controller
      */
     public function destroy(Exam $exam)
     {
+        if (ExamAttempt::query()->where('exam_id', $exam->id)->exists()) {
+            return response()->json(['message' => 'Cannot delete exam with existing attempts.'], 409);
+        }
+
         $exam->delete();
         return response()->json(['message' => 'Exam deleted']);
     }
@@ -281,5 +291,18 @@ class ExamController extends Controller
                 'role' => $role,
             ]);
         }
+    }
+
+    private function resolveBearerActor(Request $request): ?User
+    {
+        $token = $request->bearerToken();
+
+        if (! $token) {
+            return null;
+        }
+
+        $accessToken = PersonalAccessToken::findToken($token);
+
+        return $accessToken?->tokenable instanceof User ? $accessToken->tokenable : null;
     }
 }

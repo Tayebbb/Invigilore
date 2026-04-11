@@ -5,15 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\ExamAttempt;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class StudentResultController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
         $attempts = ExamAttempt::query()
+            ->with(['exam.subject', 'result'])
             ->where('user_id', $request->user()->id)
             ->latest('id')
             ->get()
@@ -24,6 +22,9 @@ class StudentResultController extends Controller
                     'start_time' => $attempt->start_time ?? $attempt->started_at,
                     'end_time' => $attempt->end_time ?? $attempt->submitted_at,
                     'status' => $attempt->status ?? (($attempt->submitted_at || $attempt->end_time) ? 'submitted' : 'in_progress'),
+                    'score' => $attempt->result?->score,
+                    'total_marks' => $attempt->result?->total_marks,
+                    'grade' => $attempt->result?->grade,
                 ];
             });
 
@@ -34,7 +35,7 @@ class StudentResultController extends Controller
 
     public function show(Request $request, int $id): JsonResponse
     {
-        $attempt = ExamAttempt::find($id);
+        $attempt = ExamAttempt::with(['exam.questions', 'result', 'answers'])->find($id);
 
         if (! $attempt) {
             return response()->json([
@@ -65,6 +66,7 @@ class StudentResultController extends Controller
     public function summary(Request $request): JsonResponse
     {
         $attempts = ExamAttempt::query()
+            ->with(['result'])
             ->where('user_id', $request->user()->id)
             ->get();
 
@@ -93,15 +95,28 @@ class StudentResultController extends Controller
 
     private function calculateAttemptScore(ExamAttempt $attempt): array
     {
-        $questions = DB::table('questions')
-            ->where('exam_id', $attempt->exam_id)
-            ->get(['id', 'correct_answer', 'marks']);
+        $attempt->loadMissing('exam.questions', 'result', 'answers');
 
+        if ($attempt->result) {
+            $totalMarks = (int) $attempt->result->total_marks;
+            $obtainedMarks = (int) $attempt->result->score;
+            $totalQuestions = $attempt->exam?->questions?->count() ?? 0;
+            $percentage = $totalMarks > 0
+                ? round(($obtainedMarks / $totalMarks) * 100, 2)
+                : 0.0;
+
+            return [
+                'total_questions' => $totalQuestions,
+                'total_marks' => $totalMarks,
+                'obtained_marks' => $obtainedMarks,
+                'percentage' => $percentage,
+            ];
+        }
+
+        $questions = $attempt->exam?->questions ?? collect();
         $totalQuestions = $questions->count();
         $totalMarks = (int) $questions->sum('marks');
-
-        $answers = $this->getAttemptAnswers($attempt->id)->keyBy('question_id');
-
+        $answers = $attempt->answers->keyBy('question_id');
         $obtainedMarks = 0;
 
         foreach ($questions as $question) {
@@ -116,9 +131,7 @@ class StudentResultController extends Controller
             }
         }
 
-        $percentage = $totalMarks > 0
-            ? round(($obtainedMarks / $totalMarks) * 100, 2)
-            : 0.0;
+        $percentage = $totalMarks > 0 ? round(($obtainedMarks / $totalMarks) * 100, 2) : 0.0;
 
         return [
             'total_questions' => $totalQuestions,
@@ -126,16 +139,6 @@ class StudentResultController extends Controller
             'obtained_marks' => $obtainedMarks,
             'percentage' => $percentage,
         ];
-    }
-
-    private function getAttemptAnswers(int $attemptId): Collection
-    {
-        // Support both existing table names without changing DB structure.
-        $table = Schema::hasTable('attempt_answers') ? 'attempt_answers' : 'answers';
-
-        return DB::table($table)
-            ->where('attempt_id', $attemptId)
-            ->get(['question_id', 'selected_answer']);
     }
 
     private function isCompleted(ExamAttempt $attempt): bool

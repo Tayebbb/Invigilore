@@ -43,6 +43,7 @@ export default function StudentExamAttemptPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [savingAnswer, setSavingAnswer] = useState(false);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
   const [submissionSummary, setSubmissionSummary] = useState<SubmissionResultSummary | null>(null);
@@ -86,23 +87,16 @@ export default function StudentExamAttemptPage() {
       // Auto-submit when time runs out
       setAutoSubmitted(true);
       setSubmitting(true);
-      const payload = {
-        exam_id: attempt.examId,
+      api.post(`/student/attempts/${attempt.attemptId}/submit`, {
         idempotency_key: submissionKeyRef.current,
-        answers: attempt.questions.map((question) => ({
-          question_id: question.id,
-          submitted_answer: answers[question.id] ?? null,
-        })),
-      };
-
-      api.post('/submissions', payload)
+      })
         .then((response) => {
-          const data = response?.data?.data ?? {};
+          const data = response?.data?.data ?? response?.data ?? {};
           setSubmissionSummary({
             examName: data?.exam?.title ?? attempt.examName,
-            score: Number(data?.score ?? 0),
-            totalMarks: Number(data?.total_marks ?? 0),
-            percentage: Number(data?.percentage ?? 0),
+            score: Number(data?.summary?.score ?? data?.score ?? 0),
+            totalMarks: Number(data?.summary?.totalMarks ?? data?.summary?.total_marks ?? data?.totalMarks ?? 0),
+            percentage: Number(data?.summary?.percentage ?? data?.percentage ?? 0),
           });
           setShowSubmitSuccess(true);
         })
@@ -141,8 +135,29 @@ export default function StudentExamAttemptPage() {
 
   const currentQuestion = useMemo(() => attempt?.questions[currentIndex] ?? null, [attempt, currentIndex]);
 
-  const handleAnswer = (questionId: number, value: string) => {
+  const handleAnswer = async (questionId: number, value: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
+
+    if (!attempt) {
+      return;
+    }
+
+    setSavingAnswer(true);
+    try {
+      const response = await api.post(`/student/attempts/${attempt.attemptId}/answers`, {
+        question_id: questionId,
+        selected_answer: value,
+      });
+
+      const remainingSeconds = Number(response.data?.data?.remainingSeconds);
+      if (Number.isFinite(remainingSeconds)) {
+        setRemaining(Math.max(0, remainingSeconds));
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.message ?? 'Failed to save answer');
+    } finally {
+      setSavingAnswer(false);
+    }
   };
 
   const submitExam = async () => {
@@ -154,22 +169,15 @@ export default function StudentExamAttemptPage() {
     setError('');
 
     try {
-      const payload = {
-        exam_id: attempt.examId,
+      const response = await api.post(`/student/attempts/${attempt.attemptId}/submit`, {
         idempotency_key: submissionKeyRef.current,
-        answers: attempt.questions.map((question) => ({
-          question_id: question.id,
-          submitted_answer: answers[question.id] ?? null,
-        })),
-      };
-
-      const response = await api.post('/submissions', payload);
-      const data = response?.data?.data ?? {};
+      });
+      const data = response?.data?.data ?? response?.data ?? {};
       setSubmissionSummary({
         examName: data?.exam?.title ?? attempt.examName,
-        score: Number(data?.score ?? 0),
-        totalMarks: Number(data?.total_marks ?? 0),
-        percentage: Number(data?.percentage ?? 0),
+        score: Number(data?.summary?.score ?? data?.score ?? 0),
+        totalMarks: Number(data?.summary?.totalMarks ?? data?.summary?.total_marks ?? data?.totalMarks ?? 0),
+        percentage: Number(data?.summary?.percentage ?? data?.percentage ?? 0),
       });
       setShowSubmitSuccess(true);
     } catch (e: any) {
@@ -326,7 +334,7 @@ export default function StudentExamAttemptPage() {
                 onClick={submitExam}
                 className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
               >
-                {submitting ? 'Submitting...' : 'Submit Exam'}
+                {submitting ? 'Submitting...' : savingAnswer ? 'Saving...' : 'Submit Exam'}
               </button>
             </div>
           </div>

@@ -7,7 +7,7 @@ use App\Models\Exam;
 use App\Models\ExamAccess;
 use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
-use App\Models\Submission;
+use App\Models\Result;
 use App\Services\AuditTrailService;
 use App\Services\IncidentService;
 use Carbon\Carbon;
@@ -293,27 +293,33 @@ class StudentExamController extends Controller
 
     public function results(Request $request): JsonResponse
     {
-        $results = Submission::query()
-            ->with(['exam.subject'])
-            ->where('user_id', $request->user()->id)
-            ->where('status', 'evaluated')
-            ->latest('evaluated_at')
+        $results = Result::query()
+            ->with(['attempt.exam.subject'])
+            ->whereHas('attempt', function ($query) use ($request) {
+                $query->where('user_id', $request->user()->id);
+            })
+            ->latest('published_at')
             ->get()
-            ->map(function (Submission $submission) {
-                $exam = $submission->exam;
-                $percentage = (float) $submission->percentage;
+            ->map(function (Result $result) {
+                $attempt = $result->attempt;
+                $exam = $attempt?->exam;
+                $percentage = 0.0;
+
+                if ($result->total_marks > 0) {
+                    $percentage = round(((float) $result->score / (float) $result->total_marks) * 100, 2);
+                }
 
                 return [
-                    'resultId' => $submission->id,
+                    'resultId' => $result->id,
                     'examId' => $exam?->id,
                     'examName' => $exam?->title,
                     'courseName' => $exam?->subject?->name,
-                    'score' => (int) $submission->score,
-                    'totalMarks' => (int) $submission->total_marks,
-                    'grade' => $this->gradeFromPercentage($percentage),
-                    'publishedAt' => $submission->evaluated_at?->toISOString() ?? $submission->created_at?->toISOString(),
-                    'submittedAt' => $submission->evaluated_at?->toISOString() ?? $submission->created_at?->toISOString(),
-                    'feedback' => null,
+                    'score' => (int) $result->score,
+                    'totalMarks' => (int) $result->total_marks,
+                    'grade' => $result->grade ?? $this->gradeFromPercentage($percentage),
+                    'publishedAt' => $result->published_at?->toISOString() ?? $result->updated_at?->toISOString() ?? now()->toISOString(),
+                    'submittedAt' => $attempt?->submitted_at?->toISOString() ?? $attempt?->end_time?->toISOString() ?? $result->published_at?->toISOString() ?? now()->toISOString(),
+                    'feedback' => $result->feedback,
                 ];
             });
 
@@ -326,36 +332,58 @@ class StudentExamController extends Controller
 
     public function submissions(Request $request): JsonResponse
     {
-        $submissions = Submission::query()
-            ->with(['exam.subject'])
+        $attempts = ExamAttempt::query()
+            ->with(['exam.subject', 'result'])
             ->where('user_id', $request->user()->id)
-            ->latest('evaluated_at')
+            ->latest('submitted_at')
             ->latest('created_at')
             ->get()
-            ->map(function (Submission $submission) {
-                $exam = $submission->exam;
+            ->map(function (ExamAttempt $attempt) {
+                $exam = $attempt->exam;
+                $result = $attempt->result;
 
                 return [
-                    'attemptId' => $submission->id,
+                    'attemptId' => $attempt->id,
                     'examId' => $exam?->id,
                     'examName' => $exam?->title,
                     'courseName' => $exam?->subject?->name,
-                    'submissionDateTime' => $submission->evaluated_at?->toISOString() ?? $submission->created_at?->toISOString(),
-                    'durationTakenMinutes' => null,
-                    'status' => $submission->status,
+                    'submissionDateTime' => $attempt->submitted_at?->toISOString() ?? $attempt->end_time?->toISOString() ?? $attempt->created_at?->toISOString(),
+                    'durationTakenMinutes' => $this->durationTakenMinutes($attempt),
+                    'status' => $attempt->status,
+                    'score' => $result?->score,
+                    'totalMarks' => $result?->total_marks,
                 ];
             });
 
         return response()->json([
             'success' => true,
             'message' => 'Submission history fetched successfully',
-            'data' => $submissions,
+            'data' => $attempts,
         ]);
     }
 
     private function attemptPayload(ExamAttempt $attempt): array
     {
+        $attempt->loadMissing('exam.questions', 'answers', 'result');
+
         $answersByQuestion = $attempt->answers->keyBy('question_id');
+        $obtainedMarks = 0;
+        $totalMarks = (int) $attempt->exam->questions->sum('marks');
+
+        foreach ($attempt->exam->questions as $question) {
+            $savedAnswer = $answersByQuestion->get($question->id);
+
+            if ($savedAnswer && (string) $savedAnswer->selected_answer === (string) $question->correct_answer) {
+                $obtainedMarks += (int) $question->marks;
+            }
+        }
+
+        if ($attempt->result) {
+            $obtainedMarks = (int) $attempt->result->score;
+            $totalMarks = (int) $attempt->result->total_marks;
+        }
+
+        $percentage = $totalMarks > 0 ? round(($obtainedMarks / $totalMarks) * 100, 2) : 0.0;
 
         $questions = $attempt->exam->questions->map(function ($question) use ($answersByQuestion) {
             $savedAnswer = $answersByQuestion->get($question->id);
@@ -372,13 +400,27 @@ class StudentExamController extends Controller
 
         return [
             'attemptId' => $attempt->id,
+            'attempt_id' => $attempt->id,
             'examId' => $attempt->exam_id,
+            'exam_id' => $attempt->exam_id,
             'examName' => $attempt->exam->title,
+            'exam_name' => $attempt->exam->title,
             'status' => $attempt->status,
             'startTime' => ($attempt->start_time ?? $attempt->started_at)?->toISOString(),
+            'start_time' => ($attempt->start_time ?? $attempt->started_at)?->toISOString(),
             'endTime' => ($attempt->end_time ?? $attempt->submitted_at)?->toISOString(),
+            'end_time' => ($attempt->end_time ?? $attempt->submitted_at)?->toISOString(),
             'durationMinutes' => (int) $attempt->duration,
+            'duration_minutes' => (int) $attempt->duration,
             'remainingSeconds' => $this->remainingSeconds($attempt),
+            'remaining_seconds' => $this->remainingSeconds($attempt),
+            'totalQuestions' => $attempt->exam->questions->count(),
+            'total_questions' => $attempt->exam->questions->count(),
+            'totalMarks' => $totalMarks,
+            'total_marks' => $totalMarks,
+            'obtainedMarks' => $obtainedMarks,
+            'obtained_marks' => $obtainedMarks,
+            'percentage' => $percentage,
             'questions' => $questions,
         ];
     }
@@ -392,6 +434,13 @@ class StudentExamController extends Controller
 
     private function hasStudentAccess(Exam $exam, string $studentEmail): bool
     {
+        $hasAccessConfig = ExamAccess::query()->where('exam_id', $exam->id)->exists();
+        $hasAssignedStudents = ExamAccessUser::query()->where('exam_id', $exam->id)->exists();
+
+        if (! $hasAccessConfig && ! $hasAssignedStudents) {
+            return true;
+        }
+
         return ExamAccessUser::query()
             ->where('exam_id', $exam->id)
             ->whereRaw('LOWER(email) = ?', [$studentEmail])
@@ -495,6 +544,7 @@ class StudentExamController extends Controller
             $result->score = $score;
             $result->total_marks = (int) $questions->sum('marks');
             $result->grade = $this->gradeFromScore($score, (int) $questions->sum('marks'));
+            $result->published_at = $result->published_at ?? $submittedAt;
             $result->save();
 
             return [
@@ -523,5 +573,17 @@ class StudentExamController extends Controller
             $percent >= 50 => 'D',
             default => 'F',
         };
+    }
+
+    private function durationTakenMinutes(ExamAttempt $attempt): ?int
+    {
+        $startedAt = $attempt->start_time ?? $attempt->started_at;
+        $endedAt = $attempt->submitted_at ?? $attempt->end_time;
+
+        if (! $startedAt || ! $endedAt) {
+            return null;
+        }
+
+        return max(0, (int) round(Carbon::parse($startedAt)->diffInSeconds(Carbon::parse($endedAt)) / 60));
     }
 }

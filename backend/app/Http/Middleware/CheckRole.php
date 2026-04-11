@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use App\Models\Role;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -23,9 +24,12 @@ class CheckRole
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        $userRole = $user->role?->name;
+        $allowedRoleIds = Role::query()
+            ->whereIn('name', $roles)
+            ->pluck('id')
+            ->all();
 
-        if (! $userRole || ! in_array($userRole, $roles, true)) {
+        if ($allowedRoleIds === [] || ! in_array((int) $user->role_id, $allowedRoleIds, true)) {
             return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
         }
 

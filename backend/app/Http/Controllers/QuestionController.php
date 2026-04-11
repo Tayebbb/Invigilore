@@ -37,6 +37,10 @@ class QuestionController extends Controller
 
     public function store(StoreQuestionRequest $request)
     {
+        if ($request->user()?->role?->name !== 'admin') {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         $validated = $request->validated();
 
         $question = $this->questionService->create([
@@ -55,11 +59,15 @@ class QuestionController extends Controller
             'difficulty' => $validated['difficulty'],
         ]);
 
-        return (new QuestionAdminResource($question))->response()->setStatusCode(201);
+        return response()->json($question->fresh()->load('exam')->toArray(), 201);
     }
 
     public function update(UpdateQuestionRequest $request, Question $question)
     {
+        if ($request->user()?->role?->name !== 'admin') {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         $validated = $request->validated();
         $payload = [];
 
@@ -157,7 +165,7 @@ class QuestionController extends Controller
             'marks' => $validated['marks'],
         ]);
 
-        return (new QuestionAdminResource($question))->response()->setStatusCode(201);
+        return response()->json($question->fresh()->load('exam')->toArray(), 201);
     }
 
     public function updateExamQuestion(Request $request, Exam $exam, Question $question)

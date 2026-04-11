@@ -20,7 +20,7 @@ class SmokeTest extends TestCase
     public function test_smoke_test_sequence()
     {
         // Create roles
-        $studentRole = Role::factory()->create(['name' => 'student']);
+        $studentRole = Role::query()->firstOrCreate(['name' => 'student']);
 
         // Create student user
         $student = User::factory()->create([

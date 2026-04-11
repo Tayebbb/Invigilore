@@ -115,6 +115,10 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 
+    Route::middleware('role:admin')->group(function () {
+        Route::post('/users', [UserController::class, 'store']);
+    });
+
     // Admin-only question bank routes
     Route::middleware('role:admin')->group(function () {
         Route::get('/questions', [QuestionController::class, 'index']);
@@ -134,10 +138,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/exam_sessions/{session}',   [ExamSessionController::class, 'update']);
         Route::delete('/exam_sessions/{session}',[ExamSessionController::class, 'destroy']);
 
+        Route::post('/attempts', [ExamAttemptController::class, 'storeFromExamId']);
         Route::post('/attempts/start', [ExamAttemptController::class, 'start']);
         Route::get('/attempts/{id}', [ExamAttemptController::class, 'show']);
         Route::post('/attempts/{id}/answer', [ExamAttemptController::class, 'saveAnswer']);
         Route::post('/attempts/{id}/submit', [ExamAttemptController::class, 'submit']);
+        Route::post('/answers', [ExamAttemptController::class, 'saveAnswerFromPayload']);
     });
 
     // System monitoring / proctoring
