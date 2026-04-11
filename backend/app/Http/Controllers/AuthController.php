@@ -231,15 +231,17 @@ class AuthController extends Controller
             return $createdUser;
         });
 
-        try {
-            Mail::to($user->email)->send(new AccountCreatedMail($user));
-        } catch (\Throwable $exception) {
-            Log::warning('Failed to send account created email.', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'error' => $exception->getMessage(),
-            ]);
-        }
+        app()->terminating(function () use ($user): void {
+            try {
+                Mail::to($user->email)->send(new AccountCreatedMail($user));
+            } catch (\Throwable $exception) {
+                Log::warning('Failed to send account created email.', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        });
 
         return response()->json([
             'user' => $user->load('role'),
@@ -374,15 +376,17 @@ class AuthController extends Controller
             'email' => $pending->email,
         ]);
 
-        try {
-            Mail::to($pending->email)->send(new SignupVerificationCodeMail($mailUser, $verificationCode));
-        } catch (\Throwable $exception) {
-            Log::warning('Failed to send signup verification code email.', [
-                'pending_registration_id' => $pending->id,
-                'email' => $pending->email,
-                'error' => $exception->getMessage(),
-            ]);
-        }
+        app()->terminating(function () use ($pending, $mailUser, $verificationCode): void {
+            try {
+                Mail::to($pending->email)->send(new SignupVerificationCodeMail($mailUser, $verificationCode));
+            } catch (\Throwable $exception) {
+                Log::warning('Failed to send signup verification code email.', [
+                    'pending_registration_id' => $pending->id,
+                    'email' => $pending->email,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
+        });
     }
 
     private function buildPendingRegistrationAttributes(
