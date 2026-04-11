@@ -26,8 +26,8 @@ return new class extends Migration
                 $table->string('paper_status', 20)->default('submitted')->after('end_time');
             }
 
-            if (! Schema::hasColumn('exams', 'instructions')) {
-                $table->text('instructions')->nullable()->after('paper_status');
+            if (! Schema::hasColumn('exams', 'description')) {
+                $table->text('description')->nullable()->after('paper_status');
             }
         });
 
@@ -100,8 +100,8 @@ return new class extends Migration
         }
 
         Schema::table('exams', function (Blueprint $table) {
-            if (Schema::hasColumn('exams', 'instructions')) {
-                $table->dropColumn('instructions');
+            if (Schema::hasColumn('exams', 'description')) {
+                $table->dropColumn('description');
             }
             if (Schema::hasColumn('exams', 'paper_status')) {
                 $table->dropColumn('paper_status');

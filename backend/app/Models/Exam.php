@@ -28,7 +28,6 @@ class Exam extends Model
         'paper_status',
         'exam_status',
         'description',
-        'instructions',
         'review_comment',
     ];
 

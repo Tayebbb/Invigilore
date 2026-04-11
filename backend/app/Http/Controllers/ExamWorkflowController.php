@@ -31,7 +31,8 @@ class ExamWorkflowController extends Controller
         return response()->json([
             'id' => $exam->id,
             'title' => $exam->title,
-            'instructions' => $exam->instructions,
+            'description' => $exam->description,
+            'instructions' => $exam->description,
             'start_time' => $exam->start_time,
             'end_time' => $exam->end_time,
             'duration' => $exam->duration,
@@ -49,12 +50,19 @@ class ExamWorkflowController extends Controller
 
         $data = $request->validate([
             'title' => ['sometimes', 'string', 'max:255'],
+            'description' => ['sometimes', 'nullable', 'string'],
             'instructions' => ['sometimes', 'nullable', 'string'],
             'start_time' => ['sometimes', 'date'],
             'end_time' => ['sometimes', 'date', 'after:start_time'],
             'duration' => ['sometimes', 'integer', 'min:1'],
             'total_marks' => ['sometimes', 'integer', 'min:1'],
         ]);
+
+        if (array_key_exists('instructions', $data) && ! array_key_exists('description', $data)) {
+            $data['description'] = $data['instructions'];
+        }
+
+        unset($data['instructions']);
 
         $exam->fill($data);
         $exam->save();
@@ -173,7 +181,8 @@ class ExamWorkflowController extends Controller
         return response()->json([
             'exam_id' => $exam->id,
             'title' => $exam->title,
-            'instructions' => $exam->instructions,
+            'description' => $exam->description,
+            'instructions' => $exam->description,
             'start_time' => $exam->start_time,
             'end_time' => $exam->end_time,
         ]);
