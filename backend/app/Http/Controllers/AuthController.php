@@ -270,14 +270,14 @@ class AuthController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
+        if (! ($user->is_active ?? true)) {
+            return response()->json(['message' => 'Account is inactive. Please contact an administrator.'], 403);
+        }
+
         if (is_null($user->email_verified_at)) {
             return response()->json([
                 'message' => 'Please verify your email before logging in.',
             ], 403);
-        }
-
-        if (! ($user->is_active ?? true)) {
-            return response()->json(['message' => 'Account is inactive. Please contact an administrator.'], 403);
         }
 
         $token = $user->createToken('api-token')->plainTextToken;

@@ -7,8 +7,10 @@ use App\Models\Exam;
 use App\Models\ExamAccess;
 use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
+use App\Models\Question;
 use App\Models\Result;
 use Carbon\Carbon;
+use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,21 +37,21 @@ class ExamAttemptController extends Controller
 
     public function start(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->resolveLegacyStudentActor($request);
 
         $validator = Validator::make($request->all(), [
-            'exam_id' => 'required|integer|exists:exams,id',
+            'exam_id' => 'required|integer',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        if (strtolower((string) ($user?->role?->name ?? '')) !== 'student') {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
+        $exam = Exam::find($request->integer('exam_id'));
 
-        $exam = Exam::findOrFail($request->integer('exam_id'));
+        if (! $exam) {
+            return response()->json(['message' => 'Exam not found'], 404);
+        }
         $hasActiveAttempt = ExamAttempt::query()
             ->where('user_id', $user->id)
             ->where('exam_id', $exam->id)
@@ -524,6 +526,22 @@ class ExamAttemptController extends Controller
     private function isAttemptInProgress(ExamAttempt $attempt): bool
     {
         return $this->attemptStatus($attempt) === 'in_progress';
+    }
+
+    private function resolveLegacyStudentActor(Request $request): User
+    {
+        $bearerToken = $request->bearerToken();
+
+        if ($bearerToken) {
+            $accessToken = PersonalAccessToken::findToken($bearerToken);
+            $tokenable = $accessToken?->tokenable;
+
+            if ($tokenable instanceof User) {
+                return $tokenable;
+            }
+        }
+
+        return $request->user();
     }
 
     private function logAudit(Request $request, string $action, array $payload = []): void
