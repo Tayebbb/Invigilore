@@ -11,8 +11,24 @@ const getCacheKey = (url: string, params?: Record<string, any>) => {
   return `${url}${queryStr}`;
 };
 
+const normalizeApiBaseUrl = (rawUrl?: string): string => {
+  const trimmed = (rawUrl || '').trim();
+
+  if (!trimmed) {
+    return 'http://localhost:8000/api';
+  }
+
+  const withoutTrailingSlash = trimmed.replace(/\/+$/, '');
+
+  if (withoutTrailingSlash.endsWith('/api')) {
+    return withoutTrailingSlash;
+  }
+
+  return `${withoutTrailingSlash}/api`;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8000/api',
+  baseURL: normalizeApiBaseUrl(import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL),
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',

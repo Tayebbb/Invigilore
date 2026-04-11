@@ -1,5 +1,24 @@
 <?php
 
+$defaultFrontendOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://invigilore.vercel.app',
+];
+
+$configuredOrigins = array_filter(array_map(
+    static fn (string $origin): string => trim($origin),
+    explode(',', (string) env('FRONTEND_URLS', ''))
+));
+
+$singleFrontendUrl = trim((string) env('FRONTEND_URL', ''));
+
+if ($singleFrontendUrl !== '') {
+    $configuredOrigins[] = $singleFrontendUrl;
+}
+
+$frontendOrigins = array_values(array_unique(array_merge($defaultFrontendOrigins, $configuredOrigins)));
+
 return [
 
     /*
@@ -19,9 +38,11 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [env('FRONTEND_URL', 'http://localhost:5173')],
+    'allowed_origins' => $frontendOrigins,
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '#^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$#',
+    ],
 
     'allowed_headers' => ['*'],
 
