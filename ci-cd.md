@@ -80,6 +80,7 @@
 - **SSL/TLS:** Built-in (automatic)
 
 **Vercel Features:**
+
 - Edge Functions for serverless logic
 - Image optimization
 - Analytics
@@ -99,6 +100,7 @@
 - **Port:** 8000 (configurable via PORT env)
 
 **Render Features:**
+
 - Automatic HTTPS
 - Zero-downtime deployments
 - Environment variables management
@@ -117,6 +119,7 @@
 - **Monitoring:** Built-in dashboards
 
 **Connection Details:**
+
 - Host: `invigilore-learnova.a.aivencloud.com:21642`
 - SSL Certificate: Required in production
 - Network: Public (IP allowlisting optional)
@@ -141,12 +144,14 @@ Events that trigger the pipeline:
 **Purpose:** Code quality checks and build validation
 
 **Backend:**
+
 ```bash
 composer install --no-interaction
 ./vendor/bin/pint --test  # Laravel code style
 ```
 
 **Frontend:**
+
 ```bash
 npm ci  # clean install
 npm run build  # validate build succeeds
@@ -165,12 +170,14 @@ npm run build  # validate build succeeds
 **Purpose:** Run PHPUnit test suite
 
 **Setup:**
+
 - Spin up MySQL 8.0 service in GitHub Actions
 - Create test database
 - Run Laravel migrations
 - Execute all tests
 
 **Test Suite:**
+
 ```bash
 php artisan test --no-coverage
 # Runs 25 tests across:
@@ -181,6 +188,7 @@ php artisan test --no-coverage
 ```
 
 **Environment (Testing):**
+
 ```
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -202,6 +210,7 @@ APP_ENV=testing
 **Purpose:** Build optimized Docker image and push to GHCR
 
 **Image Details:**
+
 - **Base:** Alpine Linux (minimal)
 - **Build Stage:** Composer dependencies installed
 - **Runtime Stage:** Only production code & extensions
@@ -210,6 +219,7 @@ APP_ENV=testing
 - **Size:** ~150-200 MB (optimized)
 
 **Docker Build Process:**
+
 ```bash
 # Multi-stage build in ./backend/Dockerfile
 # Stage 1: Builder
@@ -222,6 +232,7 @@ APP_ENV=testing
 ```
 
 **Image Tagging:**
+
 ```
 ghcr.io/tayebbb/invigilore/backend:main    # Branch tag
 ghcr.io/tayebbb/invigilore/backend:sha-abc123  # Commit SHA
@@ -241,9 +252,11 @@ ghcr.io/tayebbb/invigilore/backend:latest  # Latest on main
 **Purpose:** Trigger backend deployment on Render
 
 **Deployment Method:**
+
 - GitHub auto-deploy integration (main branch)
 
 **Render Deployment Process:**
+
 1. Render detects push to main branch
 2. Automatically pulls latest code
 3. Builds Docker image from Dockerfile
@@ -253,6 +266,7 @@ ghcr.io/tayebbb/invigilore/backend:latest  # Latest on main
 7. Health checks validate responsiveness
 
 **Health Check Mechanism:**
+
 ```
 Endpoint: GET /api/health
 Interval: 30s
@@ -263,6 +277,7 @@ Failure action: Rollback to previous version
 ```
 
 **Environment Variables Passed:**
+
 - From GitHub Secrets
 - From Render dashboard
 - See [Environment Variables](#environment-variables) section
@@ -276,10 +291,12 @@ Failure action: Rollback to previous version
 **Purpose:** Deploy frontend to Vercel
 
 **Deployment Method:**
+
 - Vercel CLI via GitHub Actions
 - Uses authentication token
 
 **Vercel Deployment Process:**
+
 1. CLI authenticates with VERCEL_TOKEN
 2. Builds production bundle: `npm run build`
 3. Optimizes and uploads dist/ folder
@@ -288,11 +305,13 @@ Failure action: Rollback to previous version
 6. Instant propagation
 
 **Build Environment:**
+
 ```bash
 VITE_API_BASE_URL="https://backend-url/api"
 ```
 
 **Deployment Command:**
+
 ```bash
 vercel deploy \
   --token $VERCEL_TOKEN \
@@ -311,6 +330,7 @@ vercel deploy \
 **Purpose:** Validate production environment
 
 **Checks:**
+
 1. Wait 60s for backend to stabilize
 2. Hit `/api/health` endpoint
 3. Retry 5 times with 10s intervals
@@ -318,6 +338,7 @@ vercel deploy \
 5. Continue-on-error (doesn't fail pipeline if health check fails)
 
 **Output:**
+
 ```
 ✅ CI/CD Pipeline Completed
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -350,6 +371,7 @@ CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
 ```
 
 **Benefits:**
+
 - ✅ Smaller final image (~150 MB vs ~500 MB)
 - ✅ No build tools in production
 - ✅ Faster deployments
@@ -372,6 +394,7 @@ CMD ["serve", "-s", "dist", "-l", "3000"]
 ```
 
 **Benefits:**
+
 - ✅ Static files only shipped to production
 - ✅ No source code or dev dependencies
 - ✅ Fast DL (~100 MB image)
@@ -382,6 +405,7 @@ CMD ["serve", "-s", "dist", "-l", "3000"]
 Both `.dockerignore` files are configured to exclude:
 
 **Backend excludes:**
+
 ```
 .git, .github, node_modules
 tests, phpunit.xml
@@ -392,6 +416,7 @@ README.md, docker-compose.yml
 ```
 
 **Frontend excludes:**
+
 ```
 .git, .github, node_modules
 dist/, build/ (rebuilt on each build)
@@ -406,6 +431,7 @@ coverage, .nyc_output
 ### Backend (Laravel) Environment Variables
 
 **Database Configuration:**
+
 ```env
 DB_CONNECTION=mysql
 DB_HOST=invigilore-learnova.a.aivencloud.com
@@ -416,12 +442,14 @@ DB_PASSWORD=***REDACTED***
 ```
 
 **SSL/TLS for Aiven MySQL:**
+
 ```env
 MYSQL_ATTR_SSL_CA=/etc/ssl/certs/ca-bundle.crt
 MYSQL_ATTR_SSL_MODE=VERIFY_IDENTITY
 ```
 
 **Laravel Application:**
+
 ```env
 APP_NAME=Invigilore
 APP_ENV=production
@@ -434,6 +462,7 @@ LOG_LEVEL=warning
 ```
 
 **Authentication & Security:**
+
 ```env
 SANCTUM_STATEFUL_DOMAINS=invigilore.vercel.app
 SESSION_DOMAIN=invigilore.com
@@ -445,6 +474,7 @@ JWT_TTL=1440
 ```
 
 **Cache & Queue (Optional):**
+
 ```env
 CACHE_DRIVER=file
 QUEUE_CONNECTION=sync
@@ -454,11 +484,13 @@ SESSION_DRIVER=file
 ### Frontend (React) Environment Variables
 
 **API Configuration:**
+
 ```env
 VITE_API_BASE_URL=https://api.invigilore.com/api
 ```
 
 **Example variations by deployment:**
+
 ```
 Local Dev:     http://localhost:8080/api
 Docker:        http://backend:8000/api
@@ -468,13 +500,13 @@ Custom Domain: https://api.invigilore.com/api
 
 ### Environment Variable Sources
 
-| Variable | Local Dev | Docker Compose | GitHub Actions | Vercel | Render |
-|----------|-----------|-----------------|-----------------|--------|--------|
-| `DB_*` | `.env` | `.env.docker` | Secrets | N/A | Secrets |
-| `APP_KEY` | `.env` | `.env.docker` | Secrets | N/A | Env var |
-| `JWT_SECRET` | `.env` | `.env.docker` | Secrets | N/A | Env var |
-| `VITE_*` | `.env.local` | Built into container | Secrets | Built-in | N/A |
-| `PORT` (Render) | N/A | N/A | N/A | N/A | Auto |
+| Variable        | Local Dev    | Docker Compose       | GitHub Actions | Vercel   | Render  |
+| --------------- | ------------ | -------------------- | -------------- | -------- | ------- |
+| `DB_*`          | `.env`       | `.env.docker`        | Secrets        | N/A      | Secrets |
+| `APP_KEY`       | `.env`       | `.env.docker`        | Secrets        | N/A      | Env var |
+| `JWT_SECRET`    | `.env`       | `.env.docker`        | Secrets        | N/A      | Env var |
+| `VITE_*`        | `.env.local` | Built into container | Secrets        | Built-in | N/A     |
+| `PORT` (Render) | N/A          | N/A                  | N/A            | N/A      | Auto    |
 
 ---
 
@@ -486,13 +518,14 @@ Go to: **GitHub Repository → Settings → Secrets and variables → Actions**
 
 #### Vercel Deployment Secrets
 
-| Secret | Obtaining It | Used By | Example |
-|--------|-------------|---------|---------|
-| `VERCEL_TOKEN` | Vercel Dashboard → Settings → Tokens | Frontend deploy | `ajKm9k_l29d...` |
-| `VERCEL_ORG_ID` | Vercel Dashboard → Settings → General | Frontend deploy | `team_abc123xyz` |
-| `VERCEL_PROJECT_ID` | Vercel → Project Settings → General | Frontend deploy | `prj_abc123xyz` |
+| Secret              | Obtaining It                          | Used By         | Example          |
+| ------------------- | ------------------------------------- | --------------- | ---------------- |
+| `VERCEL_TOKEN`      | Vercel Dashboard → Settings → Tokens  | Frontend deploy | `ajKm9k_l29d...` |
+| `VERCEL_ORG_ID`     | Vercel Dashboard → Settings → General | Frontend deploy | `team_abc123xyz` |
+| `VERCEL_PROJECT_ID` | Vercel → Project Settings → General   | Frontend deploy | `prj_abc123xyz`  |
 
 **How to get Vercel secrets:**
+
 1. Log in to https://vercel.com
 2. Click on your project
 3. Go to **Settings → General**
@@ -505,12 +538,13 @@ Go to: **GitHub Repository → Settings → Secrets and variables → Actions**
 
 #### Render Deployment Secrets (Optional)
 
-| Secret | Obtaining It | Used By | Optional |
-|--------|-------------|---------|----------|
-| `RENDER_SERVICE_ID` | Render Dashboard → Settings | Informational logging | ✅ Yes |
-| `BACKEND_URL` | Render Dashboard → Environment | Health check | ✅ Yes |
+| Secret              | Obtaining It                   | Used By               | Optional |
+| ------------------- | ------------------------------ | --------------------- | -------- |
+| `RENDER_SERVICE_ID` | Render Dashboard → Settings    | Informational logging | ✅ Yes   |
+| `BACKEND_URL`       | Render Dashboard → Environment | Health check          | ✅ Yes   |
 
 **How to get Render secrets:**
+
 1. Log in to https://render.com
 2. Select your service
 3. Ensure GitHub auto-deploy is enabled for `main`
@@ -520,18 +554,19 @@ Go to: **GitHub Repository → Settings → Secrets and variables → Actions**
 
 #### Database & Application Secrets
 
-| Secret | Value | Used By | Example |
-|--------|-------|---------|---------|
-| `DB_HOST` | Aiven MySQL hostname | Backend build/test | `invigilore-learnova.a.aivencloud.com` |
-| `DB_PORT` | Aiven MySQL port | Backend build/test | `21642` |
-| `DB_USERNAME` | Aiven admin user | Backend build/test | `avnadmin` |
-| `DB_PASSWORD` | Aiven admin password | Backend build/test | `***REDACTED***` |
-| `DB_DATABASE` | Production database name | Backend build/test | `invigilore_prod` |
-| `APP_KEY` | Laravel encryption key | Backend deployment | `base64:xxxxx` |
-| `JWT_SECRET` | JWT signing key | Backend deployment | `***REDACTED***` |
-| `VITE_API_BASE_URL` | Backend API URL | Frontend build | `https://api.invigilore.com/api` |
+| Secret              | Value                    | Used By            | Example                                |
+| ------------------- | ------------------------ | ------------------ | -------------------------------------- |
+| `DB_HOST`           | Aiven MySQL hostname     | Backend build/test | `invigilore-learnova.a.aivencloud.com` |
+| `DB_PORT`           | Aiven MySQL port         | Backend build/test | `21642`                                |
+| `DB_USERNAME`       | Aiven admin user         | Backend build/test | `avnadmin`                             |
+| `DB_PASSWORD`       | Aiven admin password     | Backend build/test | `***REDACTED***`                       |
+| `DB_DATABASE`       | Production database name | Backend build/test | `invigilore_prod`                      |
+| `APP_KEY`           | Laravel encryption key   | Backend deployment | `base64:xxxxx`                         |
+| `JWT_SECRET`        | JWT signing key          | Backend deployment | `***REDACTED***`                       |
+| `VITE_API_BASE_URL` | Backend API URL          | Frontend build     | `https://api.invigilore.com/api`       |
 
 **How to get Aiven secrets:**
+
 1. Log in to https://aiven.io
 2. Select MySQL service
 3. Go to **Connection Information**
@@ -644,6 +679,7 @@ PR comments show test results
 **Problem:** Tests pass locally but fail in GitHub Actions
 
 **Solution:**
+
 ```bash
 # Check database connectivity
 # Ensure test database credentials match .env.test
@@ -652,6 +688,7 @@ PR comments show test results
 ```
 
 **Debug Steps:**
+
 1. Review **test-backend** job logs
 2. Look for specific test failures
 3. Check MySQL service initialization
@@ -662,6 +699,7 @@ PR comments show test results
 **Problem:** `docker build` fails with missing dependencies
 
 **Solution:**
+
 ```bash
 # Ensure .dockerignore doesn't exclude needed files
 # Verify composer.json/package.json are copied
@@ -669,6 +707,7 @@ PR comments show test results
 ```
 
 **Debug Steps:**
+
 1. Review **build-backend-docker** job logs
 2. Look for missing files in `COPY` commands
 3. Check `composer install` errors
@@ -679,11 +718,13 @@ PR comments show test results
 **Problem:** `VERCEL_TOKEN` not found or invalid
 
 **Solution:**
+
 1. Verify secrets are set in GitHub
 2. Confirm token hasn't expired
 3. Check organization ID matches project
 
 **Debug Steps:**
+
 ```bash
 # Test Vercel CLI locally
 vercel deploy --token $VERCEL_TOKEN --prod
@@ -697,12 +738,14 @@ vercel project list
 **Problem:** Backend doesn't start or crashes on startup
 
 **Solution:**
+
 1. Check Docker image built successfully
 2. Verify environment variables set in Render
 3. If `RUN_MIGRATIONS=true`, review migration output
 4. Check Laravel logs
 
 **Debug Steps:**
+
 1. Render Dashboard → Logs → View live logs
 2. Check if migrations ran successfully
 3. Verify database connectivity
@@ -713,11 +756,13 @@ vercel project list
 **Problem:** `/api/health` endpoint not responding
 
 **Solution:**
+
 1. Verify Laravel app is running
 2. Check app configuration
 3. Ensure health route exists
 
 **Health Route (to add if missing):**
+
 ```php
 // routes/api.php
 Route::get('/health', function () {
@@ -730,21 +775,25 @@ Route::get('/health', function () {
 ### Accessing Logs
 
 **GitHub Actions Logs:**
+
 ```
 GitHub → Actions → [Workflow] → [Run] → [Job] → View logs
 ```
 
 **Vercel Logs:**
+
 ```
 Vercel Dashboard → [Project] → Deployments → [Deployment] → View Logs
 ```
 
 **Render Logs:**
+
 ```
 Render Dashboard → [Service] → Logs → View live streaming logs
 ```
 
 **Aiven MySQL Logs:**
+
 ```
 Aiven Console → [Service] → Logs → Query logs
 ```
@@ -818,6 +867,7 @@ ls -lh dist/
 **Cause:** Database connection timeout or SSL issue
 
 **Solution:**
+
 ```env
 DB_HOST=invigilore-learnova.a.aivencloud.com
 DB_PORT=21642
@@ -834,6 +884,7 @@ DB_CONNECTION_POOL_TIMEOUT=60
 **Cause:** MySQL table max file size exceeded or data corruption
 
 **Solution:**
+
 ```bash
 # Check table sizes
 mysql -h host -u user -p -e "SELECT table_name, ROUND(((data_length + index_length) / 1024 / 1024), 2) MB FROM information_schema.TABLES WHERE table_schema='invigilore_prod';"
@@ -849,6 +900,7 @@ php artisan db:optimize
 **Cause:** SSL certificate not found in container
 
 **Solution:**
+
 ```dockerfile
 # The Dockerfile expects ca.pem at root
 # Use system trust store instead:
@@ -863,6 +915,7 @@ MYSQL_ATTR_SSL_MODE=VERIFY_IDENTITY
 **Cause:** Private Composer package without authentication
 
 **Solution:**
+
 ```bash
 # Configure Composer auth for private repos
 composer config github-oauth.github.com $GITHUB_TOKEN
@@ -876,6 +929,7 @@ composer install --no-interaction --prefer-dist
 **Cause:** Invalid PROJECT_ID or ORG_ID
 
 **Solution:**
+
 1. Verify secrets in GitHub
 2. Re-generate Vercel token
 3. Check project still exists
@@ -895,6 +949,7 @@ vercel project inspect
 **Cause:** .dockerignore not excluding node_modules/vendor
 
 **Solution:**
+
 ```dockerfile
 # Ensure .dockerignore excludes:
 node_modules/
@@ -910,6 +965,7 @@ coverage/
 ### 🟡 Performance Optimization
 
 #### Speed up tests
+
 ```bash
 # Use --parallel flag
 php artisan test --parallel
@@ -919,6 +975,7 @@ php artisan test --filter=ExamAttemptFlowTest
 ```
 
 #### Speed up Docker builds
+
 ```bash
 # Use buildkit caching
 DOCKER_BUILDKIT=1 docker build .
@@ -928,6 +985,7 @@ uses: docker/setup-buildx-action@v3
 ```
 
 #### Speed up Vercel Deploy
+
 ```bash
 # Ensure .vercelignore is optimal
 # Only include necessary files
@@ -970,6 +1028,7 @@ yamllint .github/workflows/ci-cd.yml
 ### Immediate Enhancements
 
 1. **Add Preview Deployments for PRs**
+
    ```yaml
    # Add Vercel preview URL to PR comments
    - name: 📱 Comment PR with preview URL
@@ -978,12 +1037,14 @@ yamllint .github/workflows/ci-cd.yml
    ```
 
 2. **Add Database Migrations Testing**
+
    ```bash
    # Test fresh migrations
    php artisan migrate:refresh --seed
    ```
 
 3. **Add Code Coverage Reports**
+
    ```bash
    php artisan test --coverage --coverage-html=coverage/
    ```
