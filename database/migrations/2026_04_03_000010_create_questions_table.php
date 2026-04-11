@@ -30,6 +30,16 @@ return new class extends Migration
             $table->index('difficulty');
             $table->index('topic');
         });
+
+        if (Schema::hasTable('answers')) {
+            try {
+                Schema::table('answers', function (Blueprint $table) {
+                    $table->foreign('question_id')->references('id')->on('questions')->cascadeOnDelete();
+                });
+            } catch (\Throwable) {
+                // Ignore duplicate/unsupported FK state.
+            }
+        }
     }
 
     public function down(): void
