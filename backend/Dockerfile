@@ -57,9 +57,9 @@ LABEL description="Production Laravel Backend Container"
 RUN apk add --no-cache \
     ca-certificates \
     curl \
-    libzip \
-    oniguruma \
-    libxml2
+    libzip-dev \
+    oniguruma-dev \
+    libxml2-dev
 
 # Install only required PHP extensions (production)
 RUN docker-php-ext-install \
