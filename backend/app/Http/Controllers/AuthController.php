@@ -65,6 +65,7 @@ class AuthController extends Controller
             ], 422);
         }
 
+        $passwordHash = Hash::make((string) $request->string('password'));
         $verificationCode = (string) random_int(100000, 999999);
         $verificationCodeHash = Hash::make($verificationCode);
         $verificationCodeExpiresAt = Carbon::now()->addMinutes(self::SIGNUP_VERIFICATION_EXPIRY_MINUTES);
@@ -73,19 +74,24 @@ class AuthController extends Controller
             ['email' => (string) $request->string('email')],
             $this->buildPendingRegistrationAttributes(
                 name: (string) $request->string('name'),
-                passwordHash: Hash::make((string) $request->string('password')),
+                passwordHash: $passwordHash,
                 role: $role,
                 verificationCodeHash: $verificationCodeHash,
                 verificationCodeExpiresAt: $verificationCodeExpiresAt,
             ) + [
                 'name' => (string) $request->string('name'),
-                'password_hash' => Hash::make((string) $request->string('password')),
+                'password_hash' => $passwordHash,
                 'verified_at' => null,
                 'consumed_at' => null,
             ]
         );
 
-        $this->issueAndSendSignupVerificationCode($pending, $verificationCode, $verificationCodeExpiresAt);
+        // Send after the HTTP response is flushed — avoids blocking the client on SMTP.
+        $this->dispatchSignupVerificationEmailAfterResponse(
+            (string) $pending->name,
+            (string) $pending->email,
+            $verificationCode
+        );
 
         return response()->json([
             'message' => 'Verification code sent to your email. Please verify your account to continue.',
@@ -233,17 +239,17 @@ class AuthController extends Controller
             return $createdUser;
         });
 
-        app()->terminating(function () use ($user): void {
+        \dispatch(function () use ($user): void {
             try {
                 Mail::to($user->email)->send(new AccountCreatedMail($user));
             } catch (\Throwable $exception) {
-                Log::warning('Failed to send account created email.', [
+                Log::error('Failed to send account created email.', [
                     'user_id' => $user->id,
                     'email' => $user->email,
                     'error' => $exception->getMessage(),
                 ]);
             }
-        });
+        })->afterResponse();
 
         return response()->json([
             'user' => $user->load('role'),
@@ -344,12 +350,14 @@ class AuthController extends Controller
         return response()->json(['message' => 'Successfully logged out']);
     }
 
+    /**
+     * Resend flow: generate a new code, persist, then send after the response is returned.
+     */
     private function issueAndSendSignupVerificationCode(
         PendingUserRegistration $pending,
         ?string $verificationCode = null,
         ?Carbon $expiresAt = null,
-    ): void
-    {
+    ): void {
         $verificationCode = $verificationCode ?? (string) random_int(100000, 999999);
 
         $codeHash = Hash::make($verificationCode);
@@ -373,22 +381,29 @@ class AuthController extends Controller
 
         $pending->save();
 
-        $mailUser = new User([
-            'name' => $pending->name,
-            'email' => $pending->email,
-        ]);
+        $this->dispatchSignupVerificationEmailAfterResponse(
+            (string) $pending->name,
+            (string) $pending->email,
+            $verificationCode
+        );
+    }
 
-        app()->terminating(function () use ($pending, $mailUser, $verificationCode): void {
+    private function dispatchSignupVerificationEmailAfterResponse(string $name, string $email, string $plainCode): void
+    {
+        \dispatch(function () use ($name, $email, $plainCode): void {
             try {
-                Mail::to($pending->email)->send(new SignupVerificationCodeMail($mailUser, $verificationCode));
+                $mailUser = new User([
+                    'name' => $name,
+                    'email' => $email,
+                ]);
+                Mail::to($email)->send(new SignupVerificationCodeMail($mailUser, $plainCode));
             } catch (\Throwable $exception) {
-                Log::warning('Failed to send signup verification code email.', [
-                    'pending_registration_id' => $pending->id,
-                    'email' => $pending->email,
+                Log::error('Failed to send signup verification code email.', [
+                    'email' => $email,
                     'error' => $exception->getMessage(),
                 ]);
             }
-        });
+        })->afterResponse();
     }
 
     private function buildPendingRegistrationAttributes(
