@@ -41,26 +41,10 @@ return new class extends Migration
             });
         }
 
-        if (! Schema::hasTable('attempt_answers')) {
-            Schema::create('attempt_answers', function (Blueprint $table) {
-                $table->id();
-                $table->foreignId('attempt_id')->constrained('exam_attempts')->cascadeOnDelete();
-                $table->foreignId('question_id')->constrained('questions')->cascadeOnDelete();
-                $table->string('selected_answer');
-                $table->boolean('is_correct')->nullable();
-                $table->timestamps();
-
-                $table->unique(['attempt_id', 'question_id']);
-            });
-        }
     }
 
     public function down(): void
     {
-        if (Schema::hasTable('attempt_answers')) {
-            Schema::dropIfExists('attempt_answers');
-        }
-
         if (Schema::hasTable('exam_attempts')) {
             Schema::table('exam_attempts', function (Blueprint $table) {
                 if (Schema::hasColumn('exam_attempts', 'status')) {

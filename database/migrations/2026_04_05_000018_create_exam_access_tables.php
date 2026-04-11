@@ -22,29 +22,10 @@ return new class extends Migration
                 $table->index('access_token');
             });
         }
-
-        if (! Schema::hasTable('exam_access_users')) {
-            Schema::create('exam_access_users', function (Blueprint $table) {
-                $table->id();
-                $table->foreignId('exam_id')->constrained('exams')->cascadeOnDelete();
-                $table->string('email');
-                $table->string('access_token', 128);
-                $table->string('status', 20)->default('pending');
-                $table->timestamp('expires_at')->nullable();
-                $table->timestamps();
-
-                $table->unique(['exam_id', 'email']);
-                $table->unique('access_token');
-            });
-        }
     }
 
     public function down(): void
     {
-        if (Schema::hasTable('exam_access_users')) {
-            Schema::drop('exam_access_users');
-        }
-
         if (Schema::hasTable('exam_access')) {
             Schema::drop('exam_access');
         }
