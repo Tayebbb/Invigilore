@@ -22,6 +22,10 @@ class QuestionController extends Controller
 
     public function index(Request $request)
     {
+        if (! $request->user()?->hasPermission('questions.manage')) {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         $questions = $this->questionService->paginate(
             $request->only(['exam_id']),
             max(1, min(100, (int) $request->integer('per_page', 15)))
@@ -32,12 +36,16 @@ class QuestionController extends Controller
 
     public function show(Question $question)
     {
+        if (! request()->user()?->hasPermission('questions.manage')) {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         return new QuestionAdminResource($question->load('exam'));
     }
 
     public function store(StoreQuestionRequest $request)
     {
-        if ($request->user()?->role?->name !== 'admin') {
+        if (! $request->user()?->hasPermission('questions.manage')) {
             return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
         }
 
@@ -64,7 +72,7 @@ class QuestionController extends Controller
 
     public function update(UpdateQuestionRequest $request, Question $question)
     {
-        if ($request->user()?->role?->name !== 'admin') {
+        if (! $request->user()?->hasPermission('questions.manage')) {
             return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
         }
 
@@ -120,6 +128,10 @@ class QuestionController extends Controller
 
     public function destroy(Question $question): JsonResponse
     {
+        if (! request()->user()?->hasPermission('questions.manage')) {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         $this->questionService->delete($question);
 
         return response()->json(['message' => 'Question deleted successfully']);
@@ -127,6 +139,10 @@ class QuestionController extends Controller
 
     public function generateQuestions(GenerateQuestionsRequest $request, Exam $exam)
     {
+        if (! $request->user()?->hasPermission('questions.manage')) {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         $questions = $this->questionService->generateForExam($exam, $request->validated());
 
         return QuestionResource::collection($questions);
@@ -134,6 +150,10 @@ class QuestionController extends Controller
 
     public function examQuestions(Exam $exam)
     {
+        if (! request()->user()?->hasPermission('questions.manage')) {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         return QuestionAdminResource::collection(
             $exam->questions()->latest()->get()
         );
@@ -141,6 +161,10 @@ class QuestionController extends Controller
 
     public function storeExamQuestion(Request $request, Exam $exam)
     {
+        if (! $request->user()?->hasPermission('questions.manage')) {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         $validated = $request->validate([
             'question_text' => ['required', 'string'],
             'type' => ['sometimes', 'string'],
@@ -177,6 +201,10 @@ class QuestionController extends Controller
 
     public function updateExamQuestion(Request $request, Exam $exam, Question $question)
     {
+        if (! $request->user()?->hasPermission('questions.manage')) {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         if ((int) $question->exam_id !== (int) $exam->id) {
             return response()->json(['message' => 'Question not found for this exam.'], 404);
         }
@@ -236,6 +264,10 @@ class QuestionController extends Controller
 
     public function destroyExamQuestion(Exam $exam, Question $question): JsonResponse
     {
+        if (! request()->user()?->hasPermission('questions.manage')) {
+            return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
+        }
+
         if ((int) $question->exam_id !== (int) $exam->id) {
             return response()->json(['message' => 'Question not found for this exam.'], 404);
         }

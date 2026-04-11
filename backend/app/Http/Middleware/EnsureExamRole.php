@@ -19,7 +19,7 @@ class EnsureExamRole
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
-        if ($user->role?->name === 'admin') {
+        if ($user->hasPermission('exams.view.all')) {
             return $next($request);
         }
 

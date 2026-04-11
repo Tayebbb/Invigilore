@@ -31,6 +31,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import ModeratorReviewPanel from './ModeratorReviewPanel';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import useCurrentUser from '../../hooks/useCurrentUser';
+import { hasAnyPermission, normalizePermissionList } from '../../utils/permissions';
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
@@ -193,8 +194,9 @@ export default function CreateExam() {
   const currentUserId = Number((currentUser as { id?: number | string }).id ?? NaN);
 
   const roleKey = String((currentUser as { roleKey?: string }).roleKey ?? 'teacher').toLowerCase();
-  const canCreateExam = roleKey === 'teacher' || roleKey === 'controller' || roleKey === 'admin';
-  const canAssignRoles = canCreateExam;
+  const currentPermissions = normalizePermissionList((currentUser as { permissions?: string[] }).permissions);
+  const canCreateExam = hasAnyPermission(currentPermissions, ['exams.create']);
+  const canAssignRoles = hasAnyPermission(currentPermissions, ['exams.manage.access', 'roles.assign']);
 
   const examIdParam = searchParams.get('examId');
   const examIdCandidate = examIdFromPath ?? examIdParam;
@@ -334,8 +336,8 @@ export default function CreateExam() {
   const activeExamId = examContext?.id ?? null;
   const isEditingExam = !!examId && !Number.isNaN(examId) && activeExamId === examId;
 
-  const isPrivileged = roleKey === 'teacher' || roleKey === 'controller' || roleKey === 'admin';
-  const isGlobalAdminOrController = roleKey === 'admin' || roleKey === 'controller';
+  const isPrivileged = hasAnyPermission(currentPermissions, ['exams.view.all', 'exams.create', 'questions.manage', 'questions.review', 'exams.publish', 'exams.settings.manage']);
+  const isGlobalAdminOrController = hasAnyPermission(currentPermissions, ['exams.view.all', 'exams.settings.manage']);
 
   // Read access (can see the tab in sidebar and navigate to it):
   const canAccessQuestionsManager = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
@@ -352,7 +354,7 @@ export default function CreateExam() {
 
   const activeExamContext = examContext ?? setterExams[0] ?? null;
   const targetExamId = activeExamContext?.id ?? ((examId && !Number.isNaN(examId)) ? examId : null);
-  const canActivateExam = canEditControllerOnly || (!!examId && isModeratorOnCurrentExam && activeExamContext?.exam_status === 'completed');
+  const canActivateExam = hasAnyPermission(currentPermissions, ['exams.publish']) && (canEditControllerOnly || (!!examId && isModeratorOnCurrentExam && activeExamContext?.exam_status === 'completed'));
 
   async function refreshExamQuestions(examIdToLoad: number) {
     setLoadingQuestions(true);

@@ -3,6 +3,7 @@ import { Navigate } from 'react-router';
 import { getHomeRouteByRole, normalizeRole } from '../navigation/roleRoutes';
 import { getAuthToken } from '../utils/authToken';
 import { readStoredAuthUser } from '../utils/authUser';
+import { hasAnyPermission, normalizePermissionList } from '../utils/permissions';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,7 @@ export interface StoredUser {
   name: string;
   email: string;
   role: string;
+  permissions?: string[];
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -52,6 +54,8 @@ function normalizeStoredRole(rawRole: unknown): UserRole {
 interface ProtectedRouteProps {
   /** Roles allowed to access this route */
   allowedRoles: UserRole[];
+  /** Optional permissions required to access this route */
+  allowedPermissions?: string[];
   children: ReactNode;
 }
 
@@ -65,10 +69,11 @@ interface ProtectedRouteProps {
  *
  * TODO: swap localStorage check for a real auth context / API call.
  */
-export default function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
+export default function ProtectedRoute({ allowedRoles, allowedPermissions = [], children }: ProtectedRouteProps) {
   const user = getStoredUser();
   const token = getAuthToken();
   const normalizedRole = normalizeRole(user?.role ?? null);
+  const userPermissions = normalizePermissionList((user as { permissions?: string[] } | null)?.permissions);
 
   // Not logged in
   if (!user || !token) {
@@ -81,6 +86,10 @@ export default function ProtectedRoute({ allowedRoles, children }: ProtectedRout
 
   // Logged in but accessing the wrong role's dashboard
   if (!allowedRoles.includes(normalizedRole)) {
+    return <Navigate to={getHomeRouteByRole(normalizedRole)} replace />;
+  }
+
+  if (!hasAnyPermission(userPermissions, allowedPermissions)) {
     return <Navigate to={getHomeRouteByRole(normalizedRole)} replace />;
   }
 

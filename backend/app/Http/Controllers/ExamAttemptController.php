@@ -4,19 +4,15 @@ namespace App\Http\Controllers;
 use App\Models\AttemptAnswer;
 use App\Models\AuditLog;
 use App\Models\Exam;
-use App\Models\ExamAccess;
 use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
-use App\Models\Question;
 use App\Models\Result;
 use Carbon\Carbon;
-use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
-use App\Models\User;
 
 class ExamAttemptController extends Controller
 {
@@ -37,21 +33,28 @@ class ExamAttemptController extends Controller
 
     public function start(Request $request): JsonResponse
     {
-        $user = $this->resolveLegacyStudentActor($request);
+        $user = $request->user();
 
         $validator = Validator::make($request->all(), [
-            'exam_id' => 'required|integer',
+            'exam_id' => 'required|integer|exists:exams,id',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $exam = Exam::find($request->integer('exam_id'));
-
-        if (! $exam) {
-            return response()->json(['message' => 'Exam not found'], 404);
+        if (strtolower((string) ($user?->role?->name ?? '')) !== 'student') {
+            return response()->json(['message' => 'Forbidden'], 403);
         }
+
+        $exam = Exam::findOrFail($request->integer('exam_id'));
+        $isStudent = strtolower((string) ($user?->role?->name ?? '')) === 'student';
+        if ($isStudent && ! $this->hasAssignedExamAccess($exam->id, strtolower((string) $user->email))) {
+            return response()->json([
+                'message' => 'You are not assigned to this exam.',
+            ], 403);
+        }
+
         $hasActiveAttempt = ExamAttempt::query()
             ->where('user_id', $user->id)
             ->where('exam_id', $exam->id)
@@ -115,12 +118,16 @@ class ExamAttemptController extends Controller
             ->inRandomOrder()
             ->get(['id', 'exam_id', 'question_text', 'type', 'options', 'marks']);
 
-        return response()->json($this->buildAttemptResponse($attempt, $questions, $exam), 201);
-    }
-
-    public function storeFromExamId(Request $request): JsonResponse
-    {
-        return $this->store($request);
+        return response()->json([
+            'attempt' => [
+                'id' => $attempt->id,
+                'exam_id' => $attempt->exam_id,
+                'start_time' => $this->attemptStartTime($attempt),
+                'duration' => $this->attemptDuration($attempt, $exam),
+                'status' => $this->attemptStatus($attempt),
+            ],
+            'questions' => $questions,
+        ], 201);
     }
 
     public function show(Request $request, int $id): JsonResponse
@@ -128,7 +135,7 @@ class ExamAttemptController extends Controller
         $attempt = ExamAttempt::with(['exam.questions:id,exam_id,question_text,type,options,marks', 'answers'])
             ->findOrFail($id);
 
-        if ((int) $attempt->user_id !== (int) $this->resolveLegacyStudentActor($request)->id) {
+        if ((int) $attempt->user_id !== (int) $request->user()->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -166,13 +173,15 @@ class ExamAttemptController extends Controller
 
     public function saveAnswer(Request $request, int $id): JsonResponse
     {
+        $selectedOption = trim((string) ($request->input('selected_option') ?? $request->input('selected_answer') ?? ''));
+
         $request->merge([
-            'selected_answer' => trim((string) $request->input('selected_answer')),
+            'selected_option' => $selectedOption,
         ]);
 
         $validator = Validator::make($request->all(), [
             'question_id' => 'required|integer|exists:questions,id',
-            'selected_answer' => 'required|string|max:1000',
+            'selected_option' => 'required|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -181,7 +190,7 @@ class ExamAttemptController extends Controller
 
         $attempt = ExamAttempt::with('exam')->findOrFail($id);
 
-        if ((int) $attempt->user_id !== (int) $this->resolveLegacyStudentActor($request)->id) {
+        if ((int) $attempt->user_id !== (int) $request->user()->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -211,7 +220,8 @@ class ExamAttemptController extends Controller
                 'question_id' => $request->integer('question_id'),
             ],
             [
-                'selected_answer' => $request->string('selected_answer')->trim()->toString(),
+                'selected_option' => $request->string('selected_option')->trim()->toString(),
+                'answer_text' => $request->string('selected_option')->trim()->toString(),
             ]
         );
 
@@ -230,89 +240,10 @@ class ExamAttemptController extends Controller
                 'id' => $answer->id,
                 'attempt_id' => $answer->attempt_id,
                 'question_id' => $answer->question_id,
-                'selected_answer' => $answer->selected_answer,
+                'selected_option' => $answer->selected_option,
             ],
             'remaining_time' => $this->remainingSeconds($attempt),
         ]);
-    }
-
-    public function saveAnswerFromPayload(Request $request): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'attempt_id' => 'required|integer',
-            'question_id' => 'required|integer',
-            'selected_answer' => 'sometimes|nullable|string',
-            'answer' => 'sometimes|nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        $attempt = ExamAttempt::with('exam')->find($request->integer('attempt_id'));
-
-        if (! $attempt) {
-            return response()->json(['message' => 'Attempt not found'], 404);
-        }
-
-        if (! Question::query()->whereKey($request->integer('question_id'))->exists()) {
-            return response()->json(['message' => 'Question not found'], 404);
-        }
-
-        if ((int) $attempt->user_id !== (int) $this->resolveLegacyStudentActor($request)->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        if (! $this->isAttemptInProgress($attempt)) {
-            return response()->json(['message' => 'Attempt already submitted'], 409);
-        }
-
-        $selectedAnswer = $request->input('selected_answer', $request->input('answer'));
-        if ($selectedAnswer === null || $selectedAnswer === '') {
-            return response()->json(['message' => 'selected_answer is required'], 422);
-        }
-
-        $questionExistsInExam = $attempt->exam
-            ->questions()
-            ->where('id', $request->integer('question_id'))
-            ->exists();
-
-        if (! $questionExistsInExam) {
-            return response()->json(['message' => 'Question does not belong to this exam'], 422);
-        }
-
-        $answer = AttemptAnswer::updateOrCreate(
-            [
-                'attempt_id' => $attempt->id,
-                'question_id' => $request->integer('question_id'),
-            ],
-            [
-                'selected_answer' => (string) $selectedAnswer,
-            ]
-        );
-
-        if (Schema::hasTable('answers')) {
-            DB::table('answers')->updateOrInsert(
-                [
-                    'attempt_id' => $attempt->id,
-                    'question_id' => $request->integer('question_id'),
-                ],
-                [
-                    'answer' => (string) $selectedAnswer,
-                    'updated_at' => now(),
-                    'created_at' => now(),
-                ]
-            );
-        }
-
-        return response()->json([
-            'message' => 'Answer saved',
-            'id' => $answer->id,
-            'attempt_id' => $answer->attempt_id,
-            'question_id' => $answer->question_id,
-            'selected_answer' => $answer->selected_answer,
-            'remaining_time' => $this->remainingSeconds($attempt),
-        ], 201);
     }
 
     public function submit(Request $request, int $id): JsonResponse
@@ -322,13 +253,17 @@ class ExamAttemptController extends Controller
 
     public function submitExam(Request $request, int $id): JsonResponse
     {
-        $attempt = ExamAttempt::with('exam.questions', 'answers')->findOrFail($id);
+        $validator = Validator::make(['attempt_id' => $id], [
+            'attempt_id' => 'required|integer|exists:exam_attempts,id',
+        ]);
 
-        if ((int) $attempt->user_id !== (int) $this->resolveLegacyStudentActor($request)->id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        if ($this->remainingSeconds($attempt) <= 0) {
+        $attempt = ExamAttempt::with('exam.questions', 'answers')->findOrFail($id);
+
+        if ((int) $attempt->user_id !== (int) $request->user()->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -466,7 +401,7 @@ class ExamAttemptController extends Controller
 
     private function attemptStartTime(ExamAttempt $attempt)
     {
-        return $attempt->started_at ?? $attempt->start_time;
+        return $attempt->start_time ?? $attempt->started_at;
     }
 
     private function attemptEndTime(ExamAttempt $attempt)
@@ -499,21 +434,6 @@ class ExamAttemptController extends Controller
             ->exists();
     }
 
-    private function buildAttemptResponse(ExamAttempt $attempt, $questions, ?Exam $exam = null): array
-    {
-        return [
-            'id' => $attempt->id,
-            'attempt' => [
-                'id' => $attempt->id,
-                'exam_id' => $attempt->exam_id,
-                'start_time' => $this->attemptStartTime($attempt),
-                'duration' => $this->attemptDuration($attempt, $exam),
-                'status' => $this->attemptStatus($attempt),
-            ],
-            'questions' => $questions,
-        ];
-    }
-
     private function attemptStatus(ExamAttempt $attempt): string
     {
         if (Schema::hasColumn('exam_attempts', 'status') && ! empty($attempt->status)) {
@@ -526,22 +446,6 @@ class ExamAttemptController extends Controller
     private function isAttemptInProgress(ExamAttempt $attempt): bool
     {
         return $this->attemptStatus($attempt) === 'in_progress';
-    }
-
-    private function resolveLegacyStudentActor(Request $request): User
-    {
-        $bearerToken = $request->bearerToken();
-
-        if ($bearerToken) {
-            $accessToken = PersonalAccessToken::findToken($bearerToken);
-            $tokenable = $accessToken?->tokenable;
-
-            if ($tokenable instanceof User) {
-                return $tokenable;
-            }
-        }
-
-        return $request->user();
     }
 
     private function logAudit(Request $request, string $action, array $payload = []): void

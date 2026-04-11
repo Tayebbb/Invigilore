@@ -11,7 +11,7 @@ class UpdateAdminUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->role?->name === 'admin';
+        return $this->user()?->hasAnyPermission(['users.manage', 'roles.assign']) === true;
     }
 
     public function rules(): array
@@ -42,7 +42,7 @@ class UpdateAdminUserRequest extends FormRequest
     {
         throw new HttpResponseException(response()->json([
             'success' => false,
-            'message' => 'Forbidden. Admin access is required.',
+            'message' => 'Forbidden. Missing user-management permissions.',
         ], 403));
     }
 

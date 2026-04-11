@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import api from '../api';
 import { getStoredUser } from '../auth/ProtectedRoute';
+import { normalizePermissionList } from '../utils/permissions';
 
 type UserRole = 'admin' | 'teacher' | 'student';
 
@@ -18,7 +19,9 @@ type ApiMeResponse = {
   id?: number;
   name?: string;
   email?: string;
-  role?: { name?: string } | string | null;
+  role?: { name?: string; permissions?: Array<{ name?: string }> } | string | null;
+  permissions?: string[];
+  role_permissions?: Array<{ name?: string }>;
 };
 
 function normalizeRole(rawRole: unknown): UserRole {
@@ -47,6 +50,7 @@ export default function useCurrentUser() {
     email: stored?.email ?? '',
     rawRole: String(stored?.role ?? 'student').toLowerCase().replace(/[-\s]+/g, '_'),
     role: normalizeRole(stored?.role),
+    permissions: normalizePermissionList((stored as { permissions?: string[] } | null)?.permissions),
   }));
 
   useEffect(() => {
@@ -61,12 +65,18 @@ export default function useCurrentUser() {
         const rawRole = String((data?.role as { name?: string } | undefined)?.name ?? data?.role ?? user.rawRole)
           .toLowerCase()
           .replace(/[-\s]+/g, '_');
+        const permissions = normalizePermissionList(
+          data?.permissions
+            ?? data?.role_permissions?.map((permission) => permission?.name)
+            ?? (typeof data?.role === 'object' && data?.role !== null ? data.role.permissions?.map((permission) => permission?.name) : []),
+        );
         const next = {
           id: data?.id ?? user.id,
           name: data?.name ?? user.name,
           email: data?.email ?? user.email,
           rawRole,
           role,
+          permissions,
         };
 
         setUser(next);
@@ -91,6 +101,7 @@ export default function useCurrentUser() {
       initial: (user.name?.[0] ?? 'U').toUpperCase(),
       roleBadge: toBadgeRole(user.role),
       roleKey: user.rawRole,
+      permissions: user.permissions,
       firstName: (user.name ?? 'User').trim().split(' ')[0] || 'User',
     }),
     [user],

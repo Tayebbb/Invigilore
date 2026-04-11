@@ -58,17 +58,17 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Student secure exam module
-    Route::middleware('role:student')->prefix('student')->group(function () {
+    Route::middleware('permission:exams.view.assigned')->prefix('student')->group(function () {
         Route::get('/exams', [StudentExamController::class, 'index']);
-        Route::post('/exams/{exam}/start', [StudentExamController::class, 'start']);
+        Route::post('/exams/{exam}/start', [StudentExamController::class, 'start'])->middleware('permission:exams.attempt');
 
-        Route::get('/attempts/{attempt}', [StudentExamController::class, 'showAttempt']);
-        Route::post('/attempts/{attempt}/answers', [StudentExamController::class, 'saveAnswer']);
-        Route::post('/attempts/{attempt}/submit', [StudentExamController::class, 'submit']);
-        Route::post('/attempts/{attempt}/telemetry', [StudentExamController::class, 'telemetry']);
+        Route::get('/attempts/{attempt}', [StudentExamController::class, 'showAttempt'])->middleware('permission:exams.attempt');
+        Route::post('/attempts/{attempt}/answers', [StudentExamController::class, 'saveAnswer'])->middleware('permission:answers.submit');
+        Route::post('/attempts/{attempt}/submit', [StudentExamController::class, 'submit'])->middleware('permission:answers.submit');
+        Route::post('/attempts/{attempt}/telemetry', [StudentExamController::class, 'telemetry'])->middleware('permission:exams.attempt');
 
-        Route::get('/results', [StudentExamController::class, 'results']);
-        Route::get('/submissions', [StudentExamController::class, 'submissions']);
+        Route::get('/results', [StudentExamController::class, 'results'])->middleware('permission:results.view.own');
+        Route::get('/submissions', [StudentExamController::class, 'submissions'])->middleware('permission:results.view.own');
 
         Route::get('/account-settings', [StudentAccountSettingsController::class, 'show']);
         Route::put('/account-settings/profile', [StudentAccountSettingsController::class, 'updateProfile']);
@@ -79,7 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/support-tickets', [SupportTicketController::class, 'store']);
     });
 
-    Route::middleware('role:student')->group(function () {
+    Route::middleware('permission:answers.submit')->group(function () {
         Route::post('/submissions', [SubmissionController::class, 'store']);
     });
 
@@ -99,7 +99,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
     // System Administrator (IT-only) Admin routes
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('permission:users.manage')->group(function () {
         // Dashboard stats
         Route::get('/admin/dashboard',      [AdminDashboardController::class, 'index']);
 
@@ -114,20 +114,20 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::delete('/admin/users/{user}',[UserController::class, 'destroy']);
         });
 
-        Route::get('/exams/{exam}/results', [SubmissionController::class, 'examResults']);
+        Route::get('/exams/{exam}/results', [SubmissionController::class, 'examResults'])->middleware('permission:results.view.all');
     });
 
-    // Admin or Teacher routes
-    Route::middleware('role:admin,teacher')->group(function () {
+    // Exam module routes with DB-driven permissions
+    Route::middleware('permission:exams.view.all,exams.create,questions.manage,questions.review,exams.approve_reject,exams.publish,exams.settings.manage')->group(function () {
         Route::get('/exams',          [ExamController::class, 'index']);
-        Route::post('/exams',         [ExamController::class, 'store']);
+        Route::post('/exams',         [ExamController::class, 'store'])->middleware('permission:exams.create');
         Route::get('/exams/{exam}',   [ExamController::class, 'show']);
-        Route::put('/exams/{exam}',   [ExamController::class, 'update']);
-        Route::delete('/exams/{exam}',[ExamController::class, 'destroy']);
+        Route::put('/exams/{exam}',   [ExamController::class, 'update'])->middleware('permission:exams.create,exams.approve_reject,exams.publish,exams.settings.manage');
+        Route::delete('/exams/{exam}',[ExamController::class, 'destroy'])->middleware('permission:exams.view.all');
 
-        Route::get('/exams/{exam}/access', [ExamAccessController::class, 'show']);
-        Route::post('/exams/{exam}/access/public', [ExamAccessController::class, 'generatePublic']);
-        Route::post('/exams/{exam}/access/private', [ExamAccessController::class, 'generatePrivate']);
+        Route::get('/exams/{exam}/access', [ExamAccessController::class, 'show'])->middleware('permission:exams.manage.access');
+        Route::post('/exams/{exam}/access/public', [ExamAccessController::class, 'generatePublic'])->middleware('permission:exams.manage.access');
+        Route::post('/exams/{exam}/access/private', [ExamAccessController::class, 'generatePrivate'])->middleware('permission:exams.manage.access');
 
         Route::prefix('teacher/portal')->group(function () {
             Route::get('/tests', [TeacherPortalController::class, 'tests']);
@@ -140,12 +140,12 @@ Route::middleware('auth:sanctum')->group(function () {
         });
     });
 
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('permission:users.manage')->group(function () {
         Route::post('/users', [UserController::class, 'store']);
     });
 
-    // Admin-only question bank routes
-    Route::middleware('role:admin')->group(function () {
+    // Permission-based question bank routes
+    Route::middleware('permission:questions.manage')->group(function () {
         Route::get('/questions', [QuestionController::class, 'index']);
         Route::post('/questions', [QuestionController::class, 'store']);
         Route::get('/questions/{question}', [QuestionController::class, 'show']);
@@ -177,7 +177,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Question setter exam-scoped question manager routes
-    Route::middleware('exam.role:question_setter')->group(function () {
+    Route::middleware(['permission:questions.manage', 'exam.role:question_setter'])->group(function () {
         Route::get('/exams/{exam}/questions', [QuestionController::class, 'examQuestions']);
         Route::post('/exams/{exam}/questions', [QuestionController::class, 'storeExamQuestion']);
         Route::post('/exams/{exam}/ai-generate', [\App\Http\Controllers\AiQuestionController::class, 'generate']);
@@ -186,10 +186,10 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Moderator paper workflow routes
-    Route::middleware(['exam.role:moderator', 'exam.paper_status:submitted,reviewed'])->group(function () {
+    Route::middleware(['permission:questions.review,exams.approve_reject', 'exam.role:moderator', 'exam.paper_status:submitted,reviewed'])->group(function () {
         Route::get('/exam/{exam}/paper', [ExamWorkflowController::class, 'paper']);
         Route::post('/exam/{exam}/review', [ExamWorkflowController::class, 'review']);
-        Route::post('/exam/{exam}/approve', [ExamWorkflowController::class, 'approve']);
+        Route::post('/exam/{exam}/approve', [ExamWorkflowController::class, 'approve'])->middleware('permission:exams.approve_reject');
         Route::get('/exam/{exam}/moderator', [ExamWorkflowController::class, 'moderator']);
     });
 
@@ -203,9 +203,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Controller super-role routes
     Route::middleware('exam.role:controller')->group(function () {
-        Route::get('/exam/{exam}/settings', [ExamWorkflowController::class, 'settings']);
-        Route::put('/exam/{exam}/settings', [ExamWorkflowController::class, 'updateSettings']);
-        Route::post('/exam/{exam}/activate', [ExamWorkflowController::class, 'activate']);
+        Route::get('/exam/{exam}/settings', [ExamWorkflowController::class, 'settings'])->middleware('permission:exams.settings.manage');
+        Route::put('/exam/{exam}/settings', [ExamWorkflowController::class, 'updateSettings'])->middleware('permission:exams.settings.manage');
+        Route::post('/exam/{exam}/activate', [ExamWorkflowController::class, 'activate'])->middleware('permission:exams.publish');
     });
 
     // Moderator paper review routes
@@ -213,12 +213,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/exams/{id}/approve', [ModeratorReviewController::class, 'approvePaper']);
 
     // Optional audit log route for testing
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('permission:audit_logs.view')->group(function () {
         Route::get('/audit-logs', [AuditLogController::class, 'index']);
     });
 
     // Student result routes
-    Route::middleware('role:student')->group(function () {
+    Route::middleware('permission:results.view.own')->group(function () {
         Route::get('/student/attempts', [StudentResultController::class, 'index']);
         Route::get('/student/attempts/{id}', [StudentResultController::class, 'show']);
         Route::get('/student/results/summary', [StudentResultController::class, 'summary']);

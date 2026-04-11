@@ -8,7 +8,7 @@ class GenerateQuestionsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->role?->name === 'admin';
+        return $this->user()?->hasPermission('questions.manage') === true;
     }
 
     public function rules(): array

@@ -16,8 +16,10 @@ class ModeratorReviewController extends Controller
         $exam = Exam::with('questions.creator')->findOrFail($id);
         $user = $request->user();
 
-        // allowed: controller or moderator or admin
-        if ($user->role?->name !== 'admin' && $exam->controller_id !== $user->id && $exam->moderator_id !== $user->id) {
+        $canManageReview = $user->hasAnyPermission(['questions.review', 'exams.approve_reject'])
+            && ($exam->controller_id === $user->id || $exam->moderator_id === $user->id || $user->hasPermission('exams.view.all'));
+
+        if (! $canManageReview) {
             return response()->json(['message' => 'Unauthorized access.'], 403);
         }
 
@@ -42,17 +44,22 @@ class ModeratorReviewController extends Controller
         $exam = Exam::findOrFail($id);
         $user = $request->user();
 
-        if ($user->role?->name !== 'admin' && $exam->controller_id !== $user->id && $exam->moderator_id !== $user->id) {
+        $canApprove = $user->hasPermission('exams.approve_reject')
+            && ($exam->controller_id === $user->id || $exam->moderator_id === $user->id || $user->hasPermission('exams.view.all'));
+
+        if (! $canApprove) {
             return response()->json(['message' => 'Unauthorized access.'], 403);
         }
 
         $exam->update([
+            'status'         => 'active',
             'review_comment' => $request->review_comment,
             'exam_status'    => 'active',
         ]);
 
         return response()->json([
             'message'     => 'Paper approved and exam set to active.',
+            'status'      => $exam->status,
             'exam_status' => $exam->exam_status,
         ]);
     }

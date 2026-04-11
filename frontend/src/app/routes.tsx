@@ -69,7 +69,7 @@ const routes = [
   {
     path: "/admin/dashboard",
     element: (
-      <ProtectedRoute allowedRoles={["admin"]}>
+      <ProtectedRoute allowedRoles={["admin"]} allowedPermissions={["users.manage"]}>
         <AdminDashboard />
       </ProtectedRoute>
     ),
@@ -85,7 +85,7 @@ const routes = [
   {
     path: "/teacher/exams/new",
     element: (
-      <ProtectedRoute allowedRoles={["teacher"]}>
+      <ProtectedRoute allowedRoles={["admin", "teacher", "question-setter"]} allowedPermissions={["exams.create"]}>
         <CreateExam />
       </ProtectedRoute>
     ),
@@ -101,7 +101,7 @@ const routes = [
   {
     path: "/exam/:id/questions",
     element: (
-      <ProtectedRoute allowedRoles={["teacher"]}>
+      <ProtectedRoute allowedRoles={["admin", "teacher", "question-setter", "controller", "moderator"]} allowedPermissions={["questions.manage"]}>
         <ExamQuestionSetterRoute>
           <CreateExam />
         </ExamQuestionSetterRoute>
@@ -111,7 +111,7 @@ const routes = [
   {
     path: "/exam/:id/moderator",
     element: (
-      <ProtectedRoute allowedRoles={["teacher"]}>
+      <ProtectedRoute allowedRoles={["admin", "teacher", "moderator", "controller"]} allowedPermissions={["questions.review", "exams.approve_reject"]}>
         <ExamRoleAccessRoute requiredRole="moderator">
           <CreateExam />
         </ExamRoleAccessRoute>
@@ -121,7 +121,7 @@ const routes = [
   {
     path: "/exam/:id/invigilator",
     element: (
-      <ProtectedRoute allowedRoles={["teacher"]}>
+      <ProtectedRoute allowedRoles={["admin", "teacher", "invigilator", "controller"]}>
         <ExamRoleAccessRoute requiredRole="invigilator" requireLiveWindow>
           <CreateExam />
         </ExamRoleAccessRoute>
@@ -131,7 +131,7 @@ const routes = [
   {
     path: "/exam/:id/access",
     element: (
-      <ProtectedRoute allowedRoles={["teacher"]}>
+      <ProtectedRoute allowedRoles={["admin", "teacher", "controller"]} allowedPermissions={["exams.manage.access"]}>
         <CreateExam />
       </ProtectedRoute>
     ),
@@ -139,7 +139,7 @@ const routes = [
   {
     path: "/admin/users",
     element: (
-      <ProtectedRoute allowedRoles={["admin"]}>
+      <ProtectedRoute allowedRoles={["admin"]} allowedPermissions={["users.manage", "roles.assign"]}>
         <UserManagement />
       </ProtectedRoute>
     ),
@@ -147,7 +147,7 @@ const routes = [
   {
     path: "/student/dashboard",
     element: (
-      <ProtectedRoute allowedRoles={["student"]}>
+      <ProtectedRoute allowedRoles={["student"]} allowedPermissions={["exams.view.assigned"]}>
         <StudentDashboard />
       </ProtectedRoute>
     ),
@@ -155,7 +155,7 @@ const routes = [
   {
     path: "/student/exams/:examId/attempt",
     element: (
-      <ProtectedRoute allowedRoles={["student"]}>
+      <ProtectedRoute allowedRoles={["student"]} allowedPermissions={["exams.attempt"]}>
         <StudentExamAttemptPage />
       </ProtectedRoute>
     ),
@@ -163,7 +163,7 @@ const routes = [
   {
     path: "/student/results",
     element: (
-      <ProtectedRoute allowedRoles={["student"]}>
+      <ProtectedRoute allowedRoles={["student"]} allowedPermissions={["results.view.own"]}>
         <StudentResultsPage />
       </ProtectedRoute>
     ),
@@ -171,7 +171,7 @@ const routes = [
   {
     path: "/student/submissions",
     element: (
-      <ProtectedRoute allowedRoles={["student"]}>
+      <ProtectedRoute allowedRoles={["student"]} allowedPermissions={["results.view.own"]}>
         <StudentSubmissionHistoryPage />
       </ProtectedRoute>
     ),

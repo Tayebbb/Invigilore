@@ -15,7 +15,8 @@ class AttemptAnswer extends Model
     protected $fillable = [
         'attempt_id',
         'question_id',
-        'selected_answer',
+        'selected_option',
+        'answer_text',
         'is_correct',
         'score_awarded',
         'feedback',
@@ -29,6 +30,16 @@ class AttemptAnswer extends Model
             'is_ai_evaluated' => 'boolean',
             'score_awarded' => 'float',
         ];
+    }
+
+    public function getSelectedAnswerAttribute(): ?string
+    {
+        return $this->attributes['selected_option'] ?? null;
+    }
+
+    public function setSelectedAnswerAttribute(?string $value): void
+    {
+        $this->attributes['selected_option'] = $value;
     }
 
     public function attempt(): BelongsTo
