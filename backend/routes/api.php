@@ -25,6 +25,16 @@ use App\Http\Controllers\ModeratorReviewController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\TeacherPortalController;
 
+// Health check endpoint (no auth required, used by deployment monitors)
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now()->toIso8601String(),
+        'environment' => app()->environment(),
+        'database' => 'connected'
+    ], 200);
+});
+
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/register/verify-code', [AuthController::class, 'verifyRegistrationCode']);
 Route::post('/register/resend-code', [AuthController::class, 'resendRegistrationCode']);

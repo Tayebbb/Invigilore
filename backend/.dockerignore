@@ -1,0 +1,84 @@
+# Version Control
+.git
+.gitignore
+.gitattributes
+
+# Environment files (excludes committed examples)
+.env
+.env.*.local
+.env.*.php
+.env.backup
+.env.production.backup
+
+# IDE & Editor files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.sublime-project
+.sublime-workspace
+.editorconfig
+
+# OS files
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+.TemporaryItems
+
+# Node modules (if any frontend build in backend)
+node_modules
+npm-debug.log
+yarn-error.log
+
+# PHP & Composer
+vendor/
+composer.phar
+.phpunit.result.cache
+
+# Laravel specific
+.env.docker
+.env.example
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+
+# Database files
+*.sql
+*.sqlite
+*.sqlite3
+*.db
+
+# Documentation & tests (not needed in production)
+README.md
+DEPLOYMENT_SUMMARY.md
+BACKEND_SETUP.md
+README_ATTEMPT_FLOW.md
+QUESTION_BANK_README.md
+tests/
+phpunit.xml
+phpunit.xml.dist
+.phpstorm.metadata.php
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Docker build logs
+docker-compose.yml
+Dockerfile.dev
+docker-compose.*.yml
+
+# Node/npm files
+package.json
+package-lock.json
+vite.config.js
+
+# Temporary files
+*.tmp
+*.temp
+cache/

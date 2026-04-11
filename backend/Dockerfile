@@ -1,44 +1,107 @@
-FROM php:8.4-cli
+# ============================================
+# Multi-stage Dockerfile for Laravel Backend
+# Optimized for Render & Production
+# ============================================
 
-# Install system dependencies required by Laravel and Composer.
-RUN apt-get update && apt-get install -y \
+# ──────────────────────────────────────────
+# Stage 1: Builder (Composer dependencies)
+# ──────────────────────────────────────────
+FROM php:8.4-cli-alpine AS builder
+
+RUN apk add --no-cache \
     git \
     curl \
-        ca-certificates \
+    ca-certificates \
     unzip \
     libzip-dev \
     libonig-dev \
     libxml2-dev \
-    && rm -rf /var/lib/apt/lists/*
+    alpine-sdk
 
-# Install required PHP extensions for Laravel.
-RUN docker-php-ext-install mbstring bcmath zip pdo_mysql
+RUN docker-php-ext-install \
+    mbstring \
+    bcmath \
+    zip \
+    pdo_mysql
 
-# Install Composer binary.
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-WORKDIR /var/www/html
+WORKDIR /build
 
-# Copy only composer manifests first for better cache reuse.
+# Copy only composer manifests first for better cache reuse
 COPY composer.json composer.lock ./
 
-# Install production dependencies only to avoid dev-only extension failures on Render.
+# Install production dependencies with optimizations
 RUN composer install \
     --no-dev \
     --no-interaction \
     --prefer-dist \
     --optimize-autoloader \
-    --no-scripts
+    --no-scripts \
+    --no-progress
 
-# Copy application source.
 COPY . .
 
-# Set writable permissions for Laravel runtime directories.
-RUN mkdir -p storage bootstrap/cache && \
-    chown -R www-data:www-data storage bootstrap/cache && \
-    chmod -R 775 storage bootstrap/cache
+# Generate optimized composer autoloader
+RUN composer dump-autoload --optimize --no-dev
 
-EXPOSE 10000
+# ──────────────────────────────────────────
+# Stage 2: Runtime (Minimal production image)
+# ──────────────────────────────────────────
+FROM php:8.4-cli-alpine
 
-# Render requires an HTTP process bound to $PORT.
-CMD ["sh", "-lc", "if [ ! -f vendor/autoload.php ]; then composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts; fi; php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
+LABEL maintainer="DevOps Team"
+LABEL description="Production Laravel Backend Container"
+
+# Install runtime dependencies only (no build tools)
+RUN apk add --no-cache \
+    ca-certificates \
+    curl \
+    libzip \
+    libonig \
+    libxml2
+
+# Install only required PHP extensions (production)
+RUN docker-php-ext-install \
+    mbstring \
+    bcmath \
+    zip \
+    pdo_mysql
+
+# Create non-root user for security
+RUN addgroup -g 1000 laravel && \
+    adduser -D -u 1000 -G laravel laravel
+
+WORKDIR /var/www/html
+
+# Copy pre-built composer dependencies from builder
+COPY --from=builder --chown=laravel:laravel /build/vendor ./vendor
+
+# Copy application files from builder
+COPY --from=builder --chown=laravel:laravel /build/. ./
+
+# Create required Laravel directories
+RUN mkdir -p \
+    storage/app \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache && \
+    chown -R laravel:laravel \
+    storage \
+    bootstrap/cache && \
+    chmod -R 775 \
+    storage \
+    bootstrap/cache
+
+# Switch to non-root user
+USER laravel
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD sh -c "curl -fsS http://localhost:${PORT:-8000}/api/health || exit 1"
+
+# Start Laravel server and allow opt-in startup migrations.
+CMD ["sh", "-c", "if [ \"${RUN_MIGRATIONS:-false}\" = \"true\" ]; then php artisan migrate --force; fi; php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
