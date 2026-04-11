@@ -12,6 +12,7 @@ use App\Http\Controllers\ProctoringController;
 use App\Http\Controllers\StudentAccountSettingsController;
 use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\StudentExamController;
 use App\Http\Controllers\ExamSessionController;
 use App\Http\Controllers\ExamAttemptController;
@@ -35,6 +36,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me', [AuthController::class, 'updateProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Notifications
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::patch('/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::patch('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::delete('/', [NotificationController::class, 'clearAll']);
+        Route::delete('/{id}', [NotificationController::class, 'destroy']);
+    });
 
     // Student secure exam module
     Route::middleware('role:student')->prefix('student')->group(function () {

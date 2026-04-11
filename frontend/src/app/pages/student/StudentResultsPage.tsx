@@ -54,15 +54,6 @@ export default function StudentResultsPage() {
     }
   };
 
-  const notifications = [
-    {
-      id: 'results-published',
-      title: 'Auto Evaluation Enabled',
-      message: 'MCQ results appear after your submission is evaluated.',
-      timestamp: new Date().toISOString(),
-      read: false,
-    },
-  ];
 
   return (
     <DashboardLayout
@@ -71,7 +62,6 @@ export default function StudentResultsPage() {
       activeItem="My Results"
       onNavChange={handleNav}
       user={{ name: 'Student', email: 'student@invigilore.com', initial: 'S', role: 'Student' }}
-      notifications={notifications}
       pageTitle="Published Results"
     >
       <div className="mb-6">

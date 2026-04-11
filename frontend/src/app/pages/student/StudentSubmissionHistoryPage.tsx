@@ -49,15 +49,6 @@ export default function StudentSubmissionHistoryPage() {
     }
   };
 
-  const notifications = [
-    {
-      id: 'audit-retention',
-      title: 'Submission Audit Enabled',
-      message: 'Submission records are retained for secure review.',
-      timestamp: new Date().toISOString(),
-      read: false,
-    },
-  ];
 
   return (
     <DashboardLayout
@@ -66,7 +57,6 @@ export default function StudentSubmissionHistoryPage() {
       activeItem="Submission History"
       onNavChange={handleNav}
       user={{ name: 'Student', email: 'student@invigilore.com', initial: 'S', role: 'Student' }}
-      notifications={notifications}
       pageTitle="Submission History"
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

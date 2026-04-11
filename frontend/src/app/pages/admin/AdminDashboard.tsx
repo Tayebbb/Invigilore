@@ -117,7 +117,6 @@ export default function AdminDashboard() {
       activeItem={activeItem}
       onNavChange={handleNavChange}
       user={adminUser}
-      notificationCount={3}
       pageTitle="Admin Dashboard"
     >
       <motion.div

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttemptAnswer;
+use App\Notifications\ExamNotification;
+use Illuminate\Support\Facades\Notification;
 use App\Models\Exam;
 use App\Models\ExamAccess;
 use App\Models\ExamAccessUser;
@@ -546,7 +548,7 @@ class StudentExamController extends Controller
     private function finalizeAttempt(ExamAttempt $attempt, string $status): array
     {
         return DB::transaction(function () use ($attempt, $status) {
-            $attempt->loadMissing('exam.questions', 'answers');
+            $attempt->loadMissing('exam.questions', 'answers', 'user');
 
             $questions = $attempt->exam->questions;
             $answers = $attempt->answers->keyBy('question_id');
@@ -617,6 +619,17 @@ class StudentExamController extends Controller
             $result->total_marks = (int) $questions->sum('marks');
             $result->grade = $this->gradeFromScore($score, (int) $questions->sum('marks'));
             $result->save();
+
+            // Notify Student
+            $totalMarks = $result->total_marks;
+            if ($attempt->user) {
+                $attempt->user->notify(new ExamNotification(
+                    'Exam Graded: ' . $attempt->exam->title,
+                    "Your exam has been graded. You scored {$score} out of {$totalMarks}.",
+                    'success',
+                    '/student/attempts/' . $attempt->id
+                ));
+            }
 
             return [
                 'score' => $score,

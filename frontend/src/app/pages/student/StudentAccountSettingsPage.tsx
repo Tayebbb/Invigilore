@@ -178,15 +178,6 @@ export default function StudentAccountSettingsPage() {
     }
   };
 
-  const notifications = [
-    {
-      id: 'security',
-      title: 'Security',
-      message: 'One-device restriction helps reduce account sharing during exams.',
-      timestamp: new Date().toISOString(),
-      read: false,
-    },
-  ];
 
   return (
     <DashboardLayout
@@ -195,7 +186,6 @@ export default function StudentAccountSettingsPage() {
       activeItem="Account Settings"
       onNavChange={handleNav}
       user={{ name: fullName || 'Student', email: email || 'student@invigilore.com', initial: (fullName?.[0] ?? 'S').toUpperCase(), role: 'Student' }}
-      notifications={notifications}
       pageTitle="Account Settings"
     >
       <div className="mb-6">

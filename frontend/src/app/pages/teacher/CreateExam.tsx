@@ -860,7 +860,6 @@ export default function CreateExam() {
       activeItem="Create Exam"
       onNavChange={handleNavChange}
       user={teacherUser}
-      notificationCount={2}
       pageTitle={isEditingExam ? 'Edit Exam' : 'Create New Exam'}
     >
       <div className="flex flex-col gap-6">

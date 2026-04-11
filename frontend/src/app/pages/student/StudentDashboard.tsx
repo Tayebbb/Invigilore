@@ -187,7 +187,6 @@ export default function StudentDashboard() {
       activeItem="Dashboard"
       onNavChange={handleNav}
       user={studentUser}
-      notificationCount={0}
       pageTitle="Student Dashboard"
     >
       {/* Hero header */}

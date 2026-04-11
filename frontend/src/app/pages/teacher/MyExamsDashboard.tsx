@@ -308,7 +308,6 @@ export default function MyExamsDashboard() {
         setActiveItem(label);
       }}
       user={teacherUser}
-      notificationCount={2}
       pageTitle="Teacher Dashboard"
     >
       <motion.div

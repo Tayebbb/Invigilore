@@ -8,6 +8,9 @@ use App\Models\Result;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Models\User;
+use App\Notifications\ExamNotification;
+use Illuminate\Support\Facades\Notification;
 
 class TeacherPortalController extends Controller
 {
@@ -143,6 +146,15 @@ class TeacherPortalController extends Controller
         $exam->start_time = $now;
         $exam->end_time = $now->copy()->addMinutes((int) $exam->duration);
         $exam->save();
+
+        // Notify all students
+        $studentEmails = User::whereHas('role', fn($query) => $query->where('name', 'student'))->get();
+        Notification::send($studentEmails, new ExamNotification(
+            'New Exam Live: ' . $exam->title,
+            "A new exam is now live and ready for attempts. Duration: {$exam->duration} mins.",
+            'info',
+            '/student/dashboard'
+        ));
 
         return response()->json([
             'success' => true,

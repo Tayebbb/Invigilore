@@ -179,8 +179,7 @@ export default function TeacherResultsPage() {
       activeItem="Student Results"
       onNavChange={handleNavChange}
       user={teacherUser}
-      notificationCount={2}
-      pageTitle="Student Results"
+      pageTitle="Results Database"
     >
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
