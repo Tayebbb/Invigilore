@@ -8,18 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (! Schema::hasTable('exam_attempts')) {
-            Schema::create('exam_attempts', function (Blueprint $table) {
-                $table->id();
-                $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-                $table->foreignId('exam_id')->constrained('exams')->cascadeOnDelete();
-                $table->timestamp('start_time');
-                $table->timestamp('end_time')->nullable();
-                $table->unsignedInteger('duration');
-                $table->enum('status', ['in_progress', 'submitted', 'timeout'])->default('in_progress');
-                $table->timestamps();
-            });
-        } else {
+        if (Schema::hasTable('exam_attempts')) {
             Schema::table('exam_attempts', function (Blueprint $table) {
                 if (! Schema::hasColumn('exam_attempts', 'start_time')) {
                     $table->timestamp('start_time')->nullable()->after('exam_id');
@@ -40,7 +29,6 @@ return new class extends Migration
                 }
             });
         }
-
     }
 
     public function down(): void

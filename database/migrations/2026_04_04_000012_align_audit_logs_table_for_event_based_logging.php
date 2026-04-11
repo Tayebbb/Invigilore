@@ -9,16 +9,6 @@ return new class extends Migration
     public function up(): void
     {
         if (! Schema::hasTable('audit_logs')) {
-            Schema::create('audit_logs', function (Blueprint $table) {
-                $table->id();
-                $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
-                $table->string('event_type');
-                $table->text('description')->nullable();
-                $table->string('ip_address', 45)->nullable();
-                $table->text('user_agent')->nullable();
-                $table->timestamp('created_at')->useCurrent();
-            });
-
             return;
         }
 
