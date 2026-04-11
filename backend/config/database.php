@@ -2,6 +2,17 @@
 
 use Illuminate\Support\Str;
 
+$configuredMysqlSslCa = env('MYSQL_ATTR_SSL_CA');
+$mysqlSslCaPath = null;
+
+if (is_string($configuredMysqlSslCa) && $configuredMysqlSslCa !== '' && is_file($configuredMysqlSslCa)) {
+    $mysqlSslCaPath = $configuredMysqlSslCa;
+} elseif (is_file(base_path('ca.pem'))) {
+    $mysqlSslCaPath = base_path('ca.pem');
+} elseif (is_file('/etc/ssl/certs/ca-certificates.crt')) {
+    $mysqlSslCaPath = '/etc/ssl/certs/ca-certificates.crt';
+}
+
 return [
 
     /*
@@ -59,7 +70,7 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => $mysqlSslCaPath,
             ]) : [],
         ],
 
@@ -79,7 +90,7 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
+                (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => $mysqlSslCaPath,
             ]) : [],
         ],
 
