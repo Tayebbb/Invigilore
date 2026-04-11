@@ -153,6 +153,15 @@ return new class extends Migration
         $driver = DB::connection()->getDriverName();
 
         if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            foreach (['questions_exam_id_foreign', 'questions_ibfk_1'] as $candidate) {
+                try {
+                    $escaped = str_replace('`', '``', $candidate);
+                    DB::statement("ALTER TABLE `questions` DROP FOREIGN KEY `{$escaped}`");
+                } catch (\Throwable) {
+                    // Ignore when candidate key does not exist.
+                }
+            }
+
             $constraints = DB::select(
                 "SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = DATABASE() AND table_name = 'questions' AND column_name = 'exam_id' AND referenced_table_name IS NOT NULL"
             );
@@ -163,8 +172,12 @@ return new class extends Migration
                     continue;
                 }
 
-                $escaped = str_replace('`', '``', $name);
-                DB::statement("ALTER TABLE `questions` DROP FOREIGN KEY `{$escaped}`");
+                try {
+                    $escaped = str_replace('`', '``', $name);
+                    DB::statement("ALTER TABLE `questions` DROP FOREIGN KEY `{$escaped}`");
+                } catch (\Throwable) {
+                    // Ignore and continue dropping remaining keys.
+                }
             }
         }
 
@@ -174,6 +187,16 @@ return new class extends Migration
             });
         } catch (\Throwable) {
             // Foreign key may already be absent or use a non-standard name.
+        }
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $remaining = DB::select(
+                "SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = DATABASE() AND table_name = 'questions' AND column_name = 'exam_id' AND referenced_table_name IS NOT NULL"
+            );
+
+            if (! empty($remaining)) {
+                throw new \RuntimeException('Unable to drop existing foreign key(s) on questions.exam_id before NOT NULL migration.');
+            }
         }
     }
 
