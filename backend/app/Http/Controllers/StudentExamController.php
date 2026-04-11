@@ -331,6 +331,14 @@ class StudentExamController extends Controller
             $request->ip()
         );
 
+        // Notify the student that their exam has been submitted
+        $request->user()->notify(new ExamNotification(
+            'Exam Submitted',
+            "Your submission for \"{$attempt->exam?->title}\" has been recorded. Results will be published once evaluated.",
+            'success',
+            '/student/submissions'
+        ));
+
         return response()->json([
             'success' => true,
             'message' => 'Exam submitted successfully',

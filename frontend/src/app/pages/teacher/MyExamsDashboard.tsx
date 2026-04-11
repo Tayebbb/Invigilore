@@ -25,14 +25,14 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import DashboardCard from '../../components/dashboard/DashboardCard';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import useCurrentUser from '../../hooks/useCurrentUser';
-import { Pagination } from '../../components/ui/Pagination';
+import { Pagination } from '../../components/ui/pagination';
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'Question Bank', icon: FileText },
   { label: 'Create Exam', icon: FilePlus },
   { label: 'Student Results', icon: BarChart3 },
-  { label: 'Notifications', icon: Bell, badge: '2' },
+  { label: 'Notifications', icon: Bell },
 ];
 
 const STATUS_OPTIONS = ['All statuses', 'Scheduled', 'Active', 'Completed', 'Draft'] as const;
@@ -303,6 +303,10 @@ export default function MyExamsDashboard() {
         }
         if (label === 'Student Results') {
           navigate('/teacher/results');
+          return;
+        }
+        if (label === 'Notifications') {
+          navigate('/teacher/notifications');
           return;
         }
         setActiveItem(label);

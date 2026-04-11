@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Notifications\ExamNotification;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
 class TeacherPortalController extends Controller
@@ -147,14 +148,19 @@ class TeacherPortalController extends Controller
         $exam->end_time = $now->copy()->addMinutes((int) $exam->duration);
         $exam->save();
 
-        // Notify all students
-        $studentEmails = User::whereHas('role', fn($query) => $query->where('name', 'student'))->get();
-        Notification::send($studentEmails, new ExamNotification(
-            'New Exam Live: ' . $exam->title,
-            "A new exam is now live and ready for attempts. Duration: {$exam->duration} mins.",
-            'info',
-            '/student/dashboard'
-        ));
+        // Notify only students who are assigned to this exam
+        $assignedEmails = $exam->accessUsers()->pluck('email')->map(fn($e) => strtolower((string) $e))->all();
+        if (!empty($assignedEmails)) {
+            $assignedStudents = User::whereHas('role', fn($q) => $q->where('name', 'student'))
+                ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(email)'), $assignedEmails)
+                ->get();
+            Notification::send($assignedStudents, new ExamNotification(
+                'New Exam Live: ' . $exam->title,
+                "Your exam \"{$exam->title}\" is now live and ready for attempts. Duration: {$exam->duration} mins.",
+                'info',
+                '/student/dashboard'
+            ));
+        }
 
         return response()->json([
             'success' => true,

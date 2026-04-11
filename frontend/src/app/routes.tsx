@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import Home                   from "./pages/Home";
 import Login                  from "./pages/Login";
-import SignUp                 from "./pages/SignUp";
+import SignUp                 from "./pages/Signup";
 import ForgotPassword         from "./pages/ForgotPassword";
 import ResetPassword          from "./pages/ResetPassword";
 import PublicExamLandingPage  from "./pages/student/PublicExamLandingPage";
@@ -12,6 +12,7 @@ import AdminDashboard         from "./pages/admin/AdminDashboard";
 import MyExamsDashboard       from "./pages/teacher/MyExamsDashboard";
 import CreateExam             from "./pages/teacher/CreateExam";
 import TeacherResultsPage     from "./pages/teacher/TeacherResultsPage";
+import TeacherNotificationsPage from "./pages/teacher/TeacherNotificationsPage";
 import StudentDashboard       from "./pages/student/StudentDashboard";
 import StudentExamAttemptPage from "./pages/student/StudentExamAttemptPage";
 import StudentResultsPage     from "./pages/student/StudentResultsPage";
@@ -19,6 +20,7 @@ import StudentSubmissionHistoryPage from "./pages/student/StudentSubmissionHisto
 import StudentProfilePage     from "./pages/student/StudentProfilePage";
 import StudentAccountSettingsPage from "./pages/student/StudentAccountSettingsPage";
 import StudentHelpSupportPage from "./pages/student/StudentHelpSupportPage";
+import StudentNotificationsPage from "./pages/student/StudentNotificationsPage";
 import UserManagement         from "./pages/admin/UserManagement";
 import NotFound              from "./pages/NotFound";
 import RouteErrorBoundary    from "./pages/RouteErrorBoundary";
@@ -95,6 +97,14 @@ const routes = [
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
         <TeacherResultsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/teacher/notifications",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <TeacherNotificationsPage />
       </ProtectedRoute>
     ),
   },
@@ -197,6 +207,14 @@ const routes = [
     element: (
       <ProtectedRoute allowedRoles={["student"]}>
         <StudentHelpSupportPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/student/notifications",
+    element: (
+      <ProtectedRoute allowedRoles={["student"]}>
+        <StudentNotificationsPage />
       </ProtectedRoute>
     ),
   },

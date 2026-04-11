@@ -7,6 +7,7 @@ use App\Http\Resources\SubmissionResource;
 use App\Models\Exam;
 use App\Models\Submission;
 use App\Models\User;
+use App\Notifications\ExamNotification;
 use App\Services\SubmissionEvaluationService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +31,15 @@ class SubmissionController extends Controller
             $validated['scoring_rules'] ?? [],
             $validated['idempotency_key'] ?? null,
         );
+
+        if ($submission->wasRecentlyCreated) {
+            $request->user()->notify(new ExamNotification(
+                'Result Published',
+                "Your result for \"{$exam->title}\" is now available. Score: {$submission->score}/{$submission->total_marks}.",
+                'success',
+                '/student/results'
+            ));
+        }
 
         return response()->json([
             'success' => true,

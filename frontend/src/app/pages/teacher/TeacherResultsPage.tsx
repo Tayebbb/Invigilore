@@ -6,7 +6,7 @@ import {
   FileText,
   Plus,
   SlidersHorizontal,
-  CircleHelp,
+  Bell,
   ChevronLeft,
   ArrowRight,
   Search,
@@ -25,14 +25,14 @@ import api from '../../api';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import useCurrentUser from '../../hooks/useCurrentUser';
-import { Pagination } from '../../components/ui/Pagination';
+import { Pagination } from '../../components/ui/pagination';
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'Question Bank', icon: FileText },
   { label: 'Create Exam', icon: Plus },
   { label: 'Student Results', icon: SlidersHorizontal },
-  { label: 'Notifications', icon: CircleHelp, badge: '2' },
+  { label: 'Notifications', icon: Bell },
 ];
 
 interface PaginationMeta {
@@ -166,6 +166,7 @@ export default function TeacherResultsPage() {
   function handleNavChange(label: string) {
     if (label === 'Dashboard') navigate('/teacher/dashboard');
     if (label === 'Create Exam') navigate('/teacher/exams/new');
+    if (label === 'Notifications') navigate('/teacher/notifications');
     if (label === 'Student Results') {
       setSearchParams({});
       setSearchTerm('');

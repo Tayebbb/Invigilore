@@ -6,6 +6,7 @@ use App\Models\Exam;
 use App\Models\ExamRole;
 use App\Models\Subject;
 use App\Models\User;
+use App\Notifications\ExamNotification;
 use App\Support\ExamRoles;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -138,6 +139,9 @@ class ExamController extends Controller
         ]);
 
         $this->syncExamRoleAssignments($exam);
+
+        // Notify assigned role users about their assignment
+        $this->notifyRoleAssignments($exam, $questionSetter, $moderator, $invigilator);
 
         return response()->json($exam->load([
             'subject',
@@ -276,10 +280,24 @@ class ExamController extends Controller
             ], 422);
         }
 
+        // Capture old role IDs before saving to detect newly assigned users
+        $oldQuestionSetterId = $exam->getOriginal('question_setter_id');
+        $oldModeratorId = $exam->getOriginal('moderator_id');
+        $oldInvigilatorId = $exam->getOriginal('invigilator_id');
+
         $exam->fill($data);
         $exam->save();
 
         $this->syncExamRoleAssignments($exam);
+
+        // Notify newly assigned role users
+        $newlyAssignedQuestionSetter = $exam->question_setter_id && $exam->question_setter_id !== $oldQuestionSetterId
+            ? User::find($exam->question_setter_id) : null;
+        $newlyAssignedModerator = $exam->moderator_id && $exam->moderator_id !== $oldModeratorId
+            ? User::find($exam->moderator_id) : null;
+        $newlyAssignedInvigilator = $exam->invigilator_id && $exam->invigilator_id !== $oldInvigilatorId
+            ? User::find($exam->invigilator_id) : null;
+        $this->notifyRoleAssignments($exam, $newlyAssignedQuestionSetter, $newlyAssignedModerator, $newlyAssignedInvigilator);
 
         return response()->json($exam->load([
             'subject',
@@ -375,6 +393,26 @@ class ExamController extends Controller
                 'user_id' => $userId,
                 'role' => $role,
             ]);
+        }
+    }
+
+    private function notifyRoleAssignments(Exam $exam, ?User $questionSetter, ?User $moderator, ?User $invigilator): void
+    {
+        $roleNotifications = [
+            'Question Setter' => $questionSetter,
+            'Moderator' => $moderator,
+            'Invigilator' => $invigilator,
+        ];
+
+        foreach ($roleNotifications as $roleName => $user) {
+            if ($user) {
+                $user->notify(new ExamNotification(
+                    "You've been assigned as {$roleName}",
+                    "You have been assigned as {$roleName} for the exam \"{$exam->title}\".",
+                    'info',
+                    '/teacher/dashboard'
+                ));
+            }
         }
     }
 }
