@@ -3,13 +3,17 @@
 use Illuminate\Support\Str;
 
 $configuredMysqlSslCa = env('MYSQL_ATTR_SSL_CA');
+$mysqlHost = strtolower((string) env('DB_HOST', '127.0.0.1'));
+$isLocalMysqlHost = in_array($mysqlHost, ['127.0.0.1', 'localhost', 'mysql'], true);
+$appEnvironment = strtolower((string) env('APP_ENV', ''));
+$isTestingEnvironment = in_array($appEnvironment, ['test', 'testing'], true);
 $mysqlSslCaPath = null;
 
 if (is_string($configuredMysqlSslCa) && $configuredMysqlSslCa !== '' && is_file($configuredMysqlSslCa)) {
     $mysqlSslCaPath = $configuredMysqlSslCa;
-} elseif (is_file(base_path('ca.pem'))) {
+} elseif (! $isLocalMysqlHost && ! $isTestingEnvironment && is_file(base_path('ca.pem'))) {
     $mysqlSslCaPath = base_path('ca.pem');
-} elseif (is_file('/etc/ssl/certs/ca-certificates.crt')) {
+} elseif (! $isLocalMysqlHost && ! $isTestingEnvironment && is_file('/etc/ssl/certs/ca-certificates.crt')) {
     $mysqlSslCaPath = '/etc/ssl/certs/ca-certificates.crt';
 }
 

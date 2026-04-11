@@ -108,6 +108,15 @@ jobs:
         run: |
           composer install --prefer-dist --optimize-autoloader --no-interaction
           cp .env.example .env.test
+          sed -i 's/^APP_ENV=.*/APP_ENV=testing/' .env.test
+          sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=mysql/' .env.test
+          sed -i 's/^DB_HOST=.*/DB_HOST=127.0.0.1/' .env.test
+          sed -i 's/^DB_PORT=.*/DB_PORT=3306/' .env.test
+          sed -i 's/^DB_DATABASE=.*/DB_DATABASE=invigilore_test/' .env.test
+          sed -i 's/^DB_USERNAME=.*/DB_USERNAME=invigilore_user/' .env.test
+          sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=test_password/' .env.test
+          sed -i 's|^MYSQL_ATTR_SSL_CA=.*|MYSQL_ATTR_SSL_CA=|' .env.test
+          php artisan config:clear --env=test
           php artisan key:generate --env=test
 
       - name: 🧪 Run PHPUnit Tests
