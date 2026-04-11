@@ -51,7 +51,7 @@ class SubmissionController extends Controller
 
     public function userResults(Request $request, User $user): JsonResponse
     {
-        if ((int) $request->user()->id !== (int) $user->id && $request->user()->role?->name !== 'admin') {
+        if ((int) $request->user()->id !== (int) $user->id && ! $request->user()->hasPermission('results.view.all')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Forbidden',
@@ -82,6 +82,13 @@ class SubmissionController extends Controller
 
     public function examResults(Request $request, Exam $exam): JsonResponse
     {
+        if (! $request->user()->hasPermission('results.view.all')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Forbidden',
+            ], 403);
+        }
+
         $summary = $this->evaluationService->evaluateExamResults($exam);
 
         return response()->json([
@@ -100,7 +107,7 @@ class SubmissionController extends Controller
             return;
         }
 
-        if ($request->user()->role?->name === 'admin') {
+        if ($request->user()->hasPermission('results.view.all')) {
             return;
         }
 

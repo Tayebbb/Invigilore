@@ -168,11 +168,17 @@ class StudentExamController extends Controller
         // 2. Resolve User (find or create)
         $user = User::where('email', $email)->first();
         if (!$user) {
+            $studentRoleId = \App\Models\Role::where('name', 'student')->value('id');
+
+            if (! $studentRoleId) {
+                return response()->json(['message' => 'Student role is not configured.'], 500);
+            }
+
             $user = User::create([
                 'name' => explode('@', $email)[0],
                 'email' => $email,
                 'password' => \Illuminate\Support\Facades\Hash::make(Str::random(16)),
-                'role_id' => \App\Models\Role::where('name', 'student')->first()->id ?? 2,
+                'role_id' => $studentRoleId,
                 'is_active' => true,
             ]);
         }

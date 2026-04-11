@@ -11,6 +11,7 @@ import { getHomeRouteByRole } from '../navigation/roleRoutes';
 import { setAuthToken } from '../utils/authToken';
 import { writeStoredAuthUser } from '../utils/authUser';
 import { extractApiData, extractApiError } from '../utils/apiHelpers';
+import { normalizePermissionList } from '../utils/permissions';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
   const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
@@ -84,12 +85,16 @@ export default function Login() {
       const apiUser = data?.user ?? {};
       const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
       const roleName = normalizeRole(rawRole);
+      const permissions = normalizePermissionList(
+        apiUser?.permissions ?? apiUser?.role?.permissions?.map((entry: { name?: string }) => entry?.name),
+      );
 
       writeStoredAuthUser({
         id: apiUser?.id,
         name: apiUser?.name ?? '',
         email: apiUser?.email ?? formData.email,
         role: rawRole,
+        permissions,
       }, rememberMe);
 
       if (rememberMe) {

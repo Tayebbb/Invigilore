@@ -252,7 +252,7 @@ class AuthController extends Controller
         })->afterResponse();
 
         return response()->json([
-            'user' => $user->load('role'),
+            'user' => $user->load('role.permissions'),
             'token' => $user->createToken('api-token')->plainTextToken,
         ]);
     }
@@ -299,14 +299,14 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'user' => $user->load('role'),
+            'user' => $user->load('role.permissions'),
             'token' => $token,
         ]);
     }
 
     public function me(Request $request)
     {
-        return response()->json($request->user()->load('role'));
+        return response()->json($request->user()->load('role.permissions'));
     }
 
     public function updateProfile(Request $request)
@@ -339,7 +339,7 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Profile updated successfully',
-            'data' => $user->load('role'),
+            'data' => $user->load('role.permissions'),
         ]);
     }
 

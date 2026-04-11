@@ -70,6 +70,43 @@ class User extends Authenticatable implements JWTSubject
         return $this->hasMany(ExamRole::class);
     }
 
+    public function hasPermission(string $permission): bool
+    {
+        return $this->hasAnyPermission([$permission]);
+    }
+
+    public function hasAnyPermission(array $permissions): bool
+    {
+        $permissionSet = array_values(array_filter(array_map(
+            static fn (string $value) => trim($value),
+            $permissions
+        )));
+
+        if ($permissionSet === []) {
+            return false;
+        }
+
+        $this->loadMissing('role.permissions');
+
+        $available = $this->role?->permissions
+            ?->pluck('name')
+            ->map(static fn (mixed $name) => (string) $name)
+            ->all() ?? [];
+
+        return ! empty(array_intersect($permissionSet, $available));
+    }
+
+    public function permissionKeys(): array
+    {
+        $this->loadMissing('role.permissions');
+
+        return $this->role?->permissions
+            ?->pluck('name')
+            ->map(static fn (mixed $name) => (string) $name)
+            ->values()
+            ->all() ?? [];
+    }
+
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.
      *

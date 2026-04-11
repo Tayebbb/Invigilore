@@ -31,7 +31,7 @@ class ExamController extends Controller
             'invigilator',
         ])->latest();
 
-        if ($user && $user->role?->name !== 'admin') {
+        if ($user && ! $user->hasPermission('exams.view.all')) {
             $query->where(function ($roleQuery) use ($user) {
                 $roleQuery->where('teacher_id', $user->id)
                     ->orWhere('controller_id', $user->id)
@@ -66,7 +66,7 @@ class ExamController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        if (! in_array($creator->role?->name, ['admin', 'teacher'], true)) {
+        if (! $creator->hasPermission('exams.create')) {
             return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
         }
 
@@ -162,7 +162,7 @@ class ExamController extends Controller
     {
         $user = request()->user();
 
-        if ($user && $user->role?->name !== 'admin') {
+        if ($user && ! $user->hasPermission('exams.view.all')) {
             $allowedUserIds = array_filter([
                 $exam->teacher_id,
                 $exam->controller_id,
@@ -194,6 +194,14 @@ class ExamController extends Controller
      */
     public function update(Request $request, Exam $exam)
     {
+        $actor = $request->user();
+
+        if (! $actor || ! $actor->hasAnyPermission(['exams.create', 'exams.approve_reject', 'exams.publish', 'exams.settings.manage'])) {
+            return response()->json([
+                'message' => 'Forbidden. You do not have permission to update this exam.',
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'title'       => 'sometimes|string|max:255',
             'subject_id'  => 'sometimes|nullable|integer|exists:subjects,id',
@@ -213,8 +221,7 @@ class ExamController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $actor = $request->user();
-        $isControllerOrAdmin = $actor && ($actor->role?->name === 'admin' || $exam->controller_id === $actor->id);
+        $isControllerOrAdmin = $actor && ($actor->hasPermission('exams.view.all') || $exam->controller_id === $actor->id);
 
         if (!$isControllerOrAdmin) {
             $isOtherRoleOnExam = $actor && (
@@ -234,6 +241,23 @@ class ExamController extends Controller
             $data = array_intersect_key($validator->validated(), array_flip($allowedKeys));
         } else {
             $data = $validator->validated();
+        }
+
+        if (array_key_exists('exam_status', $data) && ! $actor->hasPermission('exams.publish')) {
+            return response()->json([
+                'message' => 'Forbidden. You do not have permission to publish exams.',
+            ], 403);
+        }
+
+        $isUpdatingAssignments =
+            array_key_exists('question_setter_email', $data) ||
+            array_key_exists('moderator_email', $data) ||
+            array_key_exists('invigilator_email', $data);
+
+        if ($isUpdatingAssignments && ! $actor->hasAnyPermission(['exams.manage.access', 'roles.assign'])) {
+            return response()->json([
+                'message' => 'Forbidden. You do not have permission to update exam role assignments.',
+            ], 403);
         }
 
         if (array_key_exists('question_setter_email', $data)) {

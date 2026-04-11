@@ -5,6 +5,7 @@ export interface AuthUserRecord {
   name: string;
   email: string;
   role: string;
+  permissions?: string[];
   profile_picture?: string | null;
 }
 

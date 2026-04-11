@@ -44,8 +44,12 @@ class ExamWorkflowController extends Controller
 
     public function updateSettings(Request $request, Exam $exam)
     {
-        if ((int) $exam->controller_id !== (int) $request->user()->id && $request->user()->role?->name !== 'admin') {
+        if ((int) $exam->controller_id !== (int) $request->user()->id && ! $request->user()->hasPermission('exams.view.all')) {
             return response()->json(['message' => 'Only the controller can update exam settings.'], 403);
+        }
+
+        if (! $request->user()->hasPermission('exams.settings.manage')) {
+            return response()->json(['message' => 'Forbidden. Missing exam settings permission.'], 403);
         }
 
         $data = $request->validate([
@@ -75,8 +79,12 @@ class ExamWorkflowController extends Controller
 
     public function activate(Request $request, Exam $exam)
     {
-        if ((int) $exam->controller_id !== (int) $request->user()->id && $request->user()->role?->name !== 'admin') {
+        if ((int) $exam->controller_id !== (int) $request->user()->id && ! $request->user()->hasPermission('exams.view.all')) {
             return response()->json(['message' => 'Only the controller can activate this exam.'], 403);
+        }
+
+        if (! $request->user()->hasPermission('exams.publish')) {
+            return response()->json(['message' => 'Forbidden. Missing publish permission.'], 403);
         }
 
         if (! $exam->title || ! $exam->start_time || ! $exam->end_time || (int) $exam->questions()->count() === 0) {
@@ -107,6 +115,10 @@ class ExamWorkflowController extends Controller
 
     public function review(Request $request, Exam $exam)
     {
+        if (! $request->user()->hasAnyPermission(['questions.review', 'exams.approve_reject'])) {
+            return response()->json(['message' => 'Forbidden. Missing review permission.'], 403);
+        }
+
         $request->validate([
             'comments' => ['required', 'string', 'max:4000'],
         ]);
@@ -139,6 +151,10 @@ class ExamWorkflowController extends Controller
 
     public function approve(Request $request, Exam $exam)
     {
+        if (! $request->user()->hasPermission('exams.approve_reject')) {
+            return response()->json(['message' => 'Forbidden. Missing approve permission.'], 403);
+        }
+
         $request->validate([
             'comments' => ['nullable', 'string', 'max:4000'],
         ]);
