@@ -15,7 +15,16 @@ const normalizeApiBaseUrl = (rawUrl?: string): string => {
   const trimmed = (rawUrl || '').trim();
 
   if (!trimmed) {
-    return 'http://localhost:8000/api';
+    // Local dev default (Vite). Production builds must set VITE_API_BASE_URL or VITE_API_URL on the host (e.g. Vercel).
+    if (import.meta.env.DEV) {
+      return 'http://127.0.0.1:8000/api';
+    }
+    if (import.meta.env.PROD) {
+      console.error(
+        '[Invigilore] Set VITE_API_BASE_URL or VITE_API_URL to your API root (e.g. https://invigilore.onrender.com/api).'
+      );
+    }
+    return 'http://127.0.0.1:8000/api';
   }
 
   const withoutTrailingSlash = trimmed.replace(/\/+$/, '');
@@ -27,12 +36,21 @@ const normalizeApiBaseUrl = (rawUrl?: string): string => {
   return `${withoutTrailingSlash}/api`;
 };
 
+const resolvedBaseUrl = normalizeApiBaseUrl(import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL);
+
+/** Same base URL as the axios client — use for non-axios URLs (e.g. storage paths). */
+export function getApiBaseUrl(): string {
+  return resolvedBaseUrl;
+}
+
 const api = axios.create({
-  baseURL: normalizeApiBaseUrl(import.meta.env?.VITE_API_BASE_URL || import.meta.env?.VITE_API_URL),
-  timeout: 15000,
+  baseURL: resolvedBaseUrl,
+  timeout: 70000,
   headers: {
     'Content-Type': 'application/json',
   },
+  // Sanctum bearer tokens — no cookies; keeps CORS simple (no credentialed requests).
+  withCredentials: false,
 });
 
 api.interceptors.request.use(

@@ -34,10 +34,12 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|between:2,100',
+            // Use RFC email validation without DNS lookups — `email:rfc,dns` often fails on cloud
+            // hosts (e.g. Render) when MX resolution is unavailable, blocking signup while login works.
             'email' => [
                 'required',
                 'string',
-                'email:rfc,dns',
+                'email',
                 'max:100',
                 'unique:users',
             ],
