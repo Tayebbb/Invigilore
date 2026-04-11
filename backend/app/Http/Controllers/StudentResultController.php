@@ -14,6 +14,7 @@ class StudentResultController extends Controller
     public function index(Request $request): JsonResponse
     {
         $attempts = ExamAttempt::query()
+            ->with(['result'])
             ->where('user_id', $request->user()->id)
             ->latest('id')
             ->get()
@@ -24,6 +25,8 @@ class StudentResultController extends Controller
                     'start_time' => $attempt->start_time ?? $attempt->started_at,
                     'end_time' => $attempt->end_time ?? $attempt->submitted_at,
                     'status' => $attempt->status ?? (($attempt->submitted_at || $attempt->end_time) ? 'submitted' : 'in_progress'),
+                    'score' => $attempt->result?->score,
+                    'total_marks' => $attempt->result?->total_marks,
                 ];
             });
 
@@ -34,7 +37,7 @@ class StudentResultController extends Controller
 
     public function show(Request $request, int $id): JsonResponse
     {
-        $attempt = ExamAttempt::find($id);
+        $attempt = ExamAttempt::with(['result'])->find($id);
 
         if (! $attempt) {
             return response()->json([
@@ -58,6 +61,7 @@ class StudentResultController extends Controller
                 'total_marks' => $score['total_marks'],
                 'obtained_marks' => $score['obtained_marks'],
                 'percentage' => $score['percentage'],
+                'result_id' => $attempt->result?->id,
             ],
         ]);
     }
@@ -93,6 +97,25 @@ class StudentResultController extends Controller
 
     private function calculateAttemptScore(ExamAttempt $attempt): array
     {
+        if ($attempt->result) {
+            $questions = DB::table('questions')
+                ->where('exam_id', $attempt->exam_id)
+                ->get(['id', 'marks']);
+
+            $totalMarks = (int) $attempt->result->total_marks;
+            $obtainedMarks = (int) $attempt->result->score;
+            $percentage = $totalMarks > 0
+                ? round(($obtainedMarks / $totalMarks) * 100, 2)
+                : 0.0;
+
+            return [
+                'total_questions' => $questions->count(),
+                'total_marks' => $totalMarks,
+                'obtained_marks' => $obtainedMarks,
+                'percentage' => $percentage,
+            ];
+        }
+
         $questions = DB::table('questions')
             ->where('exam_id', $attempt->exam_id)
             ->get(['id', 'correct_answer', 'marks']);

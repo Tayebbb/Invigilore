@@ -28,8 +28,11 @@ class StudentExamController extends Controller
 
         $exams = Exam::query()
             ->with(['subject:id,name,subject_code'])
-            ->whereHas('accessUsers', function ($userQuery) use ($studentEmail) {
-                $userQuery->whereRaw('LOWER(email) = ?', [$studentEmail]);
+            ->where(function ($query) use ($studentEmail) {
+                $query->whereDoesntHave('accessUsers')
+                    ->orWhereHas('accessUsers', function ($userQuery) use ($studentEmail) {
+                        $userQuery->whereRaw('LOWER(email) = ?', [$studentEmail]);
+                    });
             })
             ->orderBy('start_time')
             ->get()
@@ -476,6 +479,10 @@ class StudentExamController extends Controller
 
     private function hasStudentAccess(Exam $exam, string $studentEmail): bool
     {
+        if (! $exam->accessUsers()->exists()) {
+            return true;
+        }
+
         return ExamAccessUser::query()
             ->where('exam_id', $exam->id)
             ->whereRaw('LOWER(email) = ?', [$studentEmail])
