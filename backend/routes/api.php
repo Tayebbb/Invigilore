@@ -31,6 +31,7 @@ Route::post('/register/resend-code', [AuthController::class, 'resendRegistration
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test/{exam}', [ExamAccessController::class, 'verify']);
 Route::post('/test/{exam}/start', [StudentExamController::class, 'startPublic']);
+Route::get('/system/time', [\App\Http\Controllers\SystemController::class, 'currentTime']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
@@ -207,6 +208,4 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/student/results/summary', [StudentResultController::class, 'summary']);
     });
     
-    // System utility routes
-    Route::get('/system/time', [\App\Http\Controllers\SystemController::class, 'currentTime']);
 });

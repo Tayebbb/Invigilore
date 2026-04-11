@@ -55,11 +55,15 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     const requestUrl = String(error.config?.url ?? '');
     const isAuthEndpoint = requestUrl.includes('/login') || requestUrl.includes('/register');
+    const isTimeSyncEndpoint = requestUrl.includes('/system/time');
+    const isAlreadyOnLogin = typeof window !== 'undefined' && window.location.pathname === '/login';
 
-    if (error.response && error.response.status === 401 && !isAuthEndpoint) {
+    if (error.response && error.response.status === 401 && !isAuthEndpoint && !isTimeSyncEndpoint) {
       clearAuthToken();
       clearStoredAuthUser();
-      window.location.href = '/login';
+      if (!isAlreadyOnLogin) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
