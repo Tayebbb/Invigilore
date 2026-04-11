@@ -17,12 +17,17 @@ class AttemptAnswer extends Model
         'question_id',
         'selected_answer',
         'is_correct',
+        'score_awarded',
+        'feedback',
+        'is_ai_evaluated',
     ];
 
     protected function casts(): array
     {
         return [
             'is_correct' => 'boolean',
+            'is_ai_evaluated' => 'boolean',
+            'score_awarded' => 'float',
         ];
     }
 

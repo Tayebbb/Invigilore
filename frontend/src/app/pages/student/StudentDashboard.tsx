@@ -2,16 +2,18 @@ import { useMemo } from 'react';
 import { motion } from 'motion/react';
 import {
   AlertCircle, BookOpenText, CalendarClock, ClipboardList,
-  PlayCircle, Clock, CheckCircle2, BookOpen, Zap,
+  PlayCircle, Clock, CheckCircle2, BookOpen, Zap, Activity,
 } from 'lucide-react';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import { useStudentAccess } from '../../context/StudentAccessContext';
+import { getServerNow, syncWithServer } from '../../utils/timeSync';
 import type { StudentExam, StudentSubject } from './studentTypes';
 import useCurrentUser from '../../hooks/useCurrentUser';
+import { useEffect } from 'react';
 
 function computeCountdown(startIso: string): string {
-  const diff = new Date(startIso).getTime() - Date.now();
+  const diff = new Date(startIso).getTime() - getServerNow().getTime();
   if (diff <= 0) return 'Starting now';
   const totalMinutes = Math.floor(diff / (1000 * 60));
   const hours = Math.floor(totalMinutes / 60);
@@ -20,7 +22,7 @@ function computeCountdown(startIso: string): string {
 }
 
 function isWithinExamWindow(exam: StudentExam): boolean {
-  const now = Date.now();
+  const now = getServerNow().getTime();
   const start = new Date(exam.startTime).getTime();
   const end   = new Date(exam.endTime).getTime();
   if (Number.isNaN(start) || Number.isNaN(end)) return false;
@@ -72,13 +74,15 @@ function SubjectCard({ subject, index }: { subject: StudentSubject; index: numbe
 }
 
 const EXAM_STATUS_STYLE: Record<string, string> = {
-  upcoming:  'bg-blue-500/10 border-blue-500/20 text-blue-300',
-  ongoing:   'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
-  completed: 'bg-gray-500/10 border-gray-500/20 text-gray-400',
+  Scheduled:   'bg-blue-500/10 border-blue-500/20 text-blue-300',
+  Active:      'bg-emerald-500/10 border-emerald-500/20 text-emerald-300',
+  'In Progress':'bg-amber-500/10 border-amber-500/20 text-amber-300',
+  Completed:   'bg-gray-500/10 border-gray-500/20 text-gray-400',
 };
 
 function ExamCard({ exam, onEnter, index }: { exam: StudentExam; onEnter: (id: number) => void; index: number }) {
-  const canEnter = exam.status !== 'completed' && isWithinExamWindow(exam);
+  const canEnter = exam.status === 'Active' || exam.status === 'In Progress';
+  const isResuming = exam.status === 'In Progress';
 
   return (
     <motion.div
@@ -92,7 +96,7 @@ function ExamCard({ exam, onEnter, index }: { exam: StudentExam; onEnter: (id: n
           <p className="text-sm font-semibold text-white">{exam.examName}</p>
           <p className="text-xs text-gray-400 mt-0.5">{exam.courseName}</p>
         </div>
-        <span className={`shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${EXAM_STATUS_STYLE[exam.status] ?? EXAM_STATUS_STYLE.upcoming}`}>
+        <span className={`shrink-0 rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${EXAM_STATUS_STYLE[exam.status] ?? EXAM_STATUS_STYLE.Scheduled}`}>
           {exam.status.toUpperCase()}
         </span>
       </div>
@@ -111,22 +115,29 @@ function ExamCard({ exam, onEnter, index }: { exam: StudentExam; onEnter: (id: n
       </div>
 
       <div className="flex items-center justify-between border-t border-gray-800 pt-3">
-        <p className={`text-xs font-medium flex items-center gap-1.5 ${canEnter ? 'text-emerald-400' : 'text-gray-500'}`}>
-          {canEnter
-            ? <><Zap className="w-3.5 h-3.5" /> Exam window active</>
-            : exam.status === 'upcoming'
-              ? <><Clock className="w-3.5 h-3.5" /> Starts in {computeCountdown(exam.startTime)}</>
-              : <><CheckCircle2 className="w-3.5 h-3.5" /> Completed</>
-          }
-        </p>
+        <div className={`text-xs font-medium flex items-center gap-1.5 ${canEnter ? (isResuming ? 'text-amber-400' : 'text-emerald-400') : 'text-gray-500'}`}>
+          {isResuming ? (
+            <><Activity className="w-3.5 h-3.5 animate-pulse" /> Active session</>
+          ) : exam.status === 'Active' ? (
+            <><Zap className="w-3.5 h-3.5" /> Window open</>
+          ) : exam.status === 'Scheduled' ? (
+            <><Clock className="w-3.5 h-3.5" /> Scheduled</>
+          ) : (
+            <><CheckCircle2 className="w-3.5 h-3.5" /> Completed</>
+          )}
+        </div>
         <button
           type="button"
           disabled={!canEnter}
           onClick={() => onEnter(exam.id)}
-          className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-30 transition-all duration-200 shadow-sm shadow-blue-500/20"
+          className={`flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-30 transition-all duration-200 shadow-sm ${
+            isResuming 
+              ? 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-500/20' 
+              : 'bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 shadow-blue-500/20'
+          }`}
         >
-          <PlayCircle className="w-3.5 h-3.5" />
-          Enter Exam
+          {isResuming ? <Activity className="w-3.5 h-3.5" /> : <PlayCircle className="w-3.5 h-3.5" />}
+          {isResuming ? 'Resume Exam' : 'Enter Exam'}
         </button>
       </div>
     </motion.div>
@@ -135,6 +146,11 @@ function ExamCard({ exam, onEnter, index }: { exam: StudentExam; onEnter: (id: n
 
 export default function StudentDashboard() {
   const currentUser  = useCurrentUser();
+
+  useEffect(() => {
+    void syncWithServer();
+  }, []);
+
   const { subjects, upcoming, ongoing, completed, loading, error, warnings: accessWarnings = [] } = useStudentAccess();
   const hasAnyAccessData = useMemo(
     () => subjects.length > 0 || upcoming.length > 0 || ongoing.length > 0 || completed.length > 0,
@@ -171,7 +187,6 @@ export default function StudentDashboard() {
       activeItem="Dashboard"
       onNavChange={handleNav}
       user={studentUser}
-      notificationCount={0}
       pageTitle="Student Dashboard"
     >
       {/* Hero header */}

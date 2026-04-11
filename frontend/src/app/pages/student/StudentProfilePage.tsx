@@ -77,15 +77,6 @@ export default function StudentProfilePage() {
   const pictureUrl = resolveProfileImageUrl(profilePicture, api.defaults.baseURL?.toString());
   const avatarLetter = (name?.trim()?.[0] ?? 'S').toUpperCase();
 
-  const notifications = [
-    {
-      id: 'account-security',
-      title: 'Account Security',
-      message: 'Use a strong password and avoid shared devices for exams.',
-      timestamp: new Date().toISOString(),
-      read: false,
-    },
-  ];
 
   return (
     <DashboardLayout
@@ -94,7 +85,6 @@ export default function StudentProfilePage() {
       activeItem="Profile"
       onNavChange={handleNav}
       user={{ name: name || 'Student', email: email || 'student@invigilore.com', initial: avatarLetter, role: 'Student' }}
-      notifications={notifications}
       pageTitle="My Profile"
     >
       <div className="mx-auto max-w-3xl rounded-xl border border-gray-800 bg-gray-900 p-5">

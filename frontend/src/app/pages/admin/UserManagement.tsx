@@ -520,7 +520,6 @@ export default function UserManagement() {
         activeItem="User Management"
         onNavChange={handleNavChange}
         user={adminUser}
-        notificationCount={0}
         pageTitle="User Management"
       >
         {/* ── Page header ─────────────────────────────────────────────── */}

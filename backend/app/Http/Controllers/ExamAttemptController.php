@@ -2,13 +2,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttemptAnswer;
+use App\Models\AuditLog;
 use App\Models\Exam;
 use App\Models\ExamAccess;
 use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
 use App\Models\Result;
-use App\Models\Question;
-use App\Services\AuditService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,12 +16,11 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
 
-
-
 class ExamAttemptController extends Controller
 {
-    public function __construct(private readonly AuditService $auditService)
+    public function startAttempt(Request $request): JsonResponse
     {
+        return $this->start($request);
     }
 
     /**
@@ -30,51 +28,15 @@ class ExamAttemptController extends Controller
      * Starts a new exam attempt for the authenticated student.
      * Returns 201 with attempt and questions, 409 if already active, 403 if not allowed, 404 if exam not found.
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
-        $user = $this->resolveLegacyStudentActor($request);
-        $examId = $request->input('exam_id');
-        if (!$examId) {
-            return response()->json(['message' => 'exam_id is required'], 422);
-        }
-        $exam = \App\Models\Exam::find($examId);
-        if (!$exam) {
-            return response()->json(['message' => 'Exam not found'], 404);
-        }
-        // Only one active attempt per student per exam
-        $hasActiveAttempt = \App\Models\ExamAttempt::query()
-            ->where('user_id', $user->id)
-            ->where('exam_id', $exam->id)
-            ->where(function($query) {
-                $query->where('status', 'in_progress')
-                    ->orWhereNull('submitted_at');
-            })
-            ->exists();
-        if ($hasActiveAttempt) {
-            return response()->json(['message' => 'An active attempt already exists for this exam.'], 409);
-        }
-        $startTime = now();
-        $attemptData = [
-            'user_id' => $user->id,
-            'exam_id' => $exam->id,
-            'start_time' => $startTime,
-            'started_at' => $startTime,
-            'duration' => (int) $exam->duration,
-            'status' => 'in_progress',
-            'last_ip' => $request->ip(),
-            'last_user_agent' => $request->userAgent(),
-            'submitted_at' => null,
-        ];
-        $attempt = \App\Models\ExamAttempt::create($attemptData);
-        // Return attempt and randomized questions (without correct answers)
-        $questions = $exam->questions()
-            ->inRandomOrder()
-            ->get(['id', 'exam_id', 'question_text', 'type', 'options', 'marks']);
-        return response()->json($this->buildAttemptResponse($attempt, $questions), 201);
+        return $this->start($request);
     }
 
     public function start(Request $request): JsonResponse
     {
+        $user = $request->user();
+
         $validator = Validator::make($request->all(), [
             'exam_id' => 'required|integer|exists:exams,id',
         ]);
@@ -83,7 +45,10 @@ class ExamAttemptController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $user = $this->resolveLegacyStudentActor($request);
+        if (strtolower((string) ($user?->role?->name ?? '')) !== 'student') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
         $exam = Exam::findOrFail($request->integer('exam_id'));
         $hasActiveAttempt = ExamAttempt::query()
             ->where('user_id', $user->id)
@@ -136,14 +101,13 @@ class ExamAttemptController extends Controller
 
         $attempt = ExamAttempt::create($attemptData);
 
-        try {
-            $this->auditService->log(
-                'exam_start',
-                'Exam attempt started. attempt_id='.$attempt->id.', exam_id='.$attempt->exam_id
-            );
-        } catch (\Throwable) {
-            // Do not block exam start when audit logging fails.
-        }
+        $this->logAudit($request, 'attempt_started', [
+            'attempt_id' => $attempt->id,
+            'exam_id' => $attempt->exam_id,
+            'metadata' => [
+                'exam_id' => $attempt->exam_id,
+            ],
+        ]);
 
         $questions = $exam->questions()
             ->inRandomOrder()
@@ -200,9 +164,13 @@ class ExamAttemptController extends Controller
 
     public function saveAnswer(Request $request, int $id): JsonResponse
     {
+        $request->merge([
+            'selected_answer' => trim((string) $request->input('selected_answer')),
+        ]);
+
         $validator = Validator::make($request->all(), [
             'question_id' => 'required|integer|exists:questions,id',
-            'selected_answer' => 'required|string',
+            'selected_answer' => 'required|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -241,9 +209,18 @@ class ExamAttemptController extends Controller
                 'question_id' => $request->integer('question_id'),
             ],
             [
-                'selected_answer' => $request->string('selected_answer')->toString(),
+                'selected_answer' => $request->string('selected_answer')->trim()->toString(),
             ]
         );
+
+        $this->logAudit($request, 'answer_saved', [
+            'attempt_id' => $attempt->id,
+            'exam_id' => $attempt->exam_id,
+            'question_id' => $answer->question_id,
+            'metadata' => [
+                'question_id' => $answer->question_id,
+            ],
+        ]);
 
         return response()->json([
             'message' => 'Answer saved',
@@ -338,6 +315,11 @@ class ExamAttemptController extends Controller
 
     public function submit(Request $request, int $id): JsonResponse
     {
+        return $this->submitExam($request, $id);
+    }
+
+    public function submitExam(Request $request, int $id): JsonResponse
+    {
         $attempt = ExamAttempt::with('exam.questions', 'answers')->findOrFail($id);
 
         if ((int) $attempt->user_id !== (int) $this->resolveLegacyStudentActor($request)->id) {
@@ -355,16 +337,16 @@ class ExamAttemptController extends Controller
             ], 409);
         }
 
-        $summary = $this->finalizeAttempt($attempt, 'submitted');
+        $summary = $this->calculateResult($attempt, 'submitted');
 
-        try {
-            $this->auditService->log(
-                'exam_submit',
-                'Exam attempt submitted. attempt_id='.$attempt->id.', exam_id='.$attempt->exam_id
-            );
-        } catch (\Throwable) {
-            // Do not block submit when audit logging fails.
-        }
+        $this->logAudit($request, 'exam_submitted', [
+            'attempt_id' => $attempt->id,
+            'exam_id' => $attempt->exam_id,
+            'status' => 'submitted',
+            'metadata' => [
+                'status' => 'submitted',
+            ],
+        ]);
 
         return response()->json([
             'message' => 'Attempt submitted successfully',
@@ -381,7 +363,7 @@ class ExamAttemptController extends Controller
         }
 
         if ($this->remainingSeconds($attempt) <= 0) {
-            $this->finalizeAttempt($attempt, 'timeout');
+            $this->calculateResult($attempt, 'timeout');
         }
     }
 
@@ -399,7 +381,7 @@ class ExamAttemptController extends Controller
         return max(0, $remaining);
     }
 
-    private function finalizeAttempt(ExamAttempt $attempt, string $status): array
+    private function calculateResult(ExamAttempt $attempt, string $status): array
     {
         return DB::transaction(function () use ($attempt, $status) {
             $attempt->loadMissing('exam.questions', 'answers');
@@ -409,16 +391,21 @@ class ExamAttemptController extends Controller
 
             $score = 0;
             $correctCount = 0;
+            $answeredCount = 0;
 
             foreach ($questions as $question) {
                 $answer = $answers->get($question->id);
+                $selectedAnswer = $answer?->selected_answer;
 
-                if (! $answer) {
-                    continue;
+                if ($answer) {
+                    $answeredCount++;
                 }
 
-                $isCorrect = (string) $answer->selected_answer === (string) $question->correct_answer;
-                $answer->update(['is_correct' => $isCorrect]);
+                $isCorrect = $selectedAnswer !== null && (string) $selectedAnswer === (string) $question->correct_answer;
+
+                if ($answer) {
+                    $answer->update(['is_correct' => $isCorrect]);
+                }
 
                 if ($isCorrect) {
                     $correctCount++;
@@ -445,20 +432,30 @@ class ExamAttemptController extends Controller
                 $attempt->update($updateData);
             }
 
-            Result::updateOrCreate(
+            $result = Result::updateOrCreate(
                 ['attempt_id' => $attempt->id],
                 [
                     'score' => $score,
                     'total_marks' => (int) $questions->sum('marks'),
-                    'grade' => $this->gradeFromScore($score, (int) $questions->sum('marks')),
-                    'published_at' => now(),
                 ]
             );
 
+            $this->logAudit(request(), 'result_calculated', [
+                'attempt_id' => $attempt->id,
+                'exam_id' => $attempt->exam_id,
+                'score' => $score,
+                'total_marks' => (int) $questions->sum('marks'),
+                'metadata' => [
+                    'score' => $score,
+                    'total_marks' => (int) $questions->sum('marks'),
+                ],
+            ]);
+
             return [
+                'result_id' => $result->id,
                 'score' => $score,
                 'correct_answers' => $correctCount,
-                'answered_questions' => $attempt->answers()->count(),
+                'answered_questions' => $answeredCount,
                 'total_questions' => $questions->count(),
                 'total_marks' => (int) $questions->sum('marks'),
             ];
@@ -486,10 +483,11 @@ class ExamAttemptController extends Controller
 
     private function hasAssignedExamAccess(int $examId, string $email): bool
     {
-        $hasExamAccessConfig = ExamAccess::query()->where('exam_id', $examId)->exists();
-        $hasAssignedUsers = ExamAccessUser::query()->where('exam_id', $examId)->exists();
+        $hasPrivateAssignments = ExamAccessUser::query()
+            ->where('exam_id', $examId)
+            ->exists();
 
-        if (! $hasExamAccessConfig && ! $hasAssignedUsers) {
+        if (! $hasPrivateAssignments) {
             return true;
         }
 
@@ -528,37 +526,20 @@ class ExamAttemptController extends Controller
         return $this->attemptStatus($attempt) === 'in_progress';
     }
 
-    private function gradeFromScore(int $score, int $total): string
+    private function logAudit(Request $request, string $action, array $payload = []): void
     {
-        if ($total <= 0) {
-            return 'N/A';
+        try {
+            $description = json_encode($payload, JSON_UNESCAPED_SLASHES);
+
+            AuditLog::writeEntry(
+                $request->user()?->id,
+                $action,
+                $description === false ? null : $description,
+                $request->ip(),
+                $request->userAgent()
+            );
+        } catch (\Throwable) {
+            // Audit logging must never block exam flow.
         }
-
-        $percent = ($score / $total) * 100;
-
-        return match (true) {
-            $percent >= 90 => 'A+',
-            $percent >= 80 => 'A',
-            $percent >= 70 => 'B',
-            $percent >= 60 => 'C',
-            $percent >= 50 => 'D',
-            default => 'F',
-        };
-    }
-
-    private function resolveLegacyStudentActor(Request $request): User
-    {
-        $user = $request->user();
-
-        if ($user && strtolower((string) ($user->role?->name ?? '')) === 'student') {
-            return $user;
-        }
-
-        return User::query()
-            ->whereHas('role', function ($query) {
-                $query->where('name', 'student');
-            })
-            ->orderBy('id')
-            ->firstOrFail();
     }
 }

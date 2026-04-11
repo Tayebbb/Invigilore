@@ -35,6 +35,7 @@ services:
     container_name: invigilore_backend
     volumes:
       - ./backend:/var/www/html
+      - ./database:/var/www/database
       - backend_vendor:/var/www/html/vendor
     env_file:
       - .env.docker

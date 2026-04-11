@@ -40,6 +40,7 @@ class User extends Authenticatable implements JWTSubject
     protected $hidden = [
         'password',
         'remember_token',
+        'signup_verification_code',
     ];
 
     /**
@@ -51,6 +52,7 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'email_verified_at' => 'datetime',
+            'signup_verification_code_expires_at' => 'datetime',
             'restrict_login_to_one_device' => 'boolean',
             'preferences' => 'array',
             'is_active' => 'boolean',

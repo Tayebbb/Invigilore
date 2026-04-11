@@ -10,6 +10,7 @@ import { Card, CardContent } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { extractApiData, extractApiError } from '../utils/apiHelpers';
 import { getHomeRouteByRole } from '../navigation/roleRoutes';
+import { setAuthToken } from '../utils/authToken';
 
 function normalizeRole(rawRole: unknown): 'admin' | 'teacher' | 'student' {
   const role = String(rawRole ?? '').toLowerCase().replace(/[-\s]+/g, '_');
@@ -27,6 +28,26 @@ function normalizeStoredRoleValue(rawRole: unknown): string {
   return role || 'student';
 }
 
+function getReadableApiError(err: AxiosError): string {
+  const validationErrors = err.response?.data && typeof err.response.data === 'object'
+    ? (err.response.data as { errors?: Record<string, string[] | string> }).errors
+    : undefined;
+
+  if (validationErrors && typeof validationErrors === 'object') {
+    const messages = Object.values(validationErrors)
+      .flatMap((value) => Array.isArray(value) ? value : [String(value)])
+      .filter(Boolean);
+
+    if (messages.length > 0) {
+      return messages.join(' ');
+    }
+  }
+
+  return String(err.response?.data && typeof err.response.data === 'object'
+    ? (err.response.data as { message?: string }).message
+    : '') || extractApiError(err) || 'Request failed. Please try again.';
+}
+
 export default function SignUp() {
   const navigate = useNavigate();
 
@@ -41,6 +62,12 @@ export default function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [requiresVerification, setRequiresVerification] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [isResendingCode, setIsResendingCode] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -48,6 +75,25 @@ export default function SignUp() {
     confirmPassword: '',
     isTeacher: false,
   });
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setResendCooldown((current) => {
+        if (current <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -59,6 +105,7 @@ export default function SignUp() {
 
     setIsLoading(true);
     setError('');
+    setInfoMessage('');
 
     try {
       const response = await api.post('/register', {
@@ -69,26 +116,59 @@ export default function SignUp() {
         role: formData.isTeacher ? 'teacher' : 'student',
       });
 
-      // Support both wrapped (extractApiData) and direct response shapes
+      const data = extractApiData(response) ?? response.data;
+      setRequiresVerification(Boolean(data?.requires_verification ?? true));
+      setVerificationEmail(String(data?.email ?? formData.email));
+      setInfoMessage(data?.message ?? 'A verification code has been sent to your email.');
+      setResendCooldown(30);
+      setVerificationCode('');
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        setError(getReadableApiError(err));
+      } else {
+        setError(extractApiError(err) || 'Signup failed. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!verificationCode || verificationCode.trim().length !== 6) {
+      setError('Please enter the 6-digit verification code.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await api.post('/register/verify-code', {
+        email: verificationEmail,
+        code: verificationCode.trim(),
+      });
+
       const data = extractApiData(response) ?? response.data;
       const token = data?.token;
 
       if (!token) {
-        setError('Signup succeeded, but no auth token was returned. Please try again.');
+        setError('Verification succeeded, but no auth token was returned. Please log in.');
         return;
       }
 
-      localStorage.setItem('token', token);
+      setAuthToken(token, true);
 
       const apiUser = data?.user ?? response.data?.user ?? {};
       const rawRole = normalizeStoredRoleValue(apiUser?.role?.name ?? apiUser?.role);
       const roleName = normalizeRole(rawRole);
 
       localStorage.setItem('invigilore_user', JSON.stringify({
-        id:    apiUser?.id,
-        name:  apiUser?.name  ?? formData.fullName,
-        email: apiUser?.email ?? formData.email,
-        role:  rawRole,
+        id: apiUser?.id,
+        name: apiUser?.name ?? formData.fullName,
+        email: apiUser?.email ?? verificationEmail,
+        role: rawRole,
       }));
 
       setTimeout(() => {
@@ -96,16 +176,39 @@ export default function SignUp() {
       }, 300);
     } catch (err: unknown) {
       if (err instanceof AxiosError) {
-        setError(
-          err.response?.data?.message ||
-          extractApiError(err) ||
-          'Signup failed. Please try again.'
-        );
+        setError(getReadableApiError(err));
       } else {
-        setError(extractApiError(err) || 'Signup failed. Please try again.');
+        setError(extractApiError(err) || 'Verification failed. Please try again.');
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (!verificationEmail || resendCooldown > 0 || isResendingCode) {
+      return;
+    }
+
+    setIsResendingCode(true);
+    setError('');
+
+    try {
+      const response = await api.post('/register/resend-code', {
+        email: verificationEmail,
+      });
+
+      const data = extractApiData(response) ?? response.data;
+      setInfoMessage(data?.message ?? 'A new verification code has been sent to your email.');
+      setResendCooldown(30);
+    } catch (err: unknown) {
+      if (err instanceof AxiosError) {
+        setError(getReadableApiError(err));
+      } else {
+        setError(extractApiError(err) || 'Unable to resend code. Please try again.');
+      }
+    } finally {
+      setIsResendingCode(false);
     }
   };
 
@@ -131,8 +234,14 @@ export default function SignUp() {
       <div className="w-full max-w-md relative z-10 flex flex-col max-h-screen overflow-y-auto">
         {/* Header */}
         <div className="text-center mb-5 flex-shrink-0">
-          <h1 className="text-3xl font-bold text-foreground mb-1">Create Account</h1>
-          <p className="text-muted-foreground text-xs">Join InvigiLORE and manage secure exams</p>
+          <h1 className="text-3xl font-bold text-foreground mb-1">
+            {requiresVerification ? 'Verify Your Email' : 'Create Account'}
+          </h1>
+          <p className="text-muted-foreground text-xs">
+            {requiresVerification
+              ? `Enter the code sent to ${verificationEmail}`
+              : 'Join InvigiLORE and manage secure exams'}
+          </p>
         </div>
 
         {/* Signup Card */}
@@ -142,12 +251,20 @@ export default function SignUp() {
           {error && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="w-4 h-4" />
-              <AlertTitle>Registration Failed</AlertTitle>
+              <AlertTitle>{requiresVerification ? 'Verification Failed' : 'Registration Failed'}</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
 
-          {/* Form */}
+          {infoMessage && (
+            <Alert className="mb-4">
+              <AlertCircle className="w-4 h-4" />
+              <AlertTitle>Check Your Email</AlertTitle>
+              <AlertDescription>{infoMessage}</AlertDescription>
+            </Alert>
+          )}
+
+          {!requiresVerification ? (
           <form onSubmit={handleSubmit} className="space-y-3">
             {/* Full Name Input */}
             <div>
@@ -191,6 +308,9 @@ export default function SignUp() {
                   required
                 />
               </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Use a valid email with a real domain (for example: gmail.com, yahoo.com, outlook.com).
+              </p>
             </div>
 
             {/* Password Input */}
@@ -289,8 +409,86 @@ export default function SignUp() {
               )}
             </Button>
           </form>
+          ) : (
+          <form onSubmit={handleVerifyCode} className="space-y-3">
+            <div>
+              <label htmlFor="verificationCode" className="block text-sm font-semibold text-foreground mb-2">
+                Verification Code
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <Input
+                  type="text"
+                  id="verificationCode"
+                  name="verificationCode"
+                  value={verificationCode}
+                  onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full pl-12 pr-4 py-2 text-sm tracking-[0.3em]"
+                  placeholder="123456"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  required
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Use the 6-digit code sent to {verificationEmail}.
+              </p>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-2.5 mt-4 h-auto font-semibold text-sm flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  Verify And Continue
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isLoading || isResendingCode || resendCooldown > 0}
+              className="w-full"
+              onClick={handleResendCode}
+            >
+              {isResendingCode
+                ? 'Resending Code...'
+                : resendCooldown > 0
+                  ? `Resend Code In ${resendCooldown}s`
+                  : 'Resend Code'}
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isLoading || isResendingCode}
+              className="w-full"
+              onClick={() => {
+                setRequiresVerification(false);
+                setVerificationCode('');
+                setInfoMessage('');
+                setError('');
+                setResendCooldown(0);
+              }}
+            >
+              Back To Sign Up
+            </Button>
+          </form>
+          )}
 
           {/* Divider */}
+          {!requiresVerification && (
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border"></div>
@@ -299,8 +497,10 @@ export default function SignUp() {
               <span className="px-3 bg-card text-muted-foreground">OR SIGN UP WITH</span>
             </div>
           </div>
+          )}
 
           {/* Social Button */}
+          {!requiresVerification && (
           <Button
             type="button"
             onClick={() => handleSocialSignUp('Google')}
@@ -315,6 +515,7 @@ export default function SignUp() {
             </svg>
             Google
           </Button>
+          )}
           </CardContent>
         </Card>
 

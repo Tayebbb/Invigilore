@@ -88,9 +88,6 @@ export default function StudentHelpSupportPage() {
     }
   };
 
-  const notifications = [
-    { id: '1', title: 'Help Center', message: 'Support center is open.', timestamp: new Date().toISOString(), read: false },
-  ];
 
   return (
     <DashboardLayout
@@ -105,7 +102,6 @@ export default function StudentHelpSupportPage() {
         initial: (currentUser?.name?.[0] ?? 'S').toUpperCase(),
       }}
       pageTitle="Help & Support"
-      notifications={notifications}
     >
       {/* Page header */}
       <motion.div

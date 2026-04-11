@@ -17,12 +17,13 @@ class UpdateQuestionRequest extends FormRequest
         return [
             'exam_id' => ['sometimes', 'nullable', 'integer', 'exists:exams,id'],
             'question_text' => ['sometimes', 'string'],
-            'type' => ['sometimes', Rule::in(['mcq', 'true_false', 'descriptive'])],
+            'type' => ['sometimes', 'string'],
+            'options' => ['sometimes', 'array'],
             'option_a' => ['sometimes', 'string', 'max:255'],
             'option_b' => ['sometimes', 'string', 'max:255'],
             'option_c' => ['sometimes', 'string', 'max:255'],
             'option_d' => ['sometimes', 'string', 'max:255'],
-            'correct_answer' => ['sometimes', Rule::in(['A', 'B', 'C', 'D'])],
+            'correct_answer' => ['sometimes', 'string'],
             'marks' => ['sometimes', 'integer', 'min:1'],
             'difficulty' => ['sometimes', Rule::in(['easy', 'medium', 'hard'])],
         ];

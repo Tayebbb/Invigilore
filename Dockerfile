@@ -1,5 +1,5 @@
 # Use an official PHP image with Apache
-FROM php:8.2-apache
+FROM php:8.4-apache
 
 # ENV Arguments 
 ARG APP_NAME
@@ -59,8 +59,8 @@ COPY frontend/ /var/www/html/frontend
 # Set working directory
 WORKDIR /var/www/html
 
-# Install Laravel dependencies
-RUN composer install
+# Install production Laravel dependencies only.
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
 # Set environment variables for server
 RUN touch .env

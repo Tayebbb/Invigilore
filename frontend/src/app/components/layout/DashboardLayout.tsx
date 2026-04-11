@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import DashboardSidebar, { type SidebarNavItem } from './DashboardSidebar';
 import DashboardNavbar, { type NavbarUser } from './DashboardNavbar';
 import DashboardFooter from './DashboardFooter';
-import type { StudentNotification } from '../../pages/student/studentTypes';
 import { useAuthUser } from '../../context/AuthUserContext';
 import { resolveProfileImageUrl } from '../../utils/profileImage';
 import api from '../../api';
@@ -13,8 +12,6 @@ export interface DashboardLayoutProps {
   activeItem: string;
   onNavChange: (label: string) => void;
   user: NavbarUser;
-  notificationCount?: number;
-  notifications?: StudentNotification[];
   pageTitle: string;
   children: ReactNode;
 }
@@ -25,8 +22,6 @@ export default function DashboardLayout({
   activeItem,
   onNavChange,
   user,
-  notificationCount = 0,
-  notifications,
   pageTitle,
   children,
 }: DashboardLayoutProps) {
@@ -80,8 +75,6 @@ export default function DashboardLayout({
         <DashboardNavbar
           pageTitle={pageTitle}
           user={mergedUser}
-          notificationCount={notificationCount}
-          notifications={notifications}
           onMenuClick={() => setMobileSidebarOpen(true)}
         />
 

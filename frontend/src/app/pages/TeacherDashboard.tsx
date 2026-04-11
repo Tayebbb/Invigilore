@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import api from '../api';
 import { extractApiData, extractApiError } from '../utils/apiHelpers';
+import { clearAuthToken, getAuthToken } from '../utils/authToken';
 import {
   ClipboardCheck,
   LayoutDashboard,
@@ -35,36 +36,20 @@ import {
 
 // ── Data ───────────────────────────────────────────────────────────────────────
 
-const stats = [
-  {
-    label: 'Total Exams Created',
-    value: '24',
-    icon: FileText,
-    change: '+3 this month',
-    colorClass: 'blue',
-  },
-  {
-    label: 'Total Students Enrolled',
-    value: '320',
-    icon: GraduationCap,
-    change: '+18 this week',
-    colorClass: 'emerald',
-  },
-  {
-    label: 'Active Exams Running',
-    value: '3',
-    icon: Activity,
-    change: '2 ending today',
-    colorClass: 'amber',
-  },
-  {
-    label: 'Average Student Score',
-    value: '78%',
-    icon: BarChart3,
-    change: '+2.4% vs last month',
-    colorClass: 'purple',
-  },
-];
+type ExamStatusLabel = 'Draft' | 'Active' | 'Scheduled' | 'Completed';
+
+type DashboardExam = {
+  id: number;
+  title: string;
+  exam_status?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  created_at?: string | null;
+  subject?: {
+    name?: string | null;
+  } | null;
+  attempts_count?: number | null;
+};
 
 const quickActions = [
   { label: 'Create New Exam', icon: FilePlus, desc: 'Start a new examination', color: 'blue' },
@@ -92,26 +77,24 @@ const examFormatOptions = [
   },
 ];
 
-const recentExams = [
-  { name: 'Midterm Physics', subject: 'Physics', students: 120, date: 'Mar 12', status: 'Active' },
-  { name: 'Math Quiz #3', subject: 'Mathematics', students: 85, date: 'Mar 15', status: 'Scheduled' },
-  { name: 'Biology Finals', subject: 'Biology', students: 200, date: 'Mar 8', status: 'Completed' },
-  { name: 'Chemistry Lab Test', subject: 'Chemistry', students: 45, date: 'Mar 20', status: 'Draft' },
-  { name: 'History Essay', subject: 'History', students: 75, date: 'Mar 18', status: 'Scheduled' },
-];
+function normalizeExamStatus(rawStatus: string | null | undefined, startTime?: string | null, endTime?: string | null): ExamStatusLabel {
+  const status = (rawStatus ?? '').toLowerCase();
 
-const upcomingExams = [
-  { name: 'Physics Midterm', time: 'Tomorrow, 10:00 AM', subject: 'Physics', dot: 'bg-blue-400' },
-  { name: 'Math Quiz', time: 'Friday, 2:00 PM', subject: 'Mathematics', dot: 'bg-violet-400' },
-  { name: 'Biology Practical', time: 'Mon, 9:00 AM', subject: 'Biology', dot: 'bg-emerald-400' },
-];
+  if (status === 'draft') return 'Draft';
+  if (status === 'active') return 'Active';
+  if (status === 'scheduled') return 'Scheduled';
+  if (status === 'completed') return 'Completed';
 
-const liveStats = [
-  { label: 'Students online now', value: '47', color: 'text-blue-400' },
-  { label: 'Exams in progress', value: '3', color: 'text-emerald-400' },
-  { label: 'Submissions today', value: '89', color: 'text-amber-400' },
-  { label: 'Flags raised', value: '2', color: 'text-rose-400' },
-];
+  const nowMs = Date.now();
+  const startMs = startTime ? new Date(startTime).getTime() : NaN;
+  const endMs = endTime ? new Date(endTime).getTime() : NaN;
+
+  if (!Number.isNaN(endMs) && nowMs > endMs) return 'Completed';
+  if (!Number.isNaN(startMs) && nowMs < startMs) return 'Scheduled';
+  if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && nowMs >= startMs && nowMs <= endMs) return 'Active';
+
+  return 'Draft';
+}
 
 // ── Style maps (full class strings so Tailwind scans them) ────────────────────
 
@@ -147,10 +130,12 @@ export default function TeacherDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState<number | null>(null);
   const [user, setUser] = useState<{name: string, email: string, role: string} | null>(null);
+  const [exams, setExams] = useState<DashboardExam[]>([]);
+  const [examsError, setExamsError] = useState<string | null>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (!token) {
       navigate('/login');
       return;
@@ -168,13 +153,115 @@ export default function TeacherDashboard() {
     fetchUser();
   }, [navigate]);
 
+  useEffect(() => {
+    const fetchExams = async () => {
+      try {
+        setExamsError(null);
+        const response = await api.get('/exams', { params: { _t: Date.now() } });
+        const data = extractApiData(response) ?? response.data;
+        setExams(Array.isArray(data) ? data : []);
+      } catch (err) {
+        setExams([]);
+        setExamsError(typeof extractApiError(err) === 'string' ? extractApiError(err) : 'Failed to load exams');
+      }
+    };
+
+    fetchExams();
+  }, []);
+
+  const dashboardStats = useMemo(() => {
+    const activeCount = exams.filter((exam) => normalizeExamStatus(exam.exam_status, exam.start_time, exam.end_time) === 'Active').length;
+    const scheduledCount = exams.filter((exam) => normalizeExamStatus(exam.exam_status, exam.start_time, exam.end_time) === 'Scheduled').length;
+
+    return [
+      {
+        label: 'Total Exams Created',
+        value: String(exams.length),
+        icon: FileText,
+        change: 'From database',
+        colorClass: 'blue',
+      },
+      {
+        label: 'Scheduled Exams',
+        value: String(scheduledCount),
+        icon: GraduationCap,
+        change: 'Based on status/times',
+        colorClass: 'emerald',
+      },
+      {
+        label: 'Active Exams Running',
+        value: String(activeCount),
+        icon: Activity,
+        change: 'Live from database',
+        colorClass: 'amber',
+      },
+      {
+        label: 'Completed Exams',
+        value: String(exams.filter((exam) => normalizeExamStatus(exam.exam_status, exam.start_time, exam.end_time) === 'Completed').length),
+        icon: BarChart3,
+        change: 'Based on status/times',
+        colorClass: 'purple',
+      },
+    ];
+  }, [exams]);
+
+  const recentExams = useMemo(() => {
+    return exams.slice(0, 8).map((exam) => {
+      const status = normalizeExamStatus(exam.exam_status, exam.start_time, exam.end_time);
+      const dateSource = exam.start_time ?? exam.created_at;
+
+      return {
+        id: exam.id,
+        name: exam.title,
+        subject: exam.subject?.name || 'General',
+        students: exam.attempts_count ?? 0,
+        date: dateSource ? new Date(dateSource).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '-',
+        status,
+      };
+    });
+  }, [exams]);
+
+  const upcomingExams = useMemo(() => {
+    const nowMs = Date.now();
+    return exams
+      .filter((exam) => {
+        const startMs = exam.start_time ? new Date(exam.start_time).getTime() : NaN;
+        return !Number.isNaN(startMs) && startMs > nowMs;
+      })
+      .sort((a, b) => {
+        const aMs = a.start_time ? new Date(a.start_time).getTime() : Number.MAX_SAFE_INTEGER;
+        const bMs = b.start_time ? new Date(b.start_time).getTime() : Number.MAX_SAFE_INTEGER;
+        return aMs - bMs;
+      })
+      .slice(0, 3)
+      .map((exam, index) => ({
+        name: exam.title,
+        time: exam.start_time ? new Date(exam.start_time).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'TBD',
+        subject: exam.subject?.name || 'General',
+        dot: index % 3 === 0 ? 'bg-blue-400' : index % 3 === 1 ? 'bg-violet-400' : 'bg-emerald-400',
+      }));
+  }, [exams]);
+
+  const liveStats = useMemo(() => {
+    const draftCount = exams.filter((exam) => normalizeExamStatus(exam.exam_status, exam.start_time, exam.end_time) === 'Draft').length;
+    const activeCount = exams.filter((exam) => normalizeExamStatus(exam.exam_status, exam.start_time, exam.end_time) === 'Active').length;
+    const scheduledCount = exams.filter((exam) => normalizeExamStatus(exam.exam_status, exam.start_time, exam.end_time) === 'Scheduled').length;
+
+    return [
+      { label: 'Draft exams', value: String(draftCount), color: 'text-blue-400' },
+      { label: 'Exams in progress', value: String(activeCount), color: 'text-emerald-400' },
+      { label: 'Upcoming exams', value: String(scheduledCount), color: 'text-amber-400' },
+      { label: 'Total exams', value: String(exams.length), color: 'text-rose-400' },
+    ];
+  }, [exams]);
+
   const handleLogout = async () => {
     try {
       await api.post('/logout');
     } catch(e) {
       // Optionally handle error
     } finally {
-      localStorage.removeItem('token');
+      clearAuthToken();
       navigate('/login');
     }
   }
@@ -392,15 +479,24 @@ export default function TeacherDashboard() {
                 Create exams, manage students, and monitor results in real time.
               </p>
             </div>
-            <button className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg shadow-primary/20 hover:shadow-primary/40 cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap shrink-0">
+            <button
+              onClick={() => navigate('/teacher/exams/new')}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-semibold text-sm transition-all duration-200 shadow-lg shadow-primary/20 hover:shadow-primary/40 cursor-pointer hover:scale-[1.02] active:scale-95 whitespace-nowrap shrink-0"
+            >
               <FilePlus className="w-4 h-4" />
               Create New Exam
             </button>
           </motion.div>
 
+          {examsError ? (
+            <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              Could not load exams: {examsError}
+            </div>
+          ) : null}
+
           {/* ── Stats Grid ─────────────────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-            {stats.map((stat, i) => {
+            {dashboardStats.map((stat, i) => {
               const Icon = stat.icon;
               const iconStyle = statIconStyles[stat.colorClass];
               return (
@@ -558,11 +654,11 @@ export default function TeacherDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60">
-                      {recentExams.map((exam, i) => {
-                        const cfg = statusConfig[exam.status];
+                      {recentExams.map((exam) => {
+                        const cfg = statusConfig[exam.status] ?? statusConfig.Draft;
                         return (
                           <tr
-                            key={exam.name}
+                            key={exam.id}
                             className="hover:bg-accent/30 transition-colors duration-150 group"
                           >
                             <td className="px-6 py-4">

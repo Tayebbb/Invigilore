@@ -8,6 +8,9 @@ use App\Models\Result;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Models\User;
+use App\Notifications\ExamNotification;
+use Illuminate\Support\Facades\Notification;
 
 class TeacherPortalController extends Controller
 {
@@ -15,6 +18,8 @@ class TeacherPortalController extends Controller
     {
         $search = trim((string) $request->query('search', ''));
         $status = trim((string) $request->query('status', 'all'));
+
+        $userId = $request->user()->id;
 
         $query = Exam::query()
             ->with(['subject:id,name'])
@@ -26,20 +31,36 @@ class TeacherPortalController extends Controller
                 exams.created_at,
                 exams.start_time,
                 exams.end_time,
+                exams.teacher_id,
+                exams.controller_id,
+                exams.question_setter_id,
+                exams.moderator_id,
+                exams.invigilator_id,
                 COUNT(results.id) as result_count,
                 AVG(results.score) as average_score
             ')
-            ->groupBy('exams.id', 'exams.title', 'exams.created_at', 'exams.start_time', 'exams.end_time')
+            ->where(function ($q) use ($userId) {
+                $q->where('exams.teacher_id', $userId)
+                  ->orWhere('exams.controller_id', $userId)
+                  ->orWhere('exams.question_setter_id', $userId)
+                  ->orWhere('exams.moderator_id', $userId)
+                  ->orWhere('exams.invigilator_id', $userId);
+            })
+            ->groupBy(
+                'exams.id', 'exams.title', 'exams.created_at', 'exams.start_time', 'exams.end_time',
+                'exams.teacher_id', 'exams.controller_id', 'exams.question_setter_id', 'exams.moderator_id', 'exams.invigilator_id'
+            )
             ->orderByDesc('exams.id');
 
         if ($search !== '') {
             $query->where('exams.title', 'like', '%' . $search . '%');
         }
 
-        $exams = $query->get();
+        $perPage = max(1, min(100, (int) $request->query('perPage', 20)));
+        $exams = $query->paginate($perPage);
         $now = now();
 
-        $rows = $exams->map(function ($exam) use ($now) {
+        $rows = collect($exams->items())->map(function ($exam) use ($now) {
             $computedStatus = $this->computeTestStatus($exam, $now);
 
             return [
@@ -62,6 +83,12 @@ class TeacherPortalController extends Controller
             'success' => true,
             'message' => 'Teacher tests fetched successfully',
             'data' => $rows,
+            'meta' => [
+                'total' => $exams->total(),
+                'perPage' => $exams->perPage(),
+                'currentPage' => $exams->currentPage(),
+                'lastPage' => $exams->lastPage(),
+            ],
         ])->header('Cache-Control', 'private, max-age=60');// Cache for 60 seconds on client
     }
 
@@ -120,6 +147,15 @@ class TeacherPortalController extends Controller
         $exam->end_time = $now->copy()->addMinutes((int) $exam->duration);
         $exam->save();
 
+        // Notify all students
+        $studentEmails = User::whereHas('role', fn($query) => $query->where('name', 'student'))->get();
+        Notification::send($studentEmails, new ExamNotification(
+            'New Exam Live: ' . $exam->title,
+            "A new exam is now live and ready for attempts. Duration: {$exam->duration} mins.",
+            'info',
+            '/student/dashboard'
+        ));
+
         return response()->json([
             'success' => true,
             'message' => 'Test activated successfully',
@@ -150,10 +186,27 @@ class TeacherPortalController extends Controller
         $search = trim((string) $request->query('search', ''));
         $perPage = max(1, min(100, (int) $request->query('perPage', 20)));
 
+        $userId = $request->user()->id;
+
         $query = Result::query()
             ->with(['attempt.user:id,name', 'attempt.exam:id,title'])
-            ->whereHas('attempt')
+            ->whereHas('attempt', function ($attemptQuery) use ($userId) {
+                $attemptQuery->whereHas('exam', function ($examQuery) use ($userId) {
+                    $examQuery->where('teacher_id', $userId)
+                              ->orWhere('controller_id', $userId)
+                              ->orWhere('question_setter_id', $userId)
+                              ->orWhere('moderator_id', $userId)
+                              ->orWhere('invigilator_id', $userId);
+                });
+            })
             ->latest('id');
+
+        if ($request->has('exam_id')) {
+            $examId = (int) $request->query('exam_id');
+            $query->whereHas('attempt', function ($q) use ($examId) {
+                $q->where('exam_id', $examId);
+            });
+        }
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -180,10 +233,12 @@ class TeacherPortalController extends Controller
                 'testName' => $result->attempt?->exam?->title ?? 'Unknown test',
                 'lastName' => $lastName,
                 'firstName' => $firstName,
+                'email' => $result->attempt?->user?->email ?? '',
                 'scorePercent' => $percent,
                 'scoreLabel' => $score . '/' . $total,
                 'endDate' => optional($result->attempt?->submitted_at ?? $result->attempt?->end_time ?? $result->created_at)?->format('Y-m-d H:i'),
                 'timeTaken' => $this->formatDuration((int) ($result->attempt?->duration ?? 0)),
+                'status' => 'Submitted',
             ];
         })->values();
 
@@ -200,31 +255,86 @@ class TeacherPortalController extends Controller
         ])->header('Cache-Control', 'private, max-age=60');
     }
 
-    public function respondents(Request $request): JsonResponse
+    public function resultDetails(Request $request, Result $result): JsonResponse
     {
-        $rows = ExamAttempt::query()
-            ->with(['user:id,name,email', 'exam:id,title'])
-            ->where('status', 'in_progress')
-            ->latest('id')
-            ->limit(50)
-            ->get()
-            ->map(function (ExamAttempt $attempt) {
-                return [
-                    'attemptId' => $attempt->id,
-                    'testName' => $attempt->exam?->title ?? 'Unknown test',
-                    'name' => $attempt->user?->name ?? 'Unknown user',
-                    'email' => $attempt->user?->email ?? '',
-                    'startedAt' => optional($attempt->started_at ?? $attempt->start_time)?->toISOString(),
-                    'status' => $attempt->status,
-                ];
-            })
-            ->values();
+        $result->load(['attempt.user', 'attempt.exam.questions', 'attempt.answers.question']);
+
+        $questions = $result->attempt?->exam?->questions ?? collect();
+        $answers = $result->attempt?->answers?->keyBy('question_id') ?? collect();
+
+        $details = $questions->map(function ($q) use ($answers) {
+            $ans = $answers->get($q->id);
+            return [
+                'id' => $q->id,
+                'question' => $q->question_text,
+                'type' => $q->type,
+                'studentAnswer' => $ans?->selected_answer,
+                'correctAnswer' => $q->correct_answer,
+                'marks' => (int) $q->marks,
+                'awarded' => (float) ($ans?->score_awarded ?? 0),
+                'feedback' => $ans?->feedback,
+                'isCorrect' => (bool) ($ans?->is_correct ?? false),
+            ];
+        });
 
         return response()->json([
             'success' => true,
-            'message' => 'Respondents fetched successfully',
+            'data' => [
+                'student' => $result->attempt?->user?->name ?? 'Unknown',
+                'email' => $result->attempt?->user?->email ?? '',
+                'examTitle' => $result->attempt?->exam?->title ?? '',
+                'score' => (int) $result->score,
+                'total' => (int) $result->total_marks,
+                'answers' => $details,
+            ],
+        ]);
+    }
+
+    public function respondents(Request $request): JsonResponse
+    {
+        $search = trim((string) $request->query('search', ''));
+        $perPage = max(1, min(100, (int) $request->query('perPage', 20)));
+        
+        $query = ExamAttempt::query()
+            ->with(['user:id,name,email', 'exam:id,title'])
+            ->where('status', 'in_progress')
+            ->latest('id');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('user', function ($userQuery) use ($search) {
+                    $userQuery->where('name', 'like', '%' . $search . '%')
+                              ->orWhere('email', 'like', '%' . $search . '%');
+                })->orWhereHas('exam', function ($examQuery) use ($search) {
+                    $examQuery->where('title', 'like', '%' . $search . '%');
+                });
+            });
+        }
+
+        $attempts = $query->paginate($perPage);
+
+        $rows = collect($attempts->items())->map(function (ExamAttempt $attempt) {
+            return [
+                'attemptId' => $attempt->id,
+                'testName' => $attempt->exam?->title ?? 'Unknown test',
+                'name' => $attempt->user?->name ?? 'Unknown user',
+                'email' => $attempt->user?->email ?? '',
+                'startedAt' => optional($attempt->started_at ?? $attempt->start_time)?->toISOString(),
+                'status' => $attempt->status,
+            ];
+        })->values();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Active respondents fetched successfully',
             'data' => $rows,
-        ])->header('Cache-Control', 'private, max-age=30');
+            'meta' => [
+                'total' => $attempts->total(),
+                'perPage' => $attempts->perPage(),
+                'currentPage' => $attempts->currentPage(),
+                'lastPage' => $attempts->lastPage(),
+            ],
+        ])->header('Cache-Control', 'no-cache');
     }
 
     private function computeTestStatus(Exam $exam, Carbon $now): string
@@ -232,11 +342,23 @@ class TeacherPortalController extends Controller
         $start = $exam->start_time;
         $end = $exam->end_time;
 
-        if ($start && $end && $now->between($start, $end)) {
-            return 'active';
+        if (!$start && !$end) {
+            return 'Draft';
         }
 
-        return 'setup_in_progress';
+        if ($start && $start > $now) {
+            return 'Scheduled';
+        }
+
+        if ($start && $end && $now->between($start, $end)) {
+            return 'Active';
+        }
+
+        if ($end && $end < $now) {
+            return 'Completed';
+        }
+
+        return 'Draft';
     }
 
     private function splitName(string $name): array

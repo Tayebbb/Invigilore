@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttemptAnswer;
+use App\Notifications\ExamNotification;
+use Illuminate\Support\Facades\Notification;
 use App\Models\Exam;
 use App\Models\ExamAccess;
 use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
-use App\Models\Result;
+use App\Models\Submission;
+use App\Services\AiService;
 use App\Services\AuditTrailService;
 use App\Services\IncidentService;
 use Carbon\Carbon;
@@ -25,8 +28,11 @@ class StudentExamController extends Controller
 
         $exams = Exam::query()
             ->with(['subject:id,name,subject_code'])
-            ->whereHas('accessUsers', function ($userQuery) use ($studentEmail) {
-                $userQuery->whereRaw('LOWER(email) = ?', [$studentEmail]);
+            ->where(function ($query) use ($studentEmail) {
+                $query->whereDoesntHave('accessUsers')
+                    ->orWhereHas('accessUsers', function ($userQuery) use ($studentEmail) {
+                        $userQuery->whereRaw('LOWER(email) = ?', [$studentEmail]);
+                    });
             })
             ->orderBy('start_time')
             ->get()
@@ -81,11 +87,17 @@ class StudentExamController extends Controller
         $existing = ExamAttempt::query()
             ->where('user_id', $request->user()->id)
             ->where('exam_id', $exam->id)
-            ->where('status', 'in_progress')
             ->latest('id')
             ->first();
 
-        if ($existing) {
+        if ($existing && in_array($existing->status, ['submitted', 'timeout', 'graded'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have already submitted this exam and cannot enter again.',
+            ], 403);
+        }
+
+        if ($existing && $existing->status === 'in_progress') {
             $incidentService->record(
                 $request->user(),
                 $exam->id,
@@ -129,6 +141,81 @@ class StudentExamController extends Controller
             'success' => true,
             'message' => 'Exam session started',
             'data' => $this->attemptPayload($attempt->load('exam.questions', 'answers')),
+        ], 201);
+    }
+
+    public function startPublic(Request $request, Exam $exam)
+    {
+        $token = (string) $request->input('token', '');
+        $email = strtolower(trim((string) $request->input('email', '')));
+
+        if ($token === '') {
+            return response()->json(['message' => 'Access token is required.'], 403);
+        }
+
+        $hashedToken = hash('sha256', $token);
+        $config = ExamAccess::query()->where('exam_id', $exam->id)->first();
+
+        // 1. Verify Public access
+        if (!$config || $config->access_type !== 'public' || $config->access_token !== $hashedToken) {
+            return response()->json(['message' => 'Invalid or expired access link.'], 403);
+        }
+
+        if ($config->require_email && $email === '') {
+            return response()->json(['message' => 'Email is required to start this exam.'], 400);
+        }
+
+        // 2. Resolve User (find or create)
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            $user = User::create([
+                'name' => explode('@', $email)[0],
+                'email' => $email,
+                'password' => \Illuminate\Support\Facades\Hash::make(Str::random(16)),
+                'role_id' => \App\Models\Role::where('name', 'student')->first()->id ?? 2,
+                'is_active' => true,
+            ]);
+        }
+
+        // 3. Start Attempt
+        $existing = ExamAttempt::query()
+            ->where('user_id', $user->id)
+            ->where('exam_id', $exam->id)
+            ->latest('id')
+            ->first();
+
+        if ($existing && in_array($existing->status, ['submitted', 'timeout', 'graded'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have already submitted this exam.',
+            ], 403);
+        }
+
+        if ($existing && $existing->status === 'in_progress') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Resuming active session',
+                'data' => $this->attemptPayload($existing->load('exam.questions', 'answers')),
+                'token' => $user->createToken('guest_exam_token')->plainTextToken,
+            ]);
+        }
+
+        $attempt = ExamAttempt::create([
+            'user_id' => $user->id,
+            'exam_id' => $exam->id,
+            'start_time' => now(),
+            'started_at' => now(),
+            'duration' => (int) $exam->duration,
+            'status' => 'in_progress',
+            'last_ip' => $request->ip(),
+            'last_user_agent' => $request->userAgent(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Exam session started',
+            'data' => $this->attemptPayload($attempt->load('exam.questions', 'answers')),
+            'token' => $user->createToken('guest_exam_token')->plainTextToken,
         ], 201);
     }
 
@@ -434,10 +521,7 @@ class StudentExamController extends Controller
 
     private function hasStudentAccess(Exam $exam, string $studentEmail): bool
     {
-        $hasAccessConfig = ExamAccess::query()->where('exam_id', $exam->id)->exists();
-        $hasAssignedStudents = ExamAccessUser::query()->where('exam_id', $exam->id)->exists();
-
-        if (! $hasAccessConfig && ! $hasAssignedStudents) {
+        if (! $exam->accessUsers()->exists()) {
             return true;
         }
 
@@ -461,19 +545,28 @@ class StudentExamController extends Controller
 
     private function examStatus(Exam $exam, ?ExamAttempt $attempt, Carbon $now): string
     {
-        if ($attempt && in_array($attempt->status, ['submitted', 'timeout'], true)) {
-            return 'completed';
+        // 1. If student has already finished, it's completed for them
+        if ($attempt && in_array($attempt->status, ['submitted', 'timeout', 'graded'], true)) {
+            return 'Completed';
         }
 
-        if ($exam->start_time > $now) {
-            return 'upcoming';
-        }
-
+        // 2. If the global window has passed
         if ($exam->end_time < $now) {
-            return 'completed';
+            return 'Completed';
         }
 
-        return 'ongoing';
+        // 3. If window not yet open
+        if ($exam->start_time > $now) {
+            return 'Scheduled';
+        }
+
+        // 4. If window is open AND student has an active session
+        if ($attempt && $attempt->status === 'in_progress') {
+            return 'In Progress';
+        }
+
+        // 5. Window is open, no attempt started
+        return 'Active';
     }
 
     private function autoFinalizeIfExpired(ExamAttempt $attempt): void
@@ -504,13 +597,15 @@ class StudentExamController extends Controller
     private function finalizeAttempt(ExamAttempt $attempt, string $status): array
     {
         return DB::transaction(function () use ($attempt, $status) {
-            $attempt->loadMissing('exam.questions', 'answers');
+            $attempt->loadMissing('exam.questions', 'answers', 'user');
 
             $questions = $attempt->exam->questions;
             $answers = $attempt->answers->keyBy('question_id');
 
             $score = 0;
             $correctCount = 0;
+
+            $ai = app(AiService::class);
 
             foreach ($questions as $question) {
                 $answer = $answers->get($question->id);
@@ -519,16 +614,44 @@ class StudentExamController extends Controller
                     continue;
                 }
 
-                if ($question->type === 'descriptive') {
+                $type = strtolower($question->type);
+
+                if ($type === 'descriptive' || $type === 'short_answer') {
+                    $eval = $ai->evaluateAnswer(
+                        $question->question_text,
+                        $answer->selected_answer,
+                        $question->correct_answer,
+                        (int) $question->marks
+                    );
+
+                    $isCorrect = $eval['is_correct'] ?? false;
+                    $awarded = (float) ($eval['score'] ?? 0);
+
+                    $answer->update([
+                        'is_correct' => $isCorrect,
+                        'score_awarded' => $awarded,
+                        'feedback' => $eval['feedback'] ?? '',
+                        'is_ai_evaluated' => true,
+                    ]);
+
+                    $score += $awarded;
+                    if ($isCorrect) {
+                        $correctCount++;
+                    }
                     continue;
                 }
 
                 $isCorrect = (string) $answer->selected_answer === (string) $question->correct_answer;
-                $answer->update(['is_correct' => $isCorrect]);
+                $awarded = $isCorrect ? (float) $question->marks : 0.0;
+
+                $answer->update([
+                    'is_correct' => $isCorrect,
+                    'score_awarded' => $awarded,
+                ]);
 
                 if ($isCorrect) {
                     $correctCount++;
-                    $score += (int) $question->marks;
+                    $score += $awarded;
                 }
             }
 
@@ -546,6 +669,17 @@ class StudentExamController extends Controller
             $result->grade = $this->gradeFromScore($score, (int) $questions->sum('marks'));
             $result->published_at = $result->published_at ?? $submittedAt;
             $result->save();
+
+            // Notify Student
+            $totalMarks = $result->total_marks;
+            if ($attempt->user) {
+                $attempt->user->notify(new ExamNotification(
+                    'Exam Graded: ' . $attempt->exam->title,
+                    "Your exam has been graded. You scored {$score} out of {$totalMarks}.",
+                    'success',
+                    '/student/attempts/' . $attempt->id
+                ));
+            }
 
             return [
                 'score' => $score,

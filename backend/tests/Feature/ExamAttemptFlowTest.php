@@ -240,6 +240,12 @@ class ExamAttemptFlowTest extends TestCase
             'question_id' => $q2->id,
             'is_correct' => 0,
         ]);
+
+        $this->assertDatabaseHas('results', [
+            'attempt_id' => $attempt->id,
+            'score' => 2,
+            'total_marks' => 5,
+        ]);
     }
 
     public function test_prevent_duplicate_submissions(): void

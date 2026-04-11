@@ -48,15 +48,15 @@ class QuestionController extends Controller
             'created_by' => $request->user()?->id,
             'question_text' => $validated['question_text'],
             'type' => $validated['type'] ?? 'mcq',
-            'options' => [
-                'A' => $validated['option_a'],
-                'B' => $validated['option_b'],
-                'C' => $validated['option_c'],
-                'D' => $validated['option_d'],
+            'options' => $validated['options'] ?? [
+                'A' => $validated['option_a'] ?? null,
+                'B' => $validated['option_b'] ?? null,
+                'C' => $validated['option_c'] ?? null,
+                'D' => $validated['option_d'] ?? null,
             ],
             'correct_answer' => $validated['correct_answer'],
             'marks' => $validated['marks'] ?? 1,
-            'difficulty' => $validated['difficulty'],
+            'difficulty' => $validated['difficulty'] ?? 'medium',
         ]);
 
         return response()->json($question->fresh()->load('exam')->toArray(), 201);
@@ -87,7 +87,9 @@ class QuestionController extends Controller
             $payload['type'] = $validated['type'];
         }
 
-        if (
+        if (array_key_exists('options', $validated)) {
+            $payload['options'] = $validated['options'];
+        } elseif (
             array_key_exists('option_a', $validated) ||
             array_key_exists('option_b', $validated) ||
             array_key_exists('option_c', $validated) ||
@@ -141,28 +143,33 @@ class QuestionController extends Controller
     {
         $validated = $request->validate([
             'question_text' => ['required', 'string'],
-            'type' => ['sometimes', Rule::in(['mcq', 'true_false', 'descriptive'])],
-            'option_a' => ['required', 'string', 'max:255'],
-            'option_b' => ['required', 'string', 'max:255'],
-            'option_c' => ['required', 'string', 'max:255'],
-            'option_d' => ['required', 'string', 'max:255'],
-            'correct_answer' => ['required', Rule::in(['A', 'B', 'C', 'D'])],
+            'type' => ['sometimes', 'string'],
+            'options' => ['nullable', 'array'],
+            'option_a' => ['nullable', 'string', 'max:255'],
+            'option_b' => ['nullable', 'string', 'max:255'],
+            'option_c' => ['nullable', 'string', 'max:255'],
+            'option_d' => ['nullable', 'string', 'max:255'],
+            'difficulty' => ['sometimes', 'string'],
+            'correct_answer' => ['sometimes', 'nullable', 'string'],
             'marks' => ['required', 'integer', 'min:1'],
         ]);
+
+        $options = $validated['options'] ?? [
+            'A' => $validated['option_a'] ?? null,
+            'B' => $validated['option_b'] ?? null,
+            'C' => $validated['option_c'] ?? null,
+            'D' => $validated['option_d'] ?? null,
+        ];
 
         $question = $this->questionService->create([
             'exam_id' => $exam->id,
             'created_by' => $request->user()?->id,
             'question_text' => $validated['question_text'],
             'type' => $validated['type'] ?? 'mcq',
-            'options' => [
-                'A' => $validated['option_a'],
-                'B' => $validated['option_b'],
-                'C' => $validated['option_c'],
-                'D' => $validated['option_d'],
-            ],
+            'options' => $options,
             'correct_answer' => $validated['correct_answer'],
             'marks' => $validated['marks'],
+            'difficulty' => $validated['difficulty'] ?? 'medium',
         ]);
 
         return response()->json($question->fresh()->load('exam')->toArray(), 201);
@@ -176,12 +183,13 @@ class QuestionController extends Controller
 
         $validated = $request->validate([
             'question_text' => ['sometimes', 'string'],
-            'type' => ['sometimes', Rule::in(['mcq', 'true_false', 'descriptive'])],
-            'option_a' => ['sometimes', 'string', 'max:255'],
-            'option_b' => ['sometimes', 'string', 'max:255'],
-            'option_c' => ['sometimes', 'string', 'max:255'],
-            'option_d' => ['sometimes', 'string', 'max:255'],
-            'correct_answer' => ['sometimes', Rule::in(['A', 'B', 'C', 'D'])],
+            'type' => ['sometimes', 'string'],
+            'options' => ['nullable', 'array'],
+            'option_a' => ['nullable', 'string', 'max:255'],
+            'option_b' => ['nullable', 'string', 'max:255'],
+            'option_c' => ['nullable', 'string', 'max:255'],
+            'option_d' => ['nullable', 'string', 'max:255'],
+            'correct_answer' => ['sometimes', 'string'],
             'marks' => ['sometimes', 'integer', 'min:1'],
         ]);
 
@@ -195,7 +203,9 @@ class QuestionController extends Controller
             $payload['type'] = $validated['type'];
         }
 
-        if (
+        if (array_key_exists('options', $validated)) {
+            $payload['options'] = $validated['options'];
+        } elseif (
             array_key_exists('option_a', $validated) ||
             array_key_exists('option_b', $validated) ||
             array_key_exists('option_c', $validated) ||

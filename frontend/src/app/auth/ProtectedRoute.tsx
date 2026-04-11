@@ -1,6 +1,8 @@
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import { getHomeRouteByRole, normalizeRole } from '../navigation/roleRoutes';
+import { getAuthToken } from '../utils/authToken';
+import { readStoredAuthUser } from '../utils/authUser';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,13 +33,7 @@ export interface StoredUser {
  *       once the authentication system is implemented.
  */
 export function getStoredUser(): StoredUser | null {
-  try {
-    const raw = localStorage.getItem('invigilore_user');
-    if (!raw) return null;
-    return JSON.parse(raw) as StoredUser;
-  } catch {
-    return null;
-  }
+  return readStoredAuthUser() as StoredUser | null;
 }
 
 function normalizeStoredRole(rawRole: unknown): UserRole {
@@ -71,10 +67,11 @@ interface ProtectedRouteProps {
  */
 export default function ProtectedRoute({ allowedRoles, children }: ProtectedRouteProps) {
   const user = getStoredUser();
+  const token = getAuthToken();
   const normalizedRole = normalizeRole(user?.role ?? null);
 
   // Not logged in
-  if (!user) {
+  if (!user || !token) {
     return <Navigate to="/login" replace />;
   }
 

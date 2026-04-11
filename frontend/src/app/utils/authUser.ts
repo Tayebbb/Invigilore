@@ -1,3 +1,5 @@
+import { hasPersistentAuthToken } from './authToken';
+
 export interface AuthUserRecord {
   id?: number | string;
   name: string;
@@ -11,7 +13,7 @@ const USER_UPDATED_EVENT = 'invigilore-user-updated';
 
 export function readStoredAuthUser(): AuthUserRecord | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = sessionStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       return null;
     }
@@ -21,13 +23,23 @@ export function readStoredAuthUser(): AuthUserRecord | null {
   }
 }
 
-export function writeStoredAuthUser(user: AuthUserRecord): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+export function writeStoredAuthUser(user: AuthUserRecord, rememberMe = hasPersistentAuthToken()): void {
+  const payload = JSON.stringify(user);
+
+  if (rememberMe) {
+    localStorage.setItem(STORAGE_KEY, payload);
+    sessionStorage.removeItem(STORAGE_KEY);
+  } else {
+    sessionStorage.setItem(STORAGE_KEY, payload);
+    localStorage.removeItem(STORAGE_KEY);
+  }
+
   window.dispatchEvent(new CustomEvent<AuthUserRecord>(USER_UPDATED_EVENT, { detail: user }));
 }
 
 export function clearStoredAuthUser(): void {
   localStorage.removeItem(STORAGE_KEY);
+  sessionStorage.removeItem(STORAGE_KEY);
   window.dispatchEvent(new CustomEvent(USER_UPDATED_EVENT));
 }
 

@@ -1,5 +1,5 @@
-// Contract-compliant exam attempt creation endpoint
 <?php
+// Contract-compliant exam attempt creation endpoint
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -12,6 +12,7 @@ use App\Http\Controllers\ProctoringController;
 use App\Http\Controllers\StudentAccountSettingsController;
 use App\Http\Controllers\SupportTicketController;
 use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\StudentExamController;
 use App\Http\Controllers\ExamSessionController;
 use App\Http\Controllers\ExamAttemptController;
@@ -25,13 +26,26 @@ use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\TeacherPortalController;
 
 Route::post('/register', [AuthController::class, 'register']);
+Route::post('/register/verify-code', [AuthController::class, 'verifyRegistrationCode']);
+Route::post('/register/resend-code', [AuthController::class, 'resendRegistrationCode']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test/{exam}', [ExamAccessController::class, 'verify']);
+Route::post('/test/{exam}/start', [StudentExamController::class, 'startPublic']);
+Route::get('/system/time', [\App\Http\Controllers\SystemController::class, 'currentTime']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me', [AuthController::class, 'updateProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // Notifications
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::patch('/read-all', [NotificationController::class, 'markAllAsRead']);
+        Route::patch('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::delete('/', [NotificationController::class, 'clearAll']);
+        Route::delete('/{id}', [NotificationController::class, 'destroy']);
+    });
 
     // Student secure exam module
     Route::middleware('role:student')->prefix('student')->group(function () {
@@ -111,6 +125,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/tests/{exam}/activate', [TeacherPortalController::class, 'activate']);
             Route::post('/tests/{exam}/end', [TeacherPortalController::class, 'end']);
             Route::get('/results-database', [TeacherPortalController::class, 'resultsDatabase']);
+            Route::get('/results/{result}', [TeacherPortalController::class, 'resultDetails']);
             Route::get('/respondents', [TeacherPortalController::class, 'respondents']);
         });
     });
@@ -155,6 +170,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('exam.role:question_setter')->group(function () {
         Route::get('/exams/{exam}/questions', [QuestionController::class, 'examQuestions']);
         Route::post('/exams/{exam}/questions', [QuestionController::class, 'storeExamQuestion']);
+        Route::post('/exams/{exam}/ai-generate', [\App\Http\Controllers\AiQuestionController::class, 'generate']);
         Route::put('/exams/{exam}/questions/{question}', [QuestionController::class, 'updateExamQuestion']);
         Route::delete('/exams/{exam}/questions/{question}', [QuestionController::class, 'destroyExamQuestion']);
     });
@@ -197,4 +213,5 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/student/attempts/{id}', [StudentResultController::class, 'show']);
         Route::get('/student/results/summary', [StudentResultController::class, 'summary']);
     });
+    
 });

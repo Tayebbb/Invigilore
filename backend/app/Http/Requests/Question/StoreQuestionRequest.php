@@ -20,14 +20,15 @@ class StoreQuestionRequest extends FormRequest
         return [
             'exam_id' => ['nullable', 'integer', 'exists:exams,id'],
             'question_text' => ['required', 'string'],
-            'type' => ['sometimes', Rule::in(['mcq', 'true_false', 'descriptive'])],
-            'option_a' => ['required', 'string', 'max:255'],
-            'option_b' => ['required', 'string', 'max:255'],
-            'option_c' => ['required', 'string', 'max:255'],
-            'option_d' => ['required', 'string', 'max:255'],
-            'correct_answer' => ['required', Rule::in(['A', 'B', 'C', 'D'])],
+            'type' => ['sometimes', 'string'],
+            'options' => ['nullable', 'array'],
+            'option_a' => ['nullable', 'string', 'max:255'],
+            'option_b' => ['nullable', 'string', 'max:255'],
+            'option_c' => ['nullable', 'string', 'max:255'],
+            'option_d' => ['nullable', 'string', 'max:255'],
+            'correct_answer' => ['required', 'string'],
             'marks' => ['required', 'integer', 'min:1'],
-            'difficulty' => ['required', Rule::in(['easy', 'medium', 'hard'])],
+            'difficulty' => ['sometimes', Rule::in(['easy', 'medium', 'hard'])],
         ];
     }
 }

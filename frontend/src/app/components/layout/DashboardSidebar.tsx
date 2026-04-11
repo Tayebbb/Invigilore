@@ -4,6 +4,7 @@ import { X, LayoutDashboard, LogOut, type LucideIcon } from 'lucide-react';
 import api from '../../api';
 import { getHomeRouteByRole } from '../../navigation/roleRoutes';
 import { clearStoredAuthUser } from '../../utils/authUser';
+import { clearAuthToken } from '../../utils/authToken';
 import { Badge } from '../ui/badge';
 import { cn } from '../ui/utils';
 
@@ -57,7 +58,7 @@ function SidebarContent({
     } catch {
       // token may already be expired — clear locally regardless
     }
-    localStorage.removeItem('token');
+    clearAuthToken();
     clearStoredAuthUser();
     navigate('/login');
   }
