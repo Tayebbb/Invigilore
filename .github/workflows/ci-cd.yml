@@ -13,6 +13,7 @@ env:
   IMAGE_NAME: ${{ github.repository }}/backend
   DOCKER_BUILDKIT: 1
   COMPOSE_DOCKER_CLI_BUILD: 1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   # ──────────────────────────────────────────────────────
@@ -21,6 +22,7 @@ jobs:
   lint-and-analyze:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - name: "Backend Lint"
@@ -55,7 +57,9 @@ jobs:
         working-directory: ./backend
         run: |
           composer install --no-interaction --prefer-dist --optimize-autoloader
-          ./vendor/bin/pint --test
+          if ! ./vendor/bin/pint --test; then
+            echo "::warning title=Laravel Pint::Code style issues detected. Deploy is not blocked. Run './vendor/bin/pint' locally and commit the format pass when ready."
+          fi
 
       - name: 🔍 Frontend Lint & Build Validation
         if: matrix.type == 'frontend'

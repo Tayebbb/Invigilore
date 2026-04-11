@@ -147,7 +147,7 @@ Events that trigger the pipeline:
 
 ```bash
 composer install --no-interaction
-./vendor/bin/pint --test  # Laravel code style
+./vendor/bin/pint --test  # Laravel code style (advisory in CI)
 ```
 
 **Frontend:**
@@ -161,7 +161,10 @@ npm run build  # validate build succeeds
 
 **Duration:** ~2-3 minutes
 
-**Failure Action:** Blocks subsequent jobs
+**Failure Action:**
+
+- Blocks subsequent jobs for dependency/tooling/build failures
+- Style violations emit CI warnings and do not block deployment
 
 ---
 
