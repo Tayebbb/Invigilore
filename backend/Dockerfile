@@ -14,7 +14,7 @@ RUN apk add --no-cache \
     ca-certificates \
     unzip \
     libzip-dev \
-    libonig-dev \
+    oniguruma-dev \
     libxml2-dev \
     alpine-sdk
 
@@ -58,7 +58,7 @@ RUN apk add --no-cache \
     ca-certificates \
     curl \
     libzip \
-    libonig \
+    oniguruma \
     libxml2
 
 # Install only required PHP extensions (production)
