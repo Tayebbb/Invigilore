@@ -64,11 +64,21 @@ return new class extends Migration
 
     private function columnExists(string $table, string $column): bool
     {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return Schema::hasColumn($table, $column);
+        }
+
         $row = DB::selectOne(
             'SELECT COUNT(*) AS aggregate FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
             [$table, $column]
         );
 
-        return (int) ($row->aggregate ?? 0) > 0;
+        if ((int) ($row->aggregate ?? 0) > 0) {
+            return true;
+        }
+
+        return Schema::hasColumn($table, $column);
     }
 };
