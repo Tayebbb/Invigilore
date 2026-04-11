@@ -31,6 +31,11 @@ class ExamAttemptController extends Controller
         return $this->start($request);
     }
 
+    public function storeFromExamId(Request $request): JsonResponse
+    {
+        return $this->store($request);
+    }
+
     public function start(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -246,6 +251,30 @@ class ExamAttemptController extends Controller
         ]);
     }
 
+    public function saveAnswerFromPayload(Request $request): JsonResponse
+    {
+        $attemptId = (int) $request->input('attempt_id');
+
+        if ($attemptId <= 0) {
+            return response()->json([
+                'errors' => [
+                    'attempt_id' => ['The attempt_id field is required.'],
+                ],
+            ], 422);
+        }
+
+        $request->merge([
+            'selected_option' => trim((string) (
+                $request->input('selected_option')
+                ?? $request->input('selected_answer')
+                ?? $request->input('answer')
+                ?? ''
+            )),
+        ]);
+
+        return $this->saveAnswer($request, $attemptId);
+    }
+
     public function submit(Request $request, int $id): JsonResponse
     {
         return $this->submitExam($request, $id);
@@ -332,7 +361,7 @@ class ExamAttemptController extends Controller
 
             foreach ($questions as $question) {
                 $answer = $answers->get($question->id);
-                $selectedAnswer = $answer?->selected_answer;
+                $selectedAnswer = $answer?->selected_option ?? $answer?->selected_answer ?? $answer?->answer_text;
 
                 if ($answer) {
                     $answeredCount++;
