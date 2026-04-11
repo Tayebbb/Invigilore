@@ -35,17 +35,17 @@ export default function DashboardLayout({
   }, [authUser?.profile_picture]);
 
   const mergedUser = useMemo<NavbarUser>(() => {
-    const sourceName = authUser?.name || user.name;
-    const sourceRole = authUser?.role || user.role;
+    const sourceName = user.name || authUser?.name || 'User';
+    const sourceRole = user.role || authUser?.role || role;
 
     return {
       ...user,
       name: sourceName,
       role: sourceRole,
-      avatarUrl: avatarUrl ?? user.avatarUrl ?? null,
+      avatarUrl: user.avatarUrl ?? avatarUrl ?? null,
       initial: sourceName?.trim()?.[0]?.toUpperCase() || user.initial || 'U',
     };
-  }, [authUser?.name, authUser?.role, avatarUrl, user]);
+  }, [authUser?.name, authUser?.role, avatarUrl, role, user]);
 
   return (
     <div className="min-h-screen flex bg-background text-foreground relative transition-colors duration-500">

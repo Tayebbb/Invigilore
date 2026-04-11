@@ -285,8 +285,8 @@ export default function TeacherDashboard() {
   ];
 
   const profileMenuItems = [
-    { icon: User, label: 'View Profile' },
-    { icon: Settings, label: 'Account Settings' },
+    { icon: User, label: 'View Profile', to: '/teacher/profile' },
+    { icon: Settings, label: 'Account Settings', to: '/teacher/account-settings' },
     { icon: HelpCircle, label: 'Help & Training' },
   ];
 
@@ -386,6 +386,12 @@ export default function TeacherDashboard() {
                         return (
                           <button
                             key={item.label}
+                            onClick={() => {
+                              if (item.to) {
+                                setProfileOpen(false);
+                                navigate(item.to);
+                              }
+                            }}
                             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-popover-foreground hover:bg-accent transition-all duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <Icon className="w-4 h-4 text-muted-foreground" />

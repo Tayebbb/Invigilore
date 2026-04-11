@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -9,23 +10,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('exams', function (Blueprint $table) {
-            if (! Schema::hasColumn('exams', 'teacher_id')) {
+            if (! $this->columnExists('exams', 'teacher_id')) {
                 $table->foreignId('teacher_id')->nullable()->after('title')->constrained('users')->nullOnDelete();
             }
 
-            if (! Schema::hasColumn('exams', 'controller_id')) {
+            if (! $this->columnExists('exams', 'controller_id')) {
                 $table->foreignId('controller_id')->nullable()->after('teacher_id')->constrained('users')->nullOnDelete();
             }
 
-            if (! Schema::hasColumn('exams', 'question_setter_id')) {
+            if (! $this->columnExists('exams', 'question_setter_id')) {
                 $table->foreignId('question_setter_id')->nullable()->after('controller_id')->constrained('users')->nullOnDelete();
             }
 
-            if (! Schema::hasColumn('exams', 'moderator_id')) {
+            if (! $this->columnExists('exams', 'moderator_id')) {
                 $table->foreignId('moderator_id')->nullable()->after('question_setter_id')->constrained('users')->nullOnDelete();
             }
 
-            if (! Schema::hasColumn('exams', 'invigilator_id')) {
+            if (! $this->columnExists('exams', 'invigilator_id')) {
                 $table->foreignId('invigilator_id')->nullable()->after('moderator_id')->constrained('users')->nullOnDelete();
             }
         });
@@ -59,5 +60,15 @@ return new class extends Migration
                 $table->dropColumn('teacher_id');
             }
         });
+    }
+
+    private function columnExists(string $table, string $column): bool
+    {
+        $row = DB::selectOne(
+            'SELECT COUNT(*) AS aggregate FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?',
+            [$table, $column]
+        );
+
+        return (int) ($row->aggregate ?? 0) > 0;
     }
 };
