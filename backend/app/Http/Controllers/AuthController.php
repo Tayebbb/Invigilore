@@ -392,15 +392,22 @@ class AuthController extends Controller
     {
         \dispatch(function () use ($name, $email, $plainCode): void {
             try {
-                $mailUser = new User([
+                // Ensure the user model is correctly populated for the mailer.
+                $mailUser = new User();
+                $mailUser->forceFill([
                     'name' => $name,
                     'email' => $email,
                 ]);
+
                 Mail::to($email)->send(new SignupVerificationCodeMail($mailUser, $plainCode));
+
+                Log::info("Signup verification code successfully sent to {$email}");
             } catch (\Throwable $exception) {
                 Log::error('Failed to send signup verification code email.', [
                     'email' => $email,
                     'error' => $exception->getMessage(),
+                    'mailer' => config('mail.default'),
+                    'host' => config('mail.mailers.smtp.host'),
                 ]);
             }
         })->afterResponse();
