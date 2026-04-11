@@ -121,9 +121,13 @@ return new class extends Migration
             ->where('type', '!=', 'descriptive')
             ->update(['type' => 'mcq']);
 
+        if (Schema::hasColumn('questions', 'exam_id')) {
+            $this->dropQuestionExamForeignKeys();
+        }
+
         Schema::table('questions', function (Blueprint $table) {
             if (Schema::hasColumn('questions', 'exam_id')) {
-                $table->foreignId('exam_id')->nullable(false)->change();
+                $table->unsignedBigInteger('exam_id')->nullable(false)->change();
             }
 
             if (Schema::hasColumn('questions', 'type')) {
@@ -133,6 +137,44 @@ return new class extends Migration
             $table->index(['exam_id', 'type'], 'questions_exam_type_idx');
             $table->index('marks', 'questions_marks_idx');
         });
+
+        if (Schema::hasTable('exams') && Schema::hasColumn('questions', 'exam_id')) {
+            Schema::table('questions', function (Blueprint $table) {
+                $table->foreign('exam_id', 'questions_exam_id_foreign')
+                    ->references('id')
+                    ->on('exams')
+                    ->cascadeOnDelete();
+            });
+        }
+    }
+
+    private function dropQuestionExamForeignKeys(): void
+    {
+        $driver = DB::connection()->getDriverName();
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $constraints = DB::select(
+                "SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = DATABASE() AND table_name = 'questions' AND column_name = 'exam_id' AND referenced_table_name IS NOT NULL"
+            );
+
+            foreach ($constraints as $constraint) {
+                $name = (string) ($constraint->constraint_name ?? '');
+                if ($name === '') {
+                    continue;
+                }
+
+                $escaped = str_replace('`', '``', $name);
+                DB::statement("ALTER TABLE `questions` DROP FOREIGN KEY `{$escaped}`");
+            }
+        }
+
+        try {
+            Schema::table('questions', function (Blueprint $table) {
+                $table->dropForeign(['exam_id']);
+            });
+        } catch (\Throwable) {
+            // Foreign key may already be absent or use a non-standard name.
+        }
     }
 
     private function normalizeAttempts(): void
