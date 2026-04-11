@@ -151,6 +151,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('exam.role:question_setter')->group(function () {
         Route::get('/exams/{exam}/questions', [QuestionController::class, 'examQuestions']);
         Route::post('/exams/{exam}/questions', [QuestionController::class, 'storeExamQuestion']);
+        Route::post('/exams/{exam}/ai-generate', [\App\Http\Controllers\AiQuestionController::class, 'generate']);
         Route::put('/exams/{exam}/questions/{question}', [QuestionController::class, 'updateExamQuestion']);
         Route::delete('/exams/{exam}/questions/{question}', [QuestionController::class, 'destroyExamQuestion']);
     });

@@ -3,9 +3,12 @@ import { useLocation, useNavigate, useParams, useSearchParams } from 'react-rout
 import { motion } from 'motion/react';
 import {
   AlertCircle,
+  ArrowRight,
   CircleCheck,
   CircleHelp,
   ClipboardList,
+  CheckSquare,
+  ExternalLink,
   FileCheck2,
   FileText,
   Flag,
@@ -14,11 +17,13 @@ import {
   Languages,
   Lock,
   Loader2,
+  Mail,
   Plus,
   Printer,
   Settings,
   SlidersHorizontal,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 
 import api from '../../api';
@@ -51,11 +56,10 @@ type StepKey = (typeof STEPS)[number]['key'];
 
 type QuestionDraft = {
   id: number;
-  category: string;
   answerType: 'Single choice' | 'Multiple choice' | 'Descriptive' | 'True/False' | 'Short answer' | 'Survey';
   questionText: string;
   answers: string[];
-  correctAnswer?: 'A' | 'B' | 'C' | 'D';
+  correctAnswer?: string;
   marks?: number;
 };
 
@@ -84,7 +88,6 @@ type PrivateRecipient = {
   expires_at?: string | null;
 };
 
-const CATEGORIES = ['python', 'java', 'javascript', 'database'];
 const LANGUAGES = ['English', 'French', 'Spanish'];
 
 type ExamContext = {
@@ -131,25 +134,31 @@ function getExamLabel(title: string): string {
 
 function mapApiTypeToAnswerType(value?: string): QuestionDraft['answerType'] {
   if (value === 'mcq') return 'Single choice';
+  if (value === 'multiple_choice') return 'Multiple choice';
   if (value === 'true_false') return 'True/False';
   if (value === 'descriptive') return 'Descriptive';
+  if (value === 'short_answer') return 'Short answer';
   return 'Single choice';
 }
 
-function mapDraftTypeToApi(value: QuestionDraft['answerType']): 'mcq' | 'true_false' | 'descriptive' {
+function mapDraftTypeToApi(value: QuestionDraft['answerType']): string {
+  if (value === 'Multiple choice') return 'multiple_choice';
   if (value === 'True/False') return 'true_false';
-  if (value === 'Descriptive' || value === 'Short answer' || value === 'Survey') return 'descriptive';
+  if (value === 'Short answer') return 'short_answer';
+  if (value === 'Descriptive' || value === 'Survey') return 'descriptive';
   return 'mcq';
 }
 
 function mapApiQuestionToDraft(question: ApiQuestion): QuestionDraft {
-  const options = question.options && typeof question.options === 'object'
-    ? Object.values(question.options).filter(Boolean)
-    : [];
+  let options: string[] = [];
+  if (question.options && typeof question.options === 'object') {
+    // Sort keys A, B, C... to maintain correct ordering
+    const sortedKeys = Object.keys(question.options as Record<string, string>).sort();
+    options = sortedKeys.map(key => (question.options as Record<string, string>)[key]).filter(Boolean);
+  }
 
   return {
     id: question.id,
-    category: 'Generic',
     answerType: mapApiTypeToAnswerType(question.type),
     questionText: String(question.question_text ?? ''),
     answers: options,
@@ -205,11 +214,10 @@ export default function CreateExam() {
   const [showQuestionEditor, setShowQuestionEditor] = useState(false);
   const [questions, setQuestions] = useState<QuestionDraft[]>([]);
   const [editingQuestionId, setEditingQuestionId] = useState<number | null>(null);
-  const [questionCategory, setQuestionCategory] = useState('Generic');
   const [questionType, setQuestionType] = useState<QuestionDraft['answerType']>('Single choice');
   const [questionText, setQuestionText] = useState('');
   const [answers, setAnswers] = useState<string[]>(['', '']);
-  const [correctAnswer, setCorrectAnswer] = useState<'A' | 'B' | 'C' | 'D'>('A');
+  const [correctAnswer, setCorrectAnswer] = useState<string>('A');
   const [questionMarks, setQuestionMarks] = useState('1');
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [accessChannel, setAccessChannel] = useState<AccessChannel>('web');
@@ -222,6 +230,58 @@ export default function CreateExam() {
   const [privateRecipients, setPrivateRecipients] = useState<PrivateRecipient[]>([]);
   const [savingAccess, setSavingAccess] = useState(false);
   const [subjectOptions, setSubjectOptions] = useState<SubjectOption[]>([]);
+  
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiQuestionCount, setAiQuestionCount] = useState(5);
+  const [aiDifficulty, setAiDifficulty] = useState('medium');
+
+  async function handleAiGenerate() {
+    if (!examContext?.id) return;
+    if (!aiPrompt.trim()) {
+      setError('Please enter a topic or prompt for AI.');
+      return;
+    }
+
+    setAiGenerating(true);
+    setError('');
+    
+    try {
+      await api.post(`/exams/${examContext.id}/ai-generate`, {
+        prompt: aiPrompt.trim(),
+        count: aiQuestionCount,
+        difficulty: aiDifficulty,
+      });
+      
+      setSuccess(`${aiQuestionCount} questions generated and added successfully.`);
+      setShowAiModal(false);
+      setAiPrompt('');
+      await refreshExamQuestions(examContext.id);
+    } catch (err: any) {
+      setError(err?.response?.data?.error ?? 'AI generation failed. Please try again.');
+    } finally {
+      setAiGenerating(false);
+    }
+  }
+
+  const [endMessage, setEndMessage] = useState('Thank you for taking the test!');
+  const [enableRedirection, setEnableRedirection] = useState(false);
+  const [redirectionUrl, setRedirectionUrl] = useState('');
+  const [passMarkEnabled, setPassMarkEnabled] = useState(true);
+  const [passMarkValue, setPassMarkValue] = useState('50');
+  const [passMarkUnit, setPassMarkUnit] = useState('%');
+  const [feedbackOptions, setFeedbackOptions] = useState({
+    percentageScore: true,
+    pointsScore: true,
+    grade: false,
+    descriptiveGrade: false,
+    correctAnswers: false,
+    passFailMessage: true,
+  });
+  const [passMessage, setPassMessage] = useState('Congratulations on passing the test!');
+  const [failMessage, setFailMessage] = useState('Your score was too low to pass this test.');
+  const [emailNotification, setEmailNotification] = useState(false);
 
   const normalizedCurrentUserEmail = normalizeText(currentUser.email);
 
@@ -495,7 +555,6 @@ export default function CreateExam() {
 
   function resetQuestionEditor() {
     setEditingQuestionId(null);
-    setQuestionCategory('Generic');
     setQuestionType('Single choice');
     setQuestionText('');
     setAnswers(['', '']);
@@ -506,7 +565,6 @@ export default function CreateExam() {
   function openQuestionEditor(question?: QuestionDraft) {
     if (question) {
       setEditingQuestionId(question.id);
-      setQuestionCategory(question.category);
       setQuestionType(question.answerType);
       setQuestionText(question.questionText);
       setAnswers(question.answers.length > 0 ? question.answers : ['', '']);
@@ -522,6 +580,7 @@ export default function CreateExam() {
   }
 
   function handleAddAnswer() {
+    if (answers.length >= 5) return;
     setAnswers((prev) => [...prev, '']);
   }
 
@@ -533,7 +592,24 @@ export default function CreateExam() {
     setAnswers((prev) => prev.map((answer, i) => (i === index ? value : answer)));
   }
 
-  async function handleSaveQuestion() {
+  async function handleDeleteQuestion(id: number) {
+    if (!examContext?.id) return;
+    if (!window.confirm('Are you sure you want to delete this question?')) return;
+
+    try {
+      await api.delete(`/exams/${examContext.id}/questions/${id}`);
+      setSuccess('Question deleted successfully.');
+      await refreshExamQuestions(examContext.id);
+      if (editingQuestionId === id) {
+        setShowQuestionEditor(false);
+        resetQuestionEditor();
+      }
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Failed to delete question.');
+    }
+  }
+
+  async function handleSaveQuestion(stay = false) {
     if (!activeExamContext?.id) {
       setError('Select an exam before adding questions.');
       return;
@@ -556,19 +632,21 @@ export default function CreateExam() {
       return;
     }
 
-    const optionA = cleanedAnswers[0] ?? 'Option A';
-    const optionB = cleanedAnswers[1] ?? 'Option B';
-    const optionC = cleanedAnswers[2] ?? optionA;
-    const optionD = cleanedAnswers[3] ?? optionB;
+    const optionsMap: Record<string, string> = {};
+    if (questionType === 'True/False') {
+      optionsMap['A'] = 'True';
+      optionsMap['B'] = 'False';
+    } else if (questionType === 'Single choice' || questionType === 'Multiple choice') {
+      cleanedAnswers.forEach((ans, idx) => {
+        optionsMap[String.fromCharCode(65 + idx)] = ans;
+      });
+    }
 
     try {
       const payload = {
         question_text: questionText.trim(),
         type: mapDraftTypeToApi(questionType),
-        option_a: optionA,
-        option_b: optionB,
-        option_c: optionC,
-        option_d: optionD,
+        options: optionsMap,
         correct_answer: correctAnswer,
         marks: marksValue,
       };
@@ -580,10 +658,17 @@ export default function CreateExam() {
       }
 
       await refreshExamQuestions(activeExamContext.id);
-      resetQuestionEditor();
-      setShowQuestionEditor(false);
-      setError('');
-      setSuccess(editingQuestionId ? 'Question updated successfully.' : 'Question added to this exam successfully.');
+      
+      if (stay) {
+        resetQuestionEditor();
+        setError('');
+        setSuccess('Question added. You can add another one now.');
+      } else {
+        resetQuestionEditor();
+        setShowQuestionEditor(false);
+        setError('');
+        setSuccess(editingQuestionId ? 'Question updated successfully.' : 'Question added to this exam successfully.');
+      }
     } catch (err: any) {
       const apiErrors = err?.response?.data?.errors;
       if (apiErrors && typeof apiErrors === 'object') {
@@ -749,6 +834,21 @@ export default function CreateExam() {
     }
   }
 
+  async function handleDeleteExam() {
+    if (!activeExamId) return;
+    if (!window.confirm('WARNING: Are you sure you want to delete this ENTIRE exam? This action cannot be undone and will delete all questions and settings.')) return;
+
+    setSubmitting(true);
+    try {
+      await api.delete(`/exams/${activeExamId}`);
+      navigate('/teacher/portal/tests');
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? 'Failed to delete exam.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <DashboardLayout
       role="Teacher"
@@ -777,6 +877,14 @@ export default function CreateExam() {
             <button className="px-3 py-1.5 rounded-lg border border-gray-700 hover:border-gray-600 hover:bg-gray-800 transition-colors cursor-pointer">
               Print
             </button>
+            {isEditingExam && (
+              <button 
+                onClick={handleDeleteExam}
+                className="px-3 py-1.5 rounded-lg border border-rose-500/20 text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/40 transition-colors cursor-pointer"
+              >
+                Delete Exam
+              </button>
+            )}
           </div>
         </div>
 
@@ -1089,7 +1197,11 @@ export default function CreateExam() {
                   <h4 className="text-2xl font-bold text-white mb-2">You don&apos;t have any questions yet</h4>
                   <p className="text-sm text-gray-400 mb-5">Click Add question to create your first question.</p>
                   <div className="flex items-center justify-center gap-2">
-                    <button disabled={!canEditQuestionsManager} className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button 
+                      onClick={() => setShowAiModal(true)}
+                      disabled={!canEditQuestionsManager} 
+                      className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <Sparkles className="w-4 h-4" />
                       Generate using AI
                     </button>
@@ -1117,7 +1229,9 @@ export default function CreateExam() {
                 {showQuestionEditor && (
                   <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-5">
-                      <h3 className="text-lg font-semibold text-white">{editingQuestionId ? 'Edit Question' : 'Question 1'}</h3>
+                      <h3 className="text-lg font-semibold text-white">
+                        {editingQuestionId ? 'Edit Question' : `Question ${questions.length + 1}`}
+                      </h3>
                       <button
                         onClick={() => {
                           setShowQuestionEditor(false);
@@ -1142,85 +1256,102 @@ export default function CreateExam() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 items-end">
+                      <div className="grid grid-cols-1 gap-4">
                         <div>
-                          <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Category</label>
+                          <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Answer type</label>
                           <select
-                            value={questionCategory}
-                            onChange={(e) => setQuestionCategory(e.target.value)}
+                            value={questionType}
+                            onChange={(e) => {
+                              const newType = e.target.value as QuestionDraft['answerType'];
+                              setQuestionType(newType);
+                              if (newType === 'True/False') {
+                                setAnswers(['True', 'False']);
+                                setCorrectAnswer('A');
+                              } else if (newType === 'Descriptive' || newType === 'Short answer') {
+                                setAnswers([]);
+                                setCorrectAnswer('');
+                              } else if (answers.length < 2) {
+                                setAnswers(['', '']);
+                              }
+                            }}
                             className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                           >
-                            <option>Generic</option>
-                            <option>Python</option>
-                            <option>JavaScript</option>
-                            <option>Database</option>
+                            <option>Single choice</option>
+                            <option>Multiple choice</option>
+                            <option>Descriptive</option>
+                            <option>True/False</option>
+                            <option>Short answer</option>
+                            <option>Survey</option>
                           </select>
                         </div>
-                        <button className="px-3.5 py-2.5 rounded-lg border border-gray-700 text-sm text-gray-200 hover:bg-gray-800 hover:border-gray-600 transition-colors cursor-pointer inline-flex items-center gap-1.5">
-                          <Plus className="w-4 h-4" />
-                          Add new category
-                        </button>
                       </div>
 
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Answer type</label>
-                        <select
-                          value={questionType}
-                          onChange={(e) => setQuestionType(e.target.value as QuestionDraft['answerType'])}
-                          className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                        >
-                          <option>Single choice</option>
-                          <option>Multiple choice</option>
-                          <option>Descriptive</option>
-                          <option>True/False</option>
-                          <option>Short answer</option>
-                          <option>Survey</option>
-                        </select>
-                      </div>
+                      {(questionType === 'Single choice' || questionType === 'Multiple choice' || questionType === 'True/False') && (
+                        <div className="space-y-3">
+                          <label className="block text-xs text-gray-400 uppercase tracking-wide">Options (Max 5)</label>
+                          {answers.map((answer, index) => {
+                            const letter = String.fromCharCode(65 + index);
+                            const isCorrect = questionType === 'Multiple choice' 
+                              ? correctAnswer.split(',').includes(letter)
+                              : correctAnswer === letter;
 
-                      <div className="space-y-3">
-                        {answers.map((answer, index) => (
-                          <div key={index} className="grid grid-cols-[auto_1fr_auto] gap-2 items-start">
-                            <span className="mt-2 w-4 h-4 rounded-full border border-gray-500" />
-                            <textarea
-                              rows={2}
-                              value={answer}
-                              onChange={(e) => handleAnswerChange(index, e.target.value)}
-                              placeholder={`Answer ${index + 1}`}
-                              className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                            />
+                            return (
+                              <div key={index} className="grid grid-cols-[auto_1fr_auto] gap-3 items-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (questionType === 'Multiple choice') {
+                                      const parts = correctAnswer ? correctAnswer.split(',') : [];
+                                      if (parts.includes(letter)) {
+                                        setCorrectAnswer(parts.filter(p => p !== letter).join(','));
+                                      } else {
+                                        setCorrectAnswer([...parts, letter].sort().join(','));
+                                      }
+                                    } else {
+                                      setCorrectAnswer(letter);
+                                    }
+                                  }}
+                                  className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${
+                                    isCorrect 
+                                      ? 'bg-emerald-500 border-emerald-500 text-white' 
+                                      : 'border-gray-600 text-transparent hover:border-emerald-500'
+                                  }`}
+                                >
+                                  {isCorrect && <CircleCheck className="w-4 h-4" />}
+                                </button>
+                                <textarea
+                                  rows={1}
+                                  value={answer}
+                                  onChange={(e) => handleAnswerChange(index, e.target.value)}
+                                  placeholder={`Option ${letter}`}
+                                  disabled={questionType === 'True/False'}
+                                  className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:opacity-60"
+                                />
+                                {questionType !== 'True/False' && answers.length > 2 && (
+                                  <button
+                                    onClick={() => handleDeleteAnswer(index)}
+                                    className="text-xs text-gray-500 hover:text-rose-400 p-1"
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                          
+                          {questionType !== 'True/False' && answers.length < 5 && (
                             <button
-                              onClick={() => handleDeleteAnswer(index)}
-                              className="text-xs text-gray-500 hover:text-rose-300 mt-2"
+                              onClick={handleAddAnswer}
+                              className="px-3 py-2 rounded-lg border border-gray-700 text-sm text-gray-200 hover:bg-gray-800 hover:border-gray-600 transition-colors cursor-pointer inline-flex items-center gap-1.5"
                             >
-                              Delete
+                              <Plus className="w-4 h-4" />
+                              Add option
                             </button>
-                          </div>
-                        ))}
-                        <button
-                          onClick={handleAddAnswer}
-                          className="px-3 py-2 rounded-lg border border-gray-700 text-sm text-gray-200 hover:bg-gray-800 hover:border-gray-600 transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Add answer
-                        </button>
-                      </div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Correct answer</label>
-                          <select
-                            value={correctAnswer}
-                            onChange={(e) => setCorrectAnswer(e.target.value as 'A' | 'B' | 'C' | 'D')}
-                            className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                          >
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
-                          </select>
-                        </div>
-
                         <div>
                           <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Marks</label>
                           <input
@@ -1231,9 +1362,39 @@ export default function CreateExam() {
                             className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                           />
                         </div>
+
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">
+                            {questionType === 'Single choice' || questionType === 'Multiple choice' || questionType === 'True/False' 
+                              ? 'Correct Answer Key' 
+                              : 'Expected Answer (Optional)'}
+                          </label>
+                          
+                          {questionType === 'Single choice' || questionType === 'Multiple choice' || questionType === 'True/False' ? (
+                            <div className="px-3 py-2.5 bg-gray-900/50 border border-gray-800 rounded-lg text-sm text-emerald-400 font-bold min-h-[42px] flex items-center">
+                              {correctAnswer || 'Select an option above'}
+                            </div>
+                          ) : (
+                            <input
+                              type="text"
+                              value={correctAnswer}
+                              onChange={(e) => setCorrectAnswer(e.target.value)}
+                              placeholder="Type expected answer..."
+                              className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                            />
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex justify-end gap-2 pt-2">
+                      <div className="flex flex-wrap justify-end gap-2 pt-2">
+                        {editingQuestionId && (
+                          <button
+                            onClick={() => handleDeleteQuestion(editingQuestionId)}
+                            className="mr-auto px-4 py-2 rounded-lg border border-rose-500/30 bg-rose-500/5 text-rose-400 text-sm font-semibold hover:bg-rose-500/10"
+                          >
+                            Delete
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setShowQuestionEditor(false);
@@ -1243,8 +1404,27 @@ export default function CreateExam() {
                         >
                           Cancel
                         </button>
+                        
+                        {!editingQuestionId && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              void handleSaveQuestion(true);
+                            }}
+                            disabled={!canEditQuestionsManager}
+                            className="px-4 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/5 text-emerald-300 text-sm font-semibold hover:bg-emerald-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Save & Add Another
+                          </button>
+                        )}
+
                         <button
-                          onClick={handleSaveQuestion}
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            void handleSaveQuestion(false);
+                          }}
                           disabled={!canEditQuestionsManager}
                           className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -1271,6 +1451,13 @@ export default function CreateExam() {
                             {activeExamContext?.exam_status === 'completed' ? 'Completed' : 'Complete setup'}
                           </button>
                           <button
+                            onClick={() => setShowAiModal(true)}
+                            className="px-3 py-2 rounded-lg border border-violet-500/30 bg-violet-500/5 text-violet-300 text-sm font-semibold inline-flex items-center gap-1.5 cursor-pointer hover:bg-violet-500/10"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            AI Gen
+                          </button>
+                          <button
                             onClick={() => openQuestionEditor()}
                             className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold inline-flex items-center gap-1.5 cursor-pointer"
                           >
@@ -1287,9 +1474,20 @@ export default function CreateExam() {
                           onClick={() => openQuestionEditor(question)}
                           role="button"
                           tabIndex={0}
-                          className="rounded-xl border border-gray-800 bg-gray-950/70 p-4 cursor-pointer transition-colors hover:border-emerald-500/30 hover:bg-gray-950"
+                          className="group relative rounded-xl border border-gray-800 bg-gray-950/70 p-4 cursor-pointer transition-colors hover:border-emerald-500/30 hover:bg-gray-950"
                         >
-                          <p className="text-xs text-gray-500 mb-1">Question {index + 1} · {question.category} · {question.answerType}</p>
+                          <div className="flex justify-between items-start mb-1">
+                            <p className="text-xs text-gray-500">Question {index + 1} · {question.answerType}</p>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (question.id) handleDeleteQuestion(question.id);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                           <p className="text-sm text-gray-200 mb-2">{question.questionText}</p>
                           {question.answers.length > 0 && (
                             <ul className="text-xs text-gray-400 list-disc pl-5 space-y-1">
@@ -1299,7 +1497,7 @@ export default function CreateExam() {
                             </ul>
                           )}
                           <div className="mt-3 text-[11px] text-gray-500 flex flex-wrap gap-3">
-                            <span>Correct: {question.correctAnswer ?? 'A'}</span>
+                            <span>Correct: <span className="text-emerald-400 font-bold">{question.correctAnswer ?? 'N/A'}</span></span>
                             <span>Marks: {question.marks ?? 1}</span>
                             <span className="text-emerald-300">Click to edit</span>
                           </div>
@@ -1546,9 +1744,189 @@ export default function CreateExam() {
             )}
 
             {activeStep === 'grading' && canAccessControllerOnly && (
-              <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-3">
-                <h3 className="text-lg font-semibold text-white">Grading & Summary</h3>
-                <p className="text-sm text-gray-400">Configure marks distribution, grading mode, and summary rules.</p>
+              <div className="space-y-6">
+                {/* Section 1: Test End Message and Redirection */}
+                <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-5">
+                  <div>
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Test end message and redirection</h3>
+                    <p className="text-sm text-gray-400 mb-4">Configure a message to be displayed to all respondents at the end of the test, regardless of its results.</p>
+                    <textarea
+                      value={endMessage}
+                      onChange={(e) => setEndMessage(e.target.value)}
+                      rows={4}
+                      className="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                      placeholder="Thank you for taking the test!"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-gray-900/50 border border-gray-800">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium text-white flex items-center gap-2">
+                        Set redirection to an external website
+                        <ExternalLink className="w-3 h-3 text-gray-500" />
+                      </p>
+                      <p className="text-xs text-gray-500">Redirect users to your website after they complete the test.</p>
+                    </div>
+                    <button 
+                      onClick={() => setEnableRedirection(!enableRedirection)}
+                      className={`relative w-11 h-6 transition-colors rounded-full ${enableRedirection ? 'bg-emerald-500' : 'bg-gray-700'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${enableRedirection ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+
+                  {enableRedirection && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <label className="block text-[10px] text-gray-500 uppercase tracking-wider">Redirection URL</label>
+                      <input
+                        type="url"
+                        value={redirectionUrl}
+                        onChange={(e) => setRedirectionUrl(e.target.value)}
+                        placeholder="https://yourwebsite.com/success"
+                        className="w-full px-4 py-2 bg-gray-950 border border-gray-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 2: Grading Criteria */}
+                <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-5">
+                  <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Grading Criteria</h3>
+                  
+                  <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 flex gap-3">
+                    <AlertCircle className="w-5 h-5 text-blue-400 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-300">Set grading criteria</p>
+                      <p className="text-xs text-blue-400/80">Define grading criteria now or when all test scores are available.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <p className="text-sm text-gray-300">Pass mark</p>
+                    <button 
+                      onClick={() => setPassMarkEnabled(!passMarkEnabled)}
+                      className={`relative w-11 h-6 transition-colors rounded-full ${passMarkEnabled ? 'bg-emerald-500' : 'bg-gray-700'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${passMarkEnabled ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+
+                  {passMarkEnabled && (
+                    <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Value</label>
+                        <input
+                          type="number"
+                          value={passMarkValue}
+                          onChange={(e) => setPassMarkValue(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-950 border border-gray-800 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Unit</label>
+                        <select
+                          value={passMarkUnit}
+                          onChange={(e) => setPassMarkUnit(e.target.value)}
+                          className="w-full px-4 py-2.5 bg-gray-950 border border-gray-800 rounded-lg text-sm text-white focus:outline-none"
+                        >
+                          <option value="%">%</option>
+                          <option value="points">Points</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-800 mt-2">
+                    <p className="text-sm text-gray-300">Define grade ranges based on points or percents</p>
+                    <button className="relative w-11 h-6 bg-gray-700 rounded-full">
+                      <div className="absolute top-1 left-1 w-4 h-4 bg-white rounded-full" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Section 3: Information for Respondents */}
+                <div className="bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-6 space-y-5">
+                  <div>
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Information for respondents</h3>
+                    <p className="text-sm text-gray-400">Choose what information to show to respondents at the end of the test</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                    {[
+                      { key: 'percentageScore', label: 'Percentage score' },
+                      { key: 'pointsScore', label: 'Points score' },
+                      { key: 'grade', label: 'Grade' },
+                      { key: 'descriptiveGrade', label: 'Descriptive grade' },
+                      { key: 'correctAnswers', label: 'Correct answers to questions' },
+                      { key: 'passFailMessage', label: 'Pass or fail message' },
+                    ].map((opt) => (
+                      <label key={opt.key} className="flex items-center gap-3 p-3 rounded-xl border border-gray-800 bg-gray-950/40 cursor-pointer hover:border-gray-700 transition-colors">
+                        <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                          feedbackOptions[opt.key as keyof typeof feedbackOptions] 
+                            ? 'bg-emerald-500 border-emerald-500' 
+                            : 'border-gray-600'
+                        }`}>
+                          {feedbackOptions[opt.key as keyof typeof feedbackOptions] && <CheckSquare className="w-3.5 h-3.5 text-white" />}
+                        </div>
+                        <input
+                          type="checkbox"
+                          className="hidden"
+                          checked={feedbackOptions[opt.key as keyof typeof feedbackOptions]}
+                          onChange={() => setFeedbackOptions(prev => ({ ...prev, [opt.key]: !prev[opt.key as keyof typeof feedbackOptions] }))}
+                        />
+                        <span className="text-xs text-gray-300">{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {feedbackOptions.passFailMessage && (
+                    <div className="space-y-5 pt-4 border-t border-gray-800 animate-in fade-in duration-300">
+                      <div>
+                        <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-2">Message for users who have passed</label>
+                        <textarea
+                          value={passMessage}
+                          onChange={(e) => setPassMessage(e.target.value)}
+                          rows={3}
+                          className="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-2">Message for users who have failed</label>
+                        <textarea
+                          value={failMessage}
+                          onChange={(e) => setFailMessage(e.target.value)}
+                          rows={3}
+                          className="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-rose-500/40"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-gray-900/50 border border-gray-800 mt-2">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium text-white flex items-center gap-2">
+                        Inform respondent about result via email
+                        <Mail className="w-4 h-4 text-violet-400" />
+                      </p>
+                      <p className="text-xs text-gray-500">The email will display the same content as the one at the end of the test.</p>
+                    </div>
+                    <button 
+                      onClick={() => setEmailNotification(!emailNotification)}
+                      className={`relative w-11 h-6 transition-colors rounded-full ${emailNotification ? 'bg-violet-500' : 'bg-gray-700'}`}
+                    >
+                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${emailNotification ? 'translate-x-5' : ''}`} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-end p-2">
+                  <button
+                    onClick={() => setSuccess('Grading settings saved locally.')}
+                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold flex items-center gap-2 shadow-lg shadow-emerald-600/20"
+                  >
+                    Save grading settings
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1590,6 +1968,98 @@ export default function CreateExam() {
           </motion.section>
         </div>
       </div>
+
+      {showAiModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-950/80 backdrop-blur-md">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-xl bg-gray-900 border border-gray-800 rounded-3xl overflow-hidden shadow-2xl shadow-violet-500/10"
+          >
+            <div className="px-8 pt-8 pb-6 border-b border-gray-800 bg-gradient-to-br from-violet-500/10 to-transparent">
+              <div className="w-12 h-12 rounded-2xl bg-violet-500/20 flex items-center justify-center text-violet-400 mb-4">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-2">AI Question Generator</h3>
+              <p className="text-sm text-gray-400">Describe the topic or area you want questions for. Our AI will handle the rest.</p>
+            </div>
+
+            <div className="p-8 space-y-6">
+              <div>
+                <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wide">TOPIC OR DESCRIPTION</label>
+                <textarea
+                  rows={4}
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="e.g. Basic concepts of React Hooks like useState and useEffect..."
+                  className="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-2xl text-sm text-white focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wide">NUMBER OF QUESTIONS</label>
+                  <select
+                    value={aiQuestionCount}
+                    onChange={(e) => setAiQuestionCount(Number(e.target.value))}
+                    className="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-2xl text-sm text-white focus:outline-none"
+                  >
+                    {[1, 2, 3, 4, 5, 8, 10].map(n => (
+                      <option key={n} value={n}>{n} Questions</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-2 uppercase tracking-wide">DIFFICULTY</label>
+                  <select
+                    value={aiDifficulty}
+                    onChange={(e) => setAiDifficulty(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-950 border border-gray-800 rounded-2xl text-sm text-white focus:outline-none"
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+              </div>
+
+              {error && (
+                <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {error}
+                </div>
+              )}
+            </div>
+
+            <div className="px-8 py-6 bg-gray-950/50 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setShowAiModal(false)}
+                className="px-6 py-2.5 rounded-xl border border-gray-800 text-sm font-semibold text-gray-400 hover:bg-gray-800 transition-colors"
+                disabled={aiGenerating}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAiGenerate}
+                disabled={aiGenerating}
+                className="px-8 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold flex items-center gap-2 shadow-lg shadow-violet-600/20 disabled:opacity-50 disabled:cursor-wait"
+              >
+                {aiGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Generate Questions
+                  </>
+                )}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
