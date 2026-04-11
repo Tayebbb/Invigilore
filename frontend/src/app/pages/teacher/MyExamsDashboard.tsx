@@ -15,6 +15,8 @@ import {
   Search,
   ShieldCheck,
   Users,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 import api from '../../api';
@@ -23,6 +25,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import DashboardCard from '../../components/dashboard/DashboardCard';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import useCurrentUser from '../../hooks/useCurrentUser';
+import { Pagination } from '../../components/ui/Pagination';
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
@@ -189,6 +192,8 @@ export default function MyExamsDashboard() {
   const [statusFilter, setStatusFilter] = useState<ExamStatus>('All statuses');
   const [roleFilter, setRoleFilter] = useState<ExamRoleFilter>('All roles');
   const [subjectFilter, setSubjectFilter] = useState('All subjects');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 6;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -239,6 +244,17 @@ export default function MyExamsDashboard() {
     });
   }, [roleFilter, searchTerm, statusFilter, subjectFilter, visibleExams]);
 
+  const totalPages = Math.ceil(filteredExams.length / itemsPerPage);
+  const paginatedExams = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredExams.slice(start, start + itemsPerPage);
+  }, [filteredExams, currentPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, roleFilter, subjectFilter]);
+
   const createdCount = visibleExams.filter((exam) => exam.isCreatedByMe).length;
   const accessibleCount = visibleExams.filter((exam) => exam.hasAccess).length;
   const noAccessCount = visibleExams.filter((exam) => !exam.hasAccess).length;
@@ -283,6 +299,10 @@ export default function MyExamsDashboard() {
       onNavChange={(label) => {
         if (label === 'Create Exam') {
           navigate('/teacher/exams/new');
+          return;
+        }
+        if (label === 'Student Results') {
+          navigate('/teacher/results');
           return;
         }
         setActiveItem(label);
@@ -435,97 +455,107 @@ export default function MyExamsDashboard() {
           )}
 
           {!loading && !error && filteredExams.length > 0 && (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              {filteredExams.map((exam) => (
-                <article
-                  key={exam.id}
-                  onClick={() => {
-                    if (exam.hasAccess) {
-                      openCreateExam(exam.id);
-                    }
-                  }}
-                  className={`group rounded-2xl border bg-gray-950/60 p-5 transition-all duration-200 ${
-                    exam.hasAccess
-                      ? 'border-gray-800 hover:border-blue-500/30 hover:bg-gray-900 hover:shadow-lg hover:shadow-blue-500/5 cursor-pointer'
-                      : 'border-gray-800/70 opacity-70 cursor-not-allowed'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${STATUS_CLASS[exam.status]}`}>
-                          {exam.status}
-                        </span>
-                        {exam.isCreatedByMe && (
-                          <span className="inline-flex items-center rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-300">
-                            Created by you
+            <>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                {paginatedExams.map((exam) => (
+                  <article
+                    key={exam.id}
+                    onClick={() => {
+                      if (exam.hasAccess) {
+                        openCreateExam(exam.id);
+                      }
+                    }}
+                    className={`group rounded-2xl border bg-gray-950/60 p-5 transition-all duration-200 ${
+                      exam.hasAccess
+                        ? 'border-gray-800 hover:border-blue-500/30 hover:bg-gray-900 hover:shadow-lg hover:shadow-blue-500/5 cursor-pointer'
+                        : 'border-gray-800/70 opacity-70 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${STATUS_CLASS[exam.status]}`}>
+                            {exam.status}
                           </span>
-                        )}
-                        {!exam.hasAccess && (
-                          <span className="inline-flex items-center rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-300">
-                            No access
-                          </span>
-                        )}
+                          {exam.isCreatedByMe && (
+                            <span className="inline-flex items-center rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-[11px] font-semibold text-cyan-300">
+                              Created by you
+                            </span>
+                          )}
+                          {!exam.hasAccess && (
+                            <span className="inline-flex items-center rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-[11px] font-semibold text-rose-300">
+                              No access
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="truncate text-lg font-semibold text-white">{exam.title}</h4>
+                        <p className="mt-1 text-sm text-gray-400">{exam.subject}</p>
                       </div>
-                      <h4 className="truncate text-lg font-semibold text-white">{exam.title}</h4>
-                      <p className="mt-1 text-sm text-gray-400">{exam.subject}</p>
+
+                      <div className="text-right">
+                        <p className="text-xs uppercase tracking-wide text-gray-500">Status</p>
+                        <p className="mt-1 text-sm font-medium text-gray-200">{exam.status}</p>
+                      </div>
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Status</p>
-                      <p className="mt-1 text-sm font-medium text-gray-200">{exam.status}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-400">
-                    <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-3">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Timing</p>
-                      <p className="mt-1 text-gray-200">{exam.scheduleDetail}</p>
-                    </div>
-                    <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-3">
-                      <p className="text-xs uppercase tracking-wide text-gray-500">Duration / Marks</p>
-                      <p className="mt-1 text-gray-200">{exam.durationLabel} · {exam.marksLabel}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {(exam.roles.length > 0 ? exam.roles : ['No assigned role']).map((role) => (
-                      <span key={role} className="inline-flex items-center rounded-full border border-gray-700 bg-gray-900 px-2.5 py-1 text-[11px] font-medium text-gray-300">
-                        {role}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-800 pt-4 text-xs text-gray-500">
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Clock className="h-3.5 w-3.5" />
-                        {exam.scheduleDetail}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <Users className="h-3.5 w-3.5" />
-                        {exam.roles.length} role{exam.roles.length === 1 ? '' : 's'}
-                      </span>
+                    <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-gray-400">
+                      <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-3">
+                        <p className="text-xs uppercase tracking-wide text-gray-500">Timing</p>
+                        <p className="mt-1 text-gray-200">{exam.scheduleDetail}</p>
+                      </div>
+                      <div className="rounded-xl border border-gray-800 bg-gray-900/40 p-3">
+                        <p className="text-xs uppercase tracking-wide text-gray-500">Duration / Marks</p>
+                        <p className="mt-1 text-gray-200">{exam.durationLabel} · {exam.marksLabel}</p>
+                      </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (exam.hasAccess) {
-                          openCreateExam(exam.id);
-                        }
-                      }}
-                      disabled={!exam.hasAccess}
-                      className="text-sm font-medium text-blue-400 transition-colors hover:text-blue-300 disabled:text-gray-500 disabled:cursor-not-allowed"
-                    >
-                      {exam.hasAccess ? 'Open exam' : 'Access restricted'}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {(exam.roles.length > 0 ? exam.roles : ['No assigned role']).map((role) => (
+                        <span key={role} className="inline-flex items-center rounded-full border border-gray-700 bg-gray-900 px-2.5 py-1 text-[11px] font-medium text-gray-300">
+                          {role}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-gray-800 pt-4 text-xs text-gray-500">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock className="h-3.5 w-3.5" />
+                          {exam.scheduleDetail}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5" />
+                          {exam.roles.length} role{exam.roles.length === 1 ? '' : 's'}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (exam.hasAccess) {
+                            openCreateExam(exam.id);
+                          }
+                        }}
+                        disabled={!exam.hasAccess}
+                        className="text-sm font-medium text-blue-400 transition-colors hover:text-blue-300 disabled:text-gray-500 disabled:cursor-not-allowed"
+                      >
+                        {exam.hasAccess ? 'Open exam' : 'Access restricted'}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <Pagination 
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                isLoading={loading}
+              />
+            </>
           )}
+
         </div>
       </motion.section>
 

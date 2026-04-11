@@ -200,10 +200,9 @@ export default function CreateExam() {
   const [subjectName, setSubjectName] = useState('');
   const [description, setDescription] = useState('');
   const [language, setLanguage] = useState('English');
-  const [duration, setDuration] = useState('');
-  const [totalMarks, setTotalMarks] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+
   const [questionSetterEmail, setQuestionSetterEmail] = useState('');
   const [moderatorEmail, setModeratorEmail] = useState('');
   const [invigilatorEmail, setInvigilatorEmail] = useState('');
@@ -218,6 +217,18 @@ export default function CreateExam() {
   const [questionText, setQuestionText] = useState('');
   const [answers, setAnswers] = useState<string[]>(['', '']);
   const [correctAnswer, setCorrectAnswer] = useState<string>('A');
+
+  const calculatedDuration = useMemo(() => {
+    if (!startTime || !endTime) return 0;
+    const start = new Date(startTime).getTime();
+    const end = new Date(endTime).getTime();
+    if (end <= start) return 0;
+    return Math.floor((end - start) / (1000 * 60));
+  }, [startTime, endTime]);
+
+  const calculatedTotalMarks = useMemo(() => {
+    return questions.reduce((sum, q) => sum + (q.marks ?? 0), 0);
+  }, [questions]);
   const [questionMarks, setQuestionMarks] = useState('1');
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [accessChannel, setAccessChannel] = useState<AccessChannel>('web');
@@ -238,7 +249,10 @@ export default function CreateExam() {
   const [aiDifficulty, setAiDifficulty] = useState('medium');
 
   async function handleAiGenerate() {
-    if (!examContext?.id) return;
+    if (!targetExamId) {
+      setError('Please save the exam draft first before generating questions.');
+      return;
+    }
     if (!aiPrompt.trim()) {
       setError('Please enter a topic or prompt for AI.');
       return;
@@ -248,7 +262,7 @@ export default function CreateExam() {
     setError('');
     
     try {
-      await api.post(`/exams/${examContext.id}/ai-generate`, {
+      await api.post(`/exams/${targetExamId}/ai-generate`, {
         prompt: aiPrompt.trim(),
         count: aiQuestionCount,
         difficulty: aiDifficulty,
@@ -257,7 +271,7 @@ export default function CreateExam() {
       setSuccess(`${aiQuestionCount} questions generated and added successfully.`);
       setShowAiModal(false);
       setAiPrompt('');
-      await refreshExamQuestions(examContext.id);
+      await refreshExamQuestions(Number(targetExamId));
     } catch (err: any) {
       setError(err?.response?.data?.error ?? 'AI generation failed. Please try again.');
     } finally {
@@ -386,8 +400,6 @@ export default function CreateExam() {
         setTestName(String(loadedExam.title ?? ''));
         setDescription(String(loadedExam.description ?? ''));
         if (loadedExam.subject?.name) setSubjectName(String(loadedExam.subject.name));
-        if (loadedExam.duration != null) setDuration(String(loadedExam.duration));
-        if (loadedExam.total_marks != null) setTotalMarks(String(loadedExam.total_marks));
         setStartTime(toDateTimeLocalValue(loadedExam.start_time));
         setEndTime(toDateTimeLocalValue(loadedExam.end_time));
         setQuestionSetterEmail(getSetterEmail(loadedExam));
@@ -526,6 +538,10 @@ export default function CreateExam() {
       return;
     }
     if (label === 'Create Exam') {
+      return;
+    }
+    if (label === 'Student Results') {
+      navigate('/teacher/results');
       return;
     }
   }
@@ -707,8 +723,8 @@ export default function CreateExam() {
         subject_id: matchedSubject?.id,
         subject_name: subjectName.trim(),
         description: description.trim() || null,
-        duration: Number(duration),
-        total_marks: Number(totalMarks),
+        duration: calculatedDuration,
+        total_marks: calculatedTotalMarks,
         start_time: new Date(startTime).toISOString(),
         end_time: new Date(endTime).toISOString(),
         question_setter_email: canAssignRoles ? (questionSetterEmail || null) : null,
@@ -731,13 +747,7 @@ export default function CreateExam() {
         }
       }
     } catch (err: any) {
-      const apiErrors = err?.response?.data?.errors;
-      if (apiErrors && typeof apiErrors === 'object') {
-        const first = Object.values(apiErrors).flat()[0];
-        setError(String(first));
-      } else {
-        setError(err?.response?.data?.message ?? err?.message ?? `Failed to ${isEditingExam ? 'update' : 'create'} exam.`);
-      }
+      setError(err?.response?.data?.message ?? err?.message ?? `Failed to ${isEditingExam ? 'update' : 'create'} exam.`);
     } finally {
       setSubmitting(false);
     }
@@ -777,8 +787,8 @@ export default function CreateExam() {
         subject_id: matchedSubject?.id,
         subject_name: subjectName.trim(),
         description: description.trim() || null,
-        duration: Number(duration),
-        total_marks: Number(totalMarks),
+        duration: calculatedDuration,
+        total_marks: calculatedTotalMarks,
         start_time: new Date(startTime).toISOString(),
         end_time: new Date(endTime).toISOString(),
         question_setter_email: canAssignRoles ? (questionSetterEmail || null) : null,
@@ -801,13 +811,7 @@ export default function CreateExam() {
         }
       }
     } catch (err: any) {
-      const apiErrors = err?.response?.data?.errors;
-      if (apiErrors && typeof apiErrors === 'object') {
-        const first = Object.values(apiErrors).flat()[0];
-        setError(String(first));
-      } else {
-        setError(err?.response?.data?.message ?? err?.message ?? `Failed to ${isEditingExam ? 'update' : 'save'} exam information.`);
-      }
+      setError(err?.response?.data?.message ?? err?.message ?? `Failed to ${isEditingExam ? 'update' : 'save'} exam information.`);
     } finally {
       setSubmitting(false);
     }
@@ -909,10 +913,22 @@ export default function CreateExam() {
 
             <div className="mb-5">
               <p className="text-sm font-semibold text-white">Test configuration</p>
-              <p className="text-xs text-gray-400 mt-1">83% completed</p>
-              <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                <div className="h-full w-[83%] bg-gradient-to-r from-emerald-500 to-cyan-500" />
-              </div>
+              {(() => {
+                const currentStepIndex = STEPS.findIndex(s => s.key === activeStep);
+                const completionPercentage = Math.round(((currentStepIndex + 1) / STEPS.length) * 100);
+                return (
+                  <>
+                    <p className="text-xs text-gray-400 mt-1">{completionPercentage}% completed</p>
+                    <div className="mt-2 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${completionPercentage}%` }}
+                        className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500" 
+                      />
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="space-y-1.5">
@@ -1041,23 +1057,17 @@ export default function CreateExam() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Duration (mins)</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={duration}
-                      onChange={(e) => setDuration(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                    />
+                    <div className="w-full px-3 py-2.5 bg-gray-950 border border-gray-800 rounded-lg text-sm text-gray-400 font-semibold flex items-center">
+                      <SlidersHorizontal className="w-3.5 h-3.5 mr-2 text-emerald-500" />
+                      {calculatedDuration || '0'} mins (Calculated)
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Total marks</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={totalMarks}
-                      onChange={(e) => setTotalMarks(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                    />
+                    <div className="w-full px-3 py-2.5 bg-gray-950 border border-gray-800 rounded-lg text-sm text-gray-400 font-semibold flex items-center">
+                      <Plus className="w-3.5 h-3.5 mr-2 text-emerald-500" />
+                      {calculatedTotalMarks} pts (Auto-calculated)
+                    </div>
                   </div>
                 </div>
 

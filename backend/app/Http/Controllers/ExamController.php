@@ -39,8 +39,18 @@ class ExamController extends Controller
             });
         }
 
-        $exams = $query->get();
-        return response()->json($exams);
+        $perPage = max(1, min(100, (int) request()->query('perPage', 20)));
+        $exams = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => $exams->items(),
+            'meta' => [
+                'total' => $exams->total(),
+                'perPage' => $exams->perPage(),
+                'currentPage' => $exams->currentPage(),
+                'lastPage' => $exams->lastPage(),
+            ],
+        ]);
     }
 
     /**
@@ -59,8 +69,8 @@ class ExamController extends Controller
             'subject_id'  => 'nullable|integer|exists:subjects,id|required_without:subject_name',
             'subject_name' => 'nullable|string|max:255|required_without:subject_id',
             'description' => 'nullable|string|max:2000',
-            'duration'    => 'required|integer|min:1',
-            'total_marks' => 'required|integer|min:1',
+            'duration'    => 'required|integer|min:0',
+            'total_marks' => 'required|integer|min:0',
             'start_time'  => 'required|date',
             'end_time'    => 'required|date|after:start_time',
             'question_setter_email' => 'nullable|email|exists:users,email',
@@ -183,8 +193,8 @@ class ExamController extends Controller
             'subject_id'  => 'sometimes|nullable|integer|exists:subjects,id',
             'subject_name' => 'sometimes|nullable|string|max:255',
             'description' => 'sometimes|nullable|string|max:2000',
-            'duration'    => 'sometimes|integer|min:1',
-            'total_marks' => 'sometimes|integer|min:1',
+            'duration'    => 'sometimes|integer|min:0',
+            'total_marks' => 'sometimes|integer|min:0',
             'start_time'  => 'sometimes|date',
             'end_time'    => 'sometimes|date|after:start_time',
             'question_setter_email' => 'sometimes|nullable|email|exists:users,email',

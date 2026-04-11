@@ -29,6 +29,7 @@ Route::post('/register/verify-code', [AuthController::class, 'verifyRegistration
 Route::post('/register/resend-code', [AuthController::class, 'resendRegistrationCode']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test/{exam}', [ExamAccessController::class, 'verify']);
+Route::post('/test/{exam}/start', [StudentExamController::class, 'startPublic']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
@@ -113,6 +114,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/tests/{exam}/activate', [TeacherPortalController::class, 'activate']);
             Route::post('/tests/{exam}/end', [TeacherPortalController::class, 'end']);
             Route::get('/results-database', [TeacherPortalController::class, 'resultsDatabase']);
+            Route::get('/results/{result}', [TeacherPortalController::class, 'resultDetails']);
             Route::get('/respondents', [TeacherPortalController::class, 'respondents']);
         });
     });
@@ -194,4 +196,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/student/attempts/{id}', [StudentResultController::class, 'show']);
         Route::get('/student/results/summary', [StudentResultController::class, 'summary']);
     });
+    
+    // System utility routes
+    Route::get('/system/time', [\App\Http\Controllers\SystemController::class, 'currentTime']);
 });

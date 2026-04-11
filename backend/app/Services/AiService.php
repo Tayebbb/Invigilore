@@ -12,7 +12,11 @@ class AiService
 
     public function __construct()
     {
-        $this->apiKey = config('services.openrouter.key') ?? env('OPENROUTER_API_KEY');
+        $this->apiKey = config('services.openrouter.key') ?? env('OPENROUTER_API_KEY', '');
+        
+        if (empty($this->apiKey)) {
+            Log::warning('AiService: OPENROUTER_API_KEY is not set in .env or config.');
+        }
     }
 
     /**
@@ -60,12 +64,16 @@ class AiService
 
             $content = $response->json('choices.0.message.content');
             
-            // Cleanup any markdown code blocks that AI might include
-            $content = preg_replace('/^```json|```$/m', '', $content);
+            // Extract JSON array from the response string
+            if (preg_match('/\[.*\]/s', $content, $matches)) {
+                $content = $matches[0];
+            }
+            
             $questions = json_decode(trim($content), true);
 
             if (!is_array($questions)) {
-                throw new \Exception('AI returned invalid JSON format.');
+                Log::error('AI Error: Could not parse JSON array', ['raw_content' => $content]);
+                throw new \Exception('AI returned invalid format. Please try a different prompt.');
             }
 
             return $questions;
@@ -73,6 +81,53 @@ class AiService
         } catch (\Exception $e) {
             Log::error('AI Question Generation Error', ['message' => $e->getMessage()]);
             throw $e;
+        }
+    }
+
+    /**
+     * Evaluate a descriptive or short answer using AI
+     */
+    public function evaluateAnswer(string $question, string $answer, ?string $reference = null, int $maxMarks = 5): array
+    {
+        $systemPrompt = "You are an expert exam grader. Evaluate the student's answer based on the question and reference answer.
+        Provide:
+        - score: An integer from 0 to $maxMarks
+        - feedback: A short, constructive explanation for the score.
+        - is_correct: Boolean (true if score > 50% of maxMarks)
+        
+        Return ONLY a JSON object with these fields. Do not include markdown or other text.";
+
+        $userContent = "Question: $question\nStudent Answer: $answer";
+        if ($reference) {
+            $userContent .= "\nReference Answer: $reference";
+        }
+        $userContent .= "\nMax Marks: $maxMarks";
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post($this->baseUrl, [
+                'model' => 'google/gemini-2.0-flash-001',
+                'messages' => [
+                    ['role' => 'system', 'content' => $systemPrompt],
+                    ['role' => 'user', 'content' => $userContent],
+                ],
+                'temperature' => 0.3,
+            ]);
+
+            if ($response->failed()) return ['score' => 0, 'feedback' => 'AI evaluation failed.', 'is_correct' => false];
+
+            $content = $response->json('choices.0.message.content');
+            if (preg_match('/\{.*\}/s', $content, $matches)) {
+                $content = $matches[0];
+            }
+            
+            $result = json_decode(trim($content), true);
+            return $result ?? ['score' => 0, 'feedback' => 'Invalid AI response.', 'is_correct' => false];
+
+        } catch (\Exception $e) {
+            return ['score' => 0, 'feedback' => 'Error during AI evaluation.', 'is_correct' => false];
         }
     }
 }

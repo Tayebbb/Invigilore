@@ -25,7 +25,7 @@ export interface StudentSubject {
 
 export interface StudentAttemptQuestion {
   id: number;
-  type: 'mcq' | 'true_false' | 'descriptive';
+  type: 'mcq' | 'true_false' | 'descriptive' | 'short_answer' | 'multiple_choice' | 'survey';
   questionText: string;
   options?: string[] | Record<string, string> | null;
   marks: number;

@@ -60,8 +60,15 @@ class AiQuestionController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Question generation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'exam_id' => $exam->id
+            ]);
+            
             return response()->json([
-                'error' => 'Question generation failed: ' . $e->getMessage()
+                'error' => 'Question generation failed: ' . $e->getMessage(),
+                'details' => config('app.debug') ? $e->getMessage() : 'The AI service encountered an issue. Please try again with a simpler prompt or shorter count.'
             ], 500);
         }
     }

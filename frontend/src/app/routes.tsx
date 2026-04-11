@@ -4,12 +4,14 @@ import Login                  from "./pages/Login";
 import SignUp                 from "./pages/SignUp";
 import ForgotPassword         from "./pages/ForgotPassword";
 import ResetPassword          from "./pages/ResetPassword";
+import PublicExamLandingPage  from "./pages/student/PublicExamLandingPage";
 import TeacherDashboard       from "./pages/TeacherDashboard";
 
 // Role-based dashboards
 import AdminDashboard         from "./pages/admin/AdminDashboard";
 import MyExamsDashboard       from "./pages/teacher/MyExamsDashboard";
 import CreateExam             from "./pages/teacher/CreateExam";
+import TeacherResultsPage     from "./pages/teacher/TeacherResultsPage";
 import StudentDashboard       from "./pages/student/StudentDashboard";
 import StudentExamAttemptPage from "./pages/student/StudentExamAttemptPage";
 import StudentResultsPage     from "./pages/student/StudentResultsPage";
@@ -32,6 +34,10 @@ const routes = [
   {
     path: "/",
     Component: Home,
+  },
+  {
+    path: "/test/:id",
+    Component: PublicExamLandingPage,
   },
   {
     path: "/login",
@@ -81,6 +87,14 @@ const routes = [
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
         <CreateExam />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/teacher/results",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <TeacherResultsPage />
       </ProtectedRoute>
     ),
   },

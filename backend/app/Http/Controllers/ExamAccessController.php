@@ -49,10 +49,12 @@ class ExamAccessController extends Controller
             ]
         );
 
+        $frontendUrl = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
+
         return response()->json([
             'message' => 'Public link generated successfully.',
             'access_type' => $config->access_type,
-            'link' => url("/test/{$exam->id}?token={$token}"),
+            'link' => "{$frontendUrl}/test/{$exam->id}?token={$token}",
             'require_email' => $config->require_email,
         ]);
     }
