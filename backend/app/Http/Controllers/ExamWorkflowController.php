@@ -37,6 +37,7 @@ class ExamWorkflowController extends Controller
             'end_time' => $exam->end_time,
             'duration' => $exam->duration,
             'total_marks' => $exam->total_marks,
+            'status' => $exam->status,
             'exam_status' => $exam->exam_status,
             'paper_status' => $exam->paper_status,
         ]);
@@ -94,10 +95,12 @@ class ExamWorkflowController extends Controller
         }
 
         $exam->exam_status = 'active';
+        $exam->status = 'active';
         $exam->save();
 
         return response()->json([
             'message' => 'Exam activated successfully.',
+            'status' => $exam->status,
             'exam_status' => $exam->exam_status,
         ]);
     }

@@ -82,6 +82,7 @@ class ExamController extends Controller
             'question_setter_email' => 'nullable|email|exists:users,email',
             'moderator_email'       => 'nullable|email|exists:users,email',
             'invigilator_email'     => 'nullable|email|exists:users,email',
+            'status'               => 'nullable|in:draft,active,scheduled,completed',
             'exam_status'           => 'nullable|in:draft,active,scheduled,completed',
         ]);
 
@@ -126,11 +127,15 @@ class ExamController extends Controller
             ], 422);
         }
 
+        $status = $payload['status'] ?? $payload['exam_status'] ?? 'draft';
+
         $exam = Exam::create([
             'title' => $payload['title'],
             'subject_id' => $subjectId,
+            'created_by' => $creator->id,
             'description' => $payload['description'] ?? null,
             'duration' => $payload['duration'],
+            'status' => $status,
             'total_marks' => $payload['total_marks'],
             'start_time' => $payload['start_time'],
             'end_time' => $payload['end_time'],
@@ -140,7 +145,7 @@ class ExamController extends Controller
             'question_setter_id' => $questionSetter?->id,
             'moderator_id' => $moderator?->id,
             'invigilator_id' => $invigilator?->id,
-            'exam_status' => $payload['exam_status'] ?? 'draft',
+            'exam_status' => $status,
         ]);
 
         $this->syncExamRoleAssignments($exam);
@@ -214,6 +219,7 @@ class ExamController extends Controller
             'question_setter_email' => 'sometimes|nullable|email|exists:users,email',
             'moderator_email'       => 'sometimes|nullable|email|exists:users,email',
             'invigilator_email'     => 'sometimes|nullable|email|exists:users,email',
+            'status'               => 'sometimes|nullable|in:draft,active,scheduled,completed',
             'exam_status'           => 'sometimes|nullable|in:draft,active,scheduled,completed',
         ]);
 
@@ -243,10 +249,18 @@ class ExamController extends Controller
             $data = $validator->validated();
         }
 
-        if (array_key_exists('exam_status', $data) && ! $actor->hasPermission('exams.publish')) {
+        if ((array_key_exists('exam_status', $data) || array_key_exists('status', $data)) && ! $actor->hasPermission('exams.publish')) {
             return response()->json([
                 'message' => 'Forbidden. You do not have permission to publish exams.',
             ], 403);
+        }
+
+        if (array_key_exists('status', $data) && ! array_key_exists('exam_status', $data)) {
+            $data['exam_status'] = $data['status'];
+        }
+
+        if (array_key_exists('exam_status', $data) && ! array_key_exists('status', $data)) {
+            $data['status'] = $data['exam_status'];
         }
 
         $isUpdatingAssignments =

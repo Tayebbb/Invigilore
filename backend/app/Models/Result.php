@@ -14,6 +14,7 @@ class Result extends Model
         'attempt_id',
         'score',
         'total_marks',
+        'evaluated_at',
         'grade',
         'feedback',
         'is_published',
@@ -23,6 +24,7 @@ class Result extends Model
     protected function casts(): array
     {
         return [
+            'evaluated_at' => 'datetime',
             'is_published' => 'boolean',
             'published_at' => 'datetime',
         ];

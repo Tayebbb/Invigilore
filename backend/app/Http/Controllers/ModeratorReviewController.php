@@ -52,12 +52,14 @@ class ModeratorReviewController extends Controller
         }
 
         $exam->update([
+            'status'         => 'active',
             'review_comment' => $request->review_comment,
             'exam_status'    => 'active',
         ]);
 
         return response()->json([
             'message'     => 'Paper approved and exam set to active.',
+            'status'      => $exam->status,
             'exam_status' => $exam->exam_status,
         ]);
     }

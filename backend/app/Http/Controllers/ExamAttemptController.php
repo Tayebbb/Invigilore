@@ -173,13 +173,15 @@ class ExamAttemptController extends Controller
 
     public function saveAnswer(Request $request, int $id): JsonResponse
     {
+        $selectedOption = trim((string) ($request->input('selected_option') ?? $request->input('selected_answer') ?? ''));
+
         $request->merge([
-            'selected_answer' => trim((string) $request->input('selected_answer')),
+            'selected_option' => $selectedOption,
         ]);
 
         $validator = Validator::make($request->all(), [
             'question_id' => 'required|integer|exists:questions,id',
-            'selected_answer' => 'required|string|max:1000',
+            'selected_option' => 'required|string|max:1000',
         ]);
 
         if ($validator->fails()) {
@@ -218,7 +220,8 @@ class ExamAttemptController extends Controller
                 'question_id' => $request->integer('question_id'),
             ],
             [
-                'selected_answer' => $request->string('selected_answer')->trim()->toString(),
+                'selected_option' => $request->string('selected_option')->trim()->toString(),
+                'answer_text' => $request->string('selected_option')->trim()->toString(),
             ]
         );
 
@@ -237,7 +240,7 @@ class ExamAttemptController extends Controller
                 'id' => $answer->id,
                 'attempt_id' => $answer->attempt_id,
                 'question_id' => $answer->question_id,
-                'selected_answer' => $answer->selected_answer,
+                'selected_option' => $answer->selected_option,
             ],
             'remaining_time' => $this->remainingSeconds($attempt),
         ]);

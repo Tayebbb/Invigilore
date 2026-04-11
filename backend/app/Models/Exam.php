@@ -16,12 +16,14 @@ class Exam extends Model
     protected $fillable = [
         'subject_id',
         'title',
+        'created_by',
         'teacher_id',
         'controller_id',
         'question_setter_id',
         'moderator_id',
         'invigilator_id',
         'duration',
+        'status',
         'total_marks',
         'start_time',
         'end_time',
@@ -62,6 +64,11 @@ class Exam extends Model
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function controller(): BelongsTo

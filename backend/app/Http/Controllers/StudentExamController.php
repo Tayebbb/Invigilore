@@ -249,7 +249,8 @@ class StudentExamController extends Controller
 
         $validator = Validator::make($request->all(), [
             'question_id' => 'required|integer|exists:questions,id',
-            'selected_answer' => 'required|string',
+            'selected_answer' => 'nullable|string',
+            'selected_option' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -257,6 +258,15 @@ class StudentExamController extends Controller
                 'success' => false,
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
+            ], 400);
+        }
+
+        $selectedOption = trim((string) ($request->input('selected_option') ?? $request->input('selected_answer') ?? ''));
+        if ($selectedOption === '') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => ['selected_option' => ['The selected option field is required.']],
             ], 400);
         }
 
@@ -283,7 +293,8 @@ class StudentExamController extends Controller
                 'question_id' => $request->integer('question_id'),
             ],
             [
-                'selected_answer' => $request->string('selected_answer')->toString(),
+                'selected_option' => $selectedOption,
+                'answer_text' => $selectedOption,
             ]
         );
 
@@ -672,6 +683,7 @@ class StudentExamController extends Controller
             $result = Result::firstOrNew(['attempt_id' => $attempt->id]);
             $result->score = $score;
             $result->total_marks = (int) $questions->sum('marks');
+            $result->evaluated_at = $submittedAt;
             $result->grade = $this->gradeFromScore($score, (int) $questions->sum('marks'));
             $result->published_at = $result->published_at ?? $submittedAt;
             $result->save();
