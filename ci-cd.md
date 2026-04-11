@@ -196,7 +196,7 @@ Latest monitored workflow run completed successfully with all core jobs green:
 
 Use this script:
 
-"Our GitHub Actions pipeline starts on pushes and pull requests to main. It first validates backend and frontend quality, then runs backend tests with a temporary MySQL container. On main pushes, if tests pass, it builds a production Docker image for Laravel and pushes it to GHCR, while frontend is deployed to Vercel. Backend deployment is handled by Render auto-deploy on main. Finally, a non-blocking health check pings the backend API. We recently fixed SSL test DB mismatch, migration ordering, missing APP_KEY, and Alpine Docker package issues, and now the full pipeline is passing end to end." 
+"Our GitHub Actions pipeline starts on pushes and pull requests to main. It first validates backend and frontend quality, then runs backend tests with a temporary MySQL container. On main pushes, if tests pass, it builds a production Docker image for Laravel and pushes it to GHCR, while frontend is deployed to Vercel. Backend deployment is handled by Render auto-deploy on main. Finally, a non-blocking health check pings the backend API. We recently fixed SSL test DB mismatch, migration ordering, missing APP_KEY, and Alpine Docker package issues, and now the full pipeline is passing end to end."
 
 ## 10. Known design choices and limitations
 
