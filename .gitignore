@@ -23,3 +23,5 @@
 **/*.sqlite
 
 db-test/
+.vercel
+.env*.local
