@@ -250,14 +250,6 @@ class ExamAttemptController extends Controller
 
     public function submitExam(Request $request, int $id): JsonResponse
     {
-        $validator = Validator::make(['attempt_id' => $id], [
-            'attempt_id' => 'required|integer|exists:exam_attempts,id',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
         $attempt = ExamAttempt::with('exam.questions', 'answers')->findOrFail($id);
 
         if ((int) $attempt->user_id !== (int) $request->user()->id) {
