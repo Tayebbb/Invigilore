@@ -7,6 +7,7 @@
     "start": "concurrently -n backend,frontend -c green,blue \"npm run start:backend\" \"npm run start:frontend\"",
     "start:frontend": "cd frontend && npm run dev",
     "start:backend": "cd backend && php artisan serve",
+    "build": "npm install --prefix frontend && npm run build:frontend",
     "build:frontend": "cd frontend && npm run build",
     "copy:frontend": "cp -r frontend/dist/* backend/public/",
     "build:prod": "npm run build:frontend && npm run copy:frontend"

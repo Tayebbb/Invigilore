@@ -25,7 +25,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout';
 import DashboardCard from '../../components/dashboard/DashboardCard';
 import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import useCurrentUser from '../../hooks/useCurrentUser';
-import { Pagination } from '../../components/ui/Pagination';
+import { Pagination } from '../../components/ui/pagination';
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
