@@ -1,7 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import Home                   from "./pages/Home";
 import Login                  from "./pages/Login";
-import SignUp                 from "./pages/SignUp";
+import Signup                 from "./pages/Signup";
 import ForgotPassword         from "./pages/ForgotPassword";
 import ResetPassword          from "./pages/ResetPassword";
 import PublicExamLandingPage  from "./pages/student/PublicExamLandingPage";
@@ -45,7 +45,7 @@ const routes = [
   },
   {
     path: "/signup",
-    Component: SignUp,
+    Component: Signup,
   },
   {
     path: "/forgot-password",
