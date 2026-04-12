@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class ExamAttemptController extends Controller
 {
@@ -43,7 +44,11 @@ class ExamAttemptController extends Controller
 
     public function start(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
 
         $validator = Validator::make($request->all(), [
             'exam_id' => 'required|integer',
@@ -134,10 +139,16 @@ class ExamAttemptController extends Controller
 
     public function show(Request $request, int $id): JsonResponse
     {
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
         $attempt = ExamAttempt::with(['exam.questions:id,exam_id,question_text,type,options,marks', 'answers'])
             ->findOrFail($id);
 
-        if ((int) $attempt->user_id !== (int) $request->user()->id) {
+        if ((int) $attempt->user_id !== (int) $user->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -175,6 +186,12 @@ class ExamAttemptController extends Controller
 
     public function saveAnswer(Request $request, int $id): JsonResponse
     {
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
         $selectedOption = trim((string) ($request->input('selected_option') ?? $request->input('selected_answer') ?? ''));
 
         $request->merge([
@@ -192,7 +209,7 @@ class ExamAttemptController extends Controller
 
         $attempt = ExamAttempt::with('exam')->findOrFail($id);
 
-        if ((int) $attempt->user_id !== (int) $request->user()->id) {
+        if ((int) $attempt->user_id !== (int) $user->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -257,6 +274,12 @@ class ExamAttemptController extends Controller
 
     public function submitExam(Request $request, int $id): JsonResponse
     {
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
         $validator = Validator::make(['attempt_id' => $id], [
             'attempt_id' => 'required|integer|exists:exam_attempts,id',
         ]);
@@ -267,7 +290,7 @@ class ExamAttemptController extends Controller
 
         $attempt = ExamAttempt::with('exam.questions', 'answers')->findOrFail($id);
 
-        if ((int) $attempt->user_id !== (int) $request->user()->id) {
+        if ((int) $attempt->user_id !== (int) $user->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -306,6 +329,12 @@ class ExamAttemptController extends Controller
 
     public function saveAnswerFromPayload(Request $request): JsonResponse
     {
+        $user = $this->authenticatedUser($request);
+
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
         $answerValue = trim((string) ($request->input('answer') ?? $request->input('selected_answer') ?? $request->input('selected_option') ?? ''));
 
         $validator = Validator::make([
@@ -324,7 +353,7 @@ class ExamAttemptController extends Controller
 
         $attempt = ExamAttempt::with('exam')->findOrFail((int) $request->input('attempt_id'));
 
-        if ((int) $attempt->user_id !== (int) $request->user()->id) {
+        if ((int) $attempt->user_id !== (int) $user->id) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
@@ -734,6 +763,23 @@ class ExamAttemptController extends Controller
     private function isAttemptInProgress(ExamAttempt $attempt): bool
     {
         return $this->attemptStatus($attempt) === 'in_progress';
+    }
+
+    private function authenticatedUser(Request $request): ?User
+    {
+        $bearer = $request->bearerToken();
+
+        if ($bearer) {
+            $token = PersonalAccessToken::findToken($bearer);
+
+            if ($token && $token->tokenable instanceof User) {
+                return $token->tokenable;
+            }
+        }
+
+        $user = $request->user();
+
+        return $user instanceof User ? $user : null;
     }
 
     private function logAudit(Request $request, string $action, array $payload = []): void
