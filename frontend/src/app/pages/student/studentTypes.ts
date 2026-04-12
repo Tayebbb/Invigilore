@@ -49,9 +49,10 @@ export interface StudentResult {
   examId: number;
   examName: string;
   courseName: string;
-  score: number;
+  score: number | null;
   totalMarks: number;
-  grade: string;
+  grade: string | null;
+  isPublished?: boolean;
   publishedAt: string;
   submittedAt: string;
   feedback?: string | null;

@@ -93,6 +93,7 @@ const LANGUAGES = ['English', 'French', 'Spanish'];
 
 type ExamContext = {
   id: number;
+  teacher_id?: number | null;
   controller_id?: number | null;
   title?: string;
   description?: string | null;
@@ -327,7 +328,10 @@ export default function CreateExam() {
 
   const isTeacherOnCurrentExam =
     !!examContext &&
-    normalizeText(examContext.teacher?.email) === normalizedCurrentUserEmail;
+    (
+      normalizeText(examContext.teacher?.email) === normalizedCurrentUserEmail
+      || (Number.isFinite(currentUserId) && examContext.teacher_id === currentUserId)
+    );
 
   const isInvigilatorOnCurrentExam =
     !!examContext &&
@@ -340,13 +344,13 @@ export default function CreateExam() {
   const isGlobalAdminOrController = hasAnyPermission(currentPermissions, ['exams.view.all', 'exams.settings.manage']);
 
   // Read access (can see the tab in sidebar and navigate to it):
-  const canAccessQuestionsManager = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
-  const canAccessModeratorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
-  const canAccessInvigilatorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
-  const canAccessControllerOnly = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
+  const canAccessQuestionsManager = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam || isTeacherOnCurrentExam));
+  const canAccessModeratorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam || isTeacherOnCurrentExam));
+  const canAccessInvigilatorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam || isTeacherOnCurrentExam));
+  const canAccessControllerOnly = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam || isTeacherOnCurrentExam));
 
   // Edit access (can make changes):
-  const canEditControllerOnly = isGlobalAdminOrController || (!examId && canCreateExam) || (!!examId && isControllerOnCurrentExam);
+  const canEditControllerOnly = isGlobalAdminOrController || (!examId && canCreateExam) || (!!examId && (isControllerOnCurrentExam || isTeacherOnCurrentExam));
   const canEditQuestionsManager = canEditControllerOnly || (!!examId && isAssignedQuestionSetterOnCurrentExam);
   const canEditModeratorPanel = canEditControllerOnly || (!!examId && isModeratorOnCurrentExam);
   const canEditInvigilatorPanel = canEditControllerOnly || (!!examId && isInvigilatorOnCurrentExam);
@@ -354,7 +358,8 @@ export default function CreateExam() {
 
   const activeExamContext = examContext ?? setterExams[0] ?? null;
   const targetExamId = activeExamContext?.id ?? ((examId && !Number.isNaN(examId)) ? examId : null);
-  const canActivateExam = hasAnyPermission(currentPermissions, ['exams.publish']) && (canEditControllerOnly || (!!examId && isModeratorOnCurrentExam && activeExamContext?.exam_status === 'completed'));
+  const canActivateExam = (isTeacherOnCurrentExam || hasAnyPermission(currentPermissions, ['exams.publish']))
+    && (canEditControllerOnly || (!!examId && isModeratorOnCurrentExam && activeExamContext?.exam_status === 'completed'));
 
   async function refreshExamQuestions(examIdToLoad: number) {
     setLoadingQuestions(true);
@@ -403,6 +408,7 @@ export default function CreateExam() {
           invigilator: exam.invigilator ?? null,
           teacher: exam.teacher ?? null,
           controller: exam.controller ?? null,
+          teacher_id: exam.teacher_id ?? null,
           controller_id: exam.controller_id ?? null,
           exam_status: exam.exam_status ?? 'draft',
         };

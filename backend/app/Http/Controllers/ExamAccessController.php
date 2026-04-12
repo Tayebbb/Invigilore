@@ -12,8 +12,25 @@ use Illuminate\Support\Str;
 
 class ExamAccessController extends Controller
 {
+    private function canManageExamAccess(Request $request, Exam $exam): bool
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return (int) $exam->teacher_id === (int) $user->id
+            || (int) $exam->controller_id === (int) $user->id
+            || $user->hasPermission('exams.view.all');
+    }
+
     public function show(Exam $exam)
     {
+        if (! $this->canManageExamAccess(request(), $exam)) {
+            return response()->json(['message' => 'Forbidden. You cannot manage access for this exam.'], 403);
+        }
+
         $config = ExamAccess::query()->where('exam_id', $exam->id)->first();
         $users = ExamAccessUser::query()
             ->where('exam_id', $exam->id)
@@ -32,6 +49,10 @@ class ExamAccessController extends Controller
 
     public function generatePublic(Request $request, Exam $exam)
     {
+        if (! $this->canManageExamAccess($request, $exam)) {
+            return response()->json(['message' => 'Forbidden. You cannot manage access for this exam.'], 403);
+        }
+
         $payload = $request->validate([
             'channel' => ['required', 'in:web,teams'],
             'require_email' => ['sometimes', 'boolean'],
@@ -61,6 +82,10 @@ class ExamAccessController extends Controller
 
     public function generatePrivate(Request $request, Exam $exam)
     {
+        if (! $this->canManageExamAccess($request, $exam)) {
+            return response()->json(['message' => 'Forbidden. You cannot manage access for this exam.'], 403);
+        }
+
         $request->merge([
             'emails' => collect((array) $request->input('emails', []))
                 ->map(fn ($email) => strtolower(trim((string) $email)))

@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Exam;
 use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
+use App\Models\Question;
 use App\Models\Result;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -338,15 +339,19 @@ class ExamAttemptController extends Controller
                     $answeredCount++;
                 }
 
-                $isCorrect = $selectedAnswer !== null && (string) $selectedAnswer === (string) $question->correct_answer;
+                $isCorrect = $selectedAnswer !== null && $this->isObjectiveAnswerCorrect($question, $selectedAnswer);
+                $awardedScore = $isCorrect ? (float) $question->marks : 0.0;
 
                 if ($answer) {
-                    $answer->update(['is_correct' => $isCorrect]);
+                    $answer->update([
+                        'is_correct' => $isCorrect,
+                        'score_awarded' => $awardedScore,
+                    ]);
                 }
 
                 if ($isCorrect) {
                     $correctCount++;
-                    $score += (int) $question->marks;
+                    $score += $awardedScore;
                 }
             }
 
@@ -369,12 +374,35 @@ class ExamAttemptController extends Controller
                 $attempt->update($updateData);
             }
 
+            $releaseAt = $attempt->exam->end_time
+                ? Carbon::parse($attempt->exam->end_time)
+                : $finalTime;
+            $isPublished = $releaseAt->lessThanOrEqualTo($finalTime);
+
+            $resultPayload = [
+                'score' => $score,
+                'total_marks' => (int) $questions->sum('marks'),
+            ];
+
+            if (Schema::hasColumn('results', 'evaluated_at')) {
+                $resultPayload['evaluated_at'] = $finalTime;
+            }
+
+            if (Schema::hasColumn('results', 'grade')) {
+                $resultPayload['grade'] = $this->gradeFromScore($score, (int) $questions->sum('marks'));
+            }
+
+            if (Schema::hasColumn('results', 'is_published')) {
+                $resultPayload['is_published'] = $isPublished;
+            }
+
+            if (Schema::hasColumn('results', 'published_at')) {
+                $resultPayload['published_at'] = $releaseAt;
+            }
+
             $result = Result::updateOrCreate(
                 ['attempt_id' => $attempt->id],
-                [
-                    'score' => $score,
-                    'total_marks' => (int) $questions->sum('marks'),
-                ]
+                $resultPayload
             );
 
             $this->logAudit(request(), 'result_calculated', [
@@ -390,13 +418,119 @@ class ExamAttemptController extends Controller
 
             return [
                 'result_id' => $result->id,
-                'score' => $score,
+                'score' => $isPublished ? $score : null,
                 'correct_answers' => $correctCount,
                 'answered_questions' => $answeredCount,
                 'total_questions' => $questions->count(),
                 'total_marks' => (int) $questions->sum('marks'),
+                'is_published' => $isPublished,
+                'results_available_at' => $releaseAt->toISOString(),
             ];
         });
+    }
+
+    private function gradeFromScore(float $score, int $total): string
+    {
+        if ($total <= 0) {
+            return 'N/A';
+        }
+
+        $percent = ($score / $total) * 100;
+
+        return match (true) {
+            $percent >= 90 => 'A+',
+            $percent >= 80 => 'A',
+            $percent >= 70 => 'B',
+            $percent >= 60 => 'C',
+            $percent >= 50 => 'D',
+            default => 'F',
+        };
+    }
+
+    private function isObjectiveAnswerCorrect(Question $question, ?string $selectedAnswer): bool
+    {
+        $selectedTokens = $this->tokenizeAnswer($selectedAnswer);
+        $correctTokens = $this->tokenizeAnswer($question->correct_answer);
+
+        if ($selectedTokens === [] || $correctTokens === []) {
+            return false;
+        }
+
+        $optionMap = $this->normalizedOptionMap(is_array($question->options) ? $question->options : null);
+
+        $selectedResolved = array_map(fn (string $token) => $this->resolveTokenToCanonicalKey($token, $optionMap), $selectedTokens);
+        $correctResolved = array_map(fn (string $token) => $this->resolveTokenToCanonicalKey($token, $optionMap), $correctTokens);
+
+        sort($selectedResolved);
+        sort($correctResolved);
+
+        return $selectedResolved === $correctResolved;
+    }
+
+    private function normalizeAnswer(?string $value): string
+    {
+        $normalized = strtolower(trim((string) $value));
+
+        return preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
+    }
+
+    private function tokenizeAnswer(?string $value): array
+    {
+        $normalized = $this->normalizeAnswer($value);
+
+        if ($normalized === '') {
+            return [];
+        }
+
+        $parts = preg_split('/\s*[,;|]\s*/', $normalized) ?: [];
+        $tokens = array_values(array_filter(array_map(fn (string $part) => $this->normalizeAnswer($part), $parts), fn (string $part) => $part !== ''));
+
+        return $tokens === [] ? [$normalized] : $tokens;
+    }
+
+    private function normalizedOptionMap(?array $options): array
+    {
+        if (! is_array($options)) {
+            return [];
+        }
+
+        $map = [];
+        $letterIndex = 0;
+
+        foreach ($options as $rawKey => $rawValue) {
+            if (! is_scalar($rawValue)) {
+                continue;
+            }
+
+            $value = $this->normalizeAnswer((string) $rawValue);
+            if ($value === '') {
+                continue;
+            }
+
+            $key = is_int($rawKey) || ctype_digit((string) $rawKey)
+                ? strtolower(chr(65 + $letterIndex))
+                : $this->normalizeAnswer((string) $rawKey);
+
+            $map[$key] = $value;
+            $letterIndex++;
+        }
+
+        return $map;
+    }
+
+    private function resolveTokenToCanonicalKey(string $token, array $optionMap): string
+    {
+        if (array_key_exists($token, $optionMap)) {
+            return $token;
+        }
+
+        foreach ($optionMap as $key => $value) {
+            if ($value === $token) {
+                return $key;
+            }
+        }
+
+        return $token;
     }
 
     private function attemptStartTime(ExamAttempt $attempt)

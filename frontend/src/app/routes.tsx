@@ -129,7 +129,7 @@ const routes = [
   {
     path: "/exam/:id/moderator",
     element: (
-      <ProtectedRoute allowedRoles={["admin", "teacher", "moderator", "controller"]} allowedPermissions={["questions.review", "exams.approve_reject"]}>
+      <ProtectedRoute allowedRoles={["admin", "teacher", "moderator", "controller"]}>
         <ExamRoleAccessRoute requiredRole="moderator">
           <CreateExam />
         </ExamRoleAccessRoute>
@@ -149,7 +149,7 @@ const routes = [
   {
     path: "/exam/:id/access",
     element: (
-      <ProtectedRoute allowedRoles={["admin", "teacher", "controller"]} allowedPermissions={["exams.manage.access"]}>
+      <ProtectedRoute allowedRoles={["admin", "teacher", "controller"]}>
         <CreateExam />
       </ProtectedRoute>
     ),

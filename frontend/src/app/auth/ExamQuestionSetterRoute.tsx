@@ -6,9 +6,11 @@ import { Card, CardContent } from '../components/ui/card';
 import useCurrentUser from '../hooks/useCurrentUser';
 
 type ExamRolePayload = {
+  teacher_id?: number | null;
   controller_id?: number | null;
   questionSetter?: { email?: string } | null;
   question_setter?: { email?: string } | null;
+  teacher?: { email?: string } | null;
   controller?: { email?: string } | null;
 };
 
@@ -21,7 +23,7 @@ function getQuestionSetterEmail(exam: ExamRolePayload | null): string {
 }
 
 function getControllerEmail(exam: ExamRolePayload | null): string {
-  return exam?.controller?.email ?? '';
+  return exam?.controller?.email ?? exam?.teacher?.email ?? '';
 }
 
 interface ExamQuestionSetterRouteProps {
@@ -48,7 +50,7 @@ export default function ExamQuestionSetterRoute({ children }: ExamQuestionSetter
     setChecking(true);
     api.get(`/exams/${examId}`)
       .then((res) => {
-        const controllerId = Number((res.data as { controller_id?: number | string | null } | null)?.controller_id ?? NaN);
+        const controllerId = Number((res.data as { controller_id?: number | string | null; teacher_id?: number | string | null } | null)?.controller_id ?? (res.data as { teacher_id?: number | string | null } | null)?.teacher_id ?? NaN);
         const setterEmail = normalizeText(getQuestionSetterEmail(res.data));
         const controllerEmail = normalizeText(getControllerEmail(res.data));
         const currentEmail = normalizeText(currentUser.email);
