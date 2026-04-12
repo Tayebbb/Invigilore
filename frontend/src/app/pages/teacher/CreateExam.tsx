@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { motion } from 'motion/react';
 import {
@@ -214,6 +214,8 @@ export default function CreateExam() {
   const [language, setLanguage] = useState('English');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const startTimeInputRef = useRef<HTMLInputElement | null>(null);
+  const endTimeInputRef = useRef<HTMLInputElement | null>(null);
 
   const [questionSetterEmail, setQuestionSetterEmail] = useState('');
   const [moderatorEmail, setModeratorEmail] = useState('');
@@ -585,6 +587,11 @@ export default function CreateExam() {
     setError('');
     setSuccess('');
     setActiveStep(step);
+  }
+
+  function openNativeDateTimePicker(input: HTMLInputElement | null) {
+    if (!input) return;
+    (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
   }
 
   function resetQuestionEditor() {
@@ -1092,18 +1099,26 @@ export default function CreateExam() {
                   <div>
                     <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Start time</label>
                     <input
+                      ref={startTimeInputRef}
                       type="datetime-local"
+                      step={60}
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
+                      onFocus={() => openNativeDateTimePicker(startTimeInputRef.current)}
+                      onClick={() => openNativeDateTimePicker(startTimeInputRef.current)}
                       className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                     />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">End time</label>
                     <input
+                      ref={endTimeInputRef}
                       type="datetime-local"
+                      step={60}
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
+                      onFocus={() => openNativeDateTimePicker(endTimeInputRef.current)}
+                      onClick={() => openNativeDateTimePicker(endTimeInputRef.current)}
                       className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                     />
                   </div>
