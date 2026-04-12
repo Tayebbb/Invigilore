@@ -79,9 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/support-tickets', [SupportTicketController::class, 'store']);
     });
 
-    Route::middleware('permission:answers.submit')->group(function () {
-        Route::post('/submissions', [SubmissionController::class, 'store']);
-    });
+    Route::post('/submissions', [SubmissionController::class, 'store']);
 
     Route::get('/submissions/{submission}', [SubmissionController::class, 'show']);
     Route::get('/users/{user}/results', [SubmissionController::class, 'userResults']);
@@ -177,13 +175,11 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Question setter exam-scoped question manager routes
-    Route::middleware(['permission:questions.manage', 'exam.role:question_setter'])->group(function () {
-        Route::get('/exams/{exam}/questions', [QuestionController::class, 'examQuestions']);
-        Route::post('/exams/{exam}/questions', [QuestionController::class, 'storeExamQuestion']);
-        Route::post('/exams/{exam}/ai-generate', [\App\Http\Controllers\AiQuestionController::class, 'generate']);
-        Route::put('/exams/{exam}/questions/{question}', [QuestionController::class, 'updateExamQuestion']);
-        Route::delete('/exams/{exam}/questions/{question}', [QuestionController::class, 'destroyExamQuestion']);
-    });
+    Route::get('/exams/{exam}/questions', [QuestionController::class, 'examQuestions']);
+    Route::post('/exams/{exam}/questions', [QuestionController::class, 'storeExamQuestion']);
+    Route::post('/exams/{exam}/ai-generate', [\App\Http\Controllers\AiQuestionController::class, 'generate']);
+    Route::put('/exams/{exam}/questions/{question}', [QuestionController::class, 'updateExamQuestion']);
+    Route::delete('/exams/{exam}/questions/{question}', [QuestionController::class, 'destroyExamQuestion']);
 
     // Moderator paper workflow routes
     Route::middleware(['permission:questions.review,exams.approve_reject', 'exam.role:moderator', 'exam.paper_status:submitted,reviewed'])->group(function () {

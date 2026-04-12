@@ -13,9 +13,10 @@ function mapResult(item: StudentResult): StudentResult {
     examId: item.examId,
     examName: item.examName,
     courseName: item.courseName,
-    score: Number(item.score ?? 0),
+    score: item.score === null || item.score === undefined ? null : Number(item.score),
     totalMarks: Number(item.totalMarks ?? 0),
-    grade: item.grade,
+    grade: item.grade ?? null,
+    isPublished: Boolean(item.isPublished),
     publishedAt: item.publishedAt,
     submittedAt: item.submittedAt,
     feedback: item.feedback ?? null,
@@ -66,7 +67,7 @@ export default function StudentResultsPage() {
     >
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-white">Published Results</h2>
-        <p className="text-sm text-gray-400">Results shown here are from evaluated submissions.</p>
+        <p className="text-sm text-gray-400">All evaluated submissions are listed. Marks appear after exam time ends.</p>
       </div>
 
       {error && (
@@ -97,9 +98,13 @@ export default function StudentResultsPage() {
                 <tr key={result.resultId} className="border-t border-gray-800">
                   <td className="px-4 py-3 text-gray-100">{result.examName}</td>
                   <td className="px-4 py-3 text-gray-400">{result.courseName}</td>
-                  <td className="px-4 py-3 text-gray-300">{result.score}/{result.totalMarks}</td>
-                  <td className="px-4 py-3 text-teal-300">{result.grade ?? '-'}</td>
-                  <td className="px-4 py-3 text-gray-400">{new Date(result.publishedAt).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-gray-300">
+                    {result.isPublished ? `${result.score ?? 0}/${result.totalMarks}` : 'Pending release'}
+                  </td>
+                  <td className="px-4 py-3 text-teal-300">{result.isPublished ? (result.grade ?? '-') : 'Pending'}</td>
+                  <td className="px-4 py-3 text-gray-400">
+                    {result.isPublished ? new Date(result.publishedAt).toLocaleString() : `Releases at ${new Date(result.publishedAt).toLocaleString()}`}
+                  </td>
                 </tr>
               ))}
             </tbody>

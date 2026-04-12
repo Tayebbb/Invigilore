@@ -13,16 +13,27 @@ class ExamNotification extends Notification
     protected string $message;
     protected string $type;
     protected ?string $actionUrl;
+    protected ?string $eventKey;
+    protected ?int $examId;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct(string $title, string $message, string $type = 'info', ?string $actionUrl = null)
+    public function __construct(
+        string $title,
+        string $message,
+        string $type = 'info',
+        ?string $actionUrl = null,
+        ?string $eventKey = null,
+        ?int $examId = null
+    )
     {
         $this->title = $title;
         $this->message = $message;
         $this->type = $type;
         $this->actionUrl = $actionUrl;
+        $this->eventKey = $eventKey;
+        $this->examId = $examId;
     }
 
     /**
@@ -47,6 +58,8 @@ class ExamNotification extends Notification
             'message' => $this->message,
             'type' => $this->type,
             'action_url' => $this->actionUrl,
+            'event_key' => $this->eventKey,
+            'exam_id' => $this->examId,
             'timestamp' => now()->toISOString(),
         ];
     }

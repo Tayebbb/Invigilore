@@ -6,7 +6,9 @@ import { Card, CardContent } from '../components/ui/card';
 import useCurrentUser from '../hooks/useCurrentUser';
 
 type ExamWithAssignments = {
+  teacher_id?: number | null;
   controller_id?: number | null;
+  teacher?: { email?: string } | null;
   moderator?: { email?: string } | null;
   invigilator?: { email?: string } | null;
   questionSetter?: { email?: string } | null;
@@ -31,7 +33,7 @@ function normalizeText(value: unknown): string {
 function resolveRoleEmail(exam: ExamWithAssignments, role: ExamRoleKey): string {
   if (role === 'moderator') return exam.moderator?.email ?? '';
   if (role === 'invigilator') return exam.invigilator?.email ?? '';
-  if (role === 'controller') return exam.controller?.email ?? '';
+  if (role === 'controller') return exam.controller?.email ?? exam.teacher?.email ?? '';
   return exam.questionSetter?.email ?? exam.question_setter?.email ?? '';
 }
 
@@ -64,7 +66,7 @@ export default function ExamRoleAccessRoute({ requiredRole, requireLiveWindow = 
     api.get(`/exams/${examId}`)
       .then((res) => {
         const exam = (res.data ?? {}) as ExamWithAssignments;
-        const controllerId = Number(exam.controller_id ?? NaN);
+        const controllerId = Number(exam.controller_id ?? exam.teacher_id ?? NaN);
         const expectedEmail = normalizeText(resolveRoleEmail(exam, requiredRole));
         const controllerEmail = normalizeText(resolveRoleEmail(exam, 'controller'));
         const currentEmail = normalizeText(currentUser.email);

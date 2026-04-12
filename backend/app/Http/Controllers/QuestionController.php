@@ -8,10 +8,12 @@ use App\Http\Requests\Question\UpdateQuestionRequest;
 use App\Http\Resources\QuestionAdminResource;
 use App\Http\Resources\QuestionResource;
 use App\Models\Exam;
+use App\Models\ExamRole;
 use App\Models\Question;
 use App\Services\QuestionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Support\ExamRoles;
 use Illuminate\Validation\Rule;
 
 class QuestionController extends Controller
@@ -150,7 +152,7 @@ class QuestionController extends Controller
 
     public function examQuestions(Exam $exam)
     {
-        if (! request()->user()?->hasPermission('questions.manage')) {
+        if (! $this->canManageExamQuestions(request(), $exam)) {
             return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
         }
 
@@ -161,7 +163,7 @@ class QuestionController extends Controller
 
     public function storeExamQuestion(Request $request, Exam $exam)
     {
-        if (! $request->user()?->hasPermission('questions.manage')) {
+        if (! $this->canManageExamQuestions($request, $exam)) {
             return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
         }
 
@@ -201,7 +203,7 @@ class QuestionController extends Controller
 
     public function updateExamQuestion(Request $request, Exam $exam, Question $question)
     {
-        if (! $request->user()?->hasPermission('questions.manage')) {
+        if (! $this->canManageExamQuestions($request, $exam)) {
             return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
         }
 
@@ -264,7 +266,7 @@ class QuestionController extends Controller
 
     public function destroyExamQuestion(Exam $exam, Question $question): JsonResponse
     {
-        if (! request()->user()?->hasPermission('questions.manage')) {
+        if (! $this->canManageExamQuestions(request(), $exam)) {
             return response()->json(['message' => 'Forbidden. Insufficient permissions.'], 403);
         }
 
@@ -275,5 +277,28 @@ class QuestionController extends Controller
         $this->questionService->delete($question);
 
         return response()->json(['message' => 'Question deleted successfully']);
+    }
+
+    private function canManageExamQuestions(Request $request, Exam $exam): bool
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasPermission('questions.manage') || $user->hasPermission('exams.view.all')) {
+            return true;
+        }
+
+        if ((int) $exam->teacher_id === (int) $user->id || (int) $exam->controller_id === (int) $user->id) {
+            return true;
+        }
+
+        return ExamRole::query()
+            ->where('exam_id', $exam->id)
+            ->where('user_id', $user->id)
+            ->where('role', ExamRoles::QUESTION_SETTER)
+            ->exists();
     }
 }

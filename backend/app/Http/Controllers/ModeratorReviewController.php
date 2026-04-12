@@ -15,9 +15,12 @@ class ModeratorReviewController extends Controller
     {
         $exam = Exam::with('questions.creator')->findOrFail($id);
         $user = $request->user();
+        $isOwner = (int) $exam->teacher_id === (int) $user->id;
 
-        $canManageReview = $user->hasAnyPermission(['questions.review', 'exams.approve_reject'])
-            && ($exam->controller_id === $user->id || $exam->moderator_id === $user->id || $user->hasPermission('exams.view.all'));
+        $canManageReview = $isOwner || (
+            $user->hasAnyPermission(['questions.review', 'exams.approve_reject'])
+            && ($exam->controller_id === $user->id || $exam->moderator_id === $user->id || $user->hasPermission('exams.view.all'))
+        );
 
         if (! $canManageReview) {
             return response()->json(['message' => 'Unauthorized access.'], 403);
@@ -43,9 +46,12 @@ class ModeratorReviewController extends Controller
 
         $exam = Exam::findOrFail($id);
         $user = $request->user();
+        $isOwner = (int) $exam->teacher_id === (int) $user->id;
 
-        $canApprove = $user->hasPermission('exams.approve_reject')
-            && ($exam->controller_id === $user->id || $exam->moderator_id === $user->id || $user->hasPermission('exams.view.all'));
+        $canApprove = $isOwner || (
+            $user->hasPermission('exams.approve_reject')
+            && ($exam->controller_id === $user->id || $exam->moderator_id === $user->id || $user->hasPermission('exams.view.all'))
+        );
 
         if (! $canApprove) {
             return response()->json(['message' => 'Unauthorized access.'], 403);

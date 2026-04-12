@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Trash2, ExternalLink, Clock, BellOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router';
 import api from '../../api';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -18,6 +19,7 @@ interface Notification {
 }
 
 export default function NotificationDropdown() {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -63,6 +65,21 @@ export default function NotificationDropdown() {
     } catch (err) {
       console.error('Failed to mark as read:', err);
     }
+  };
+
+  const openNotification = async (notif: Notification) => {
+    if (!notif.read_at) {
+      await markAsRead(notif.id);
+    }
+
+    setIsOpen(false);
+
+    if (notif.data.action_url) {
+      navigate(notif.data.action_url);
+      return;
+    }
+
+    navigate('/teacher/notifications');
   };
 
   const markAllAsRead = async () => {
@@ -145,7 +162,7 @@ export default function NotificationDropdown() {
                   {notifications.map((notif) => (
                     <div
                       key={notif.id}
-                      onClick={() => !notif.read_at && markAsRead(notif.id)}
+                      onClick={() => { void openNotification(notif); }}
                       className={`p-4 transition-colors cursor-pointer group ${notif.read_at ? 'opacity-60 grayscale-[0.5]' : 'bg-emerald-500/[0.02] hover:bg-emerald-500/[0.05]'}`}
                     >
                       <div className="flex gap-3">
@@ -163,13 +180,17 @@ export default function NotificationDropdown() {
                             {notif.data.message}
                           </p>
                           {notif.data.action_url && (
-                            <a
-                              href={notif.data.action_url}
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void openNotification(notif);
+                              }}
                               className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-500 hover:text-emerald-400"
                             >
                               View Details
                               <ExternalLink className="w-3 h-3" />
-                            </a>
+                            </button>
                           )}
                         </div>
                       </div>

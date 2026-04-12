@@ -7,6 +7,19 @@ use Illuminate\Http\Request;
 
 class ExamWorkflowController extends Controller
 {
+    private function isExamOwnerOrAdmin(Request $request, Exam $exam): bool
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        return (int) $exam->teacher_id === (int) $user->id
+            || (int) $exam->controller_id === (int) $user->id
+            || $user->hasPermission('exams.view.all');
+    }
+
     public function moderator(Exam $exam)
     {
         return response()->json([
@@ -45,11 +58,13 @@ class ExamWorkflowController extends Controller
 
     public function updateSettings(Request $request, Exam $exam)
     {
-        if ((int) $exam->controller_id !== (int) $request->user()->id && ! $request->user()->hasPermission('exams.view.all')) {
-            return response()->json(['message' => 'Only the controller can update exam settings.'], 403);
+        $isOwner = (int) $exam->teacher_id === (int) $request->user()->id;
+
+        if (! $this->isExamOwnerOrAdmin($request, $exam)) {
+            return response()->json(['message' => 'Only the exam owner/controller can update exam settings.'], 403);
         }
 
-        if (! $request->user()->hasPermission('exams.settings.manage')) {
+        if (! $isOwner && ! $request->user()->hasPermission('exams.settings.manage')) {
             return response()->json(['message' => 'Forbidden. Missing exam settings permission.'], 403);
         }
 
@@ -80,11 +95,13 @@ class ExamWorkflowController extends Controller
 
     public function activate(Request $request, Exam $exam)
     {
-        if ((int) $exam->controller_id !== (int) $request->user()->id && ! $request->user()->hasPermission('exams.view.all')) {
-            return response()->json(['message' => 'Only the controller can activate this exam.'], 403);
+        $isOwner = (int) $exam->teacher_id === (int) $request->user()->id;
+
+        if (! $this->isExamOwnerOrAdmin($request, $exam)) {
+            return response()->json(['message' => 'Only the exam owner/controller can activate this exam.'], 403);
         }
 
-        if (! $request->user()->hasPermission('exams.publish')) {
+        if (! $isOwner && ! $request->user()->hasPermission('exams.publish')) {
             return response()->json(['message' => 'Forbidden. Missing publish permission.'], 403);
         }
 
@@ -118,7 +135,9 @@ class ExamWorkflowController extends Controller
 
     public function review(Request $request, Exam $exam)
     {
-        if (! $request->user()->hasAnyPermission(['questions.review', 'exams.approve_reject'])) {
+        $isOwner = (int) $exam->teacher_id === (int) $request->user()->id;
+
+        if (! $isOwner && ! $request->user()->hasAnyPermission(['questions.review', 'exams.approve_reject'])) {
             return response()->json(['message' => 'Forbidden. Missing review permission.'], 403);
         }
 
@@ -154,7 +173,9 @@ class ExamWorkflowController extends Controller
 
     public function approve(Request $request, Exam $exam)
     {
-        if (! $request->user()->hasPermission('exams.approve_reject')) {
+        $isOwner = (int) $exam->teacher_id === (int) $request->user()->id;
+
+        if (! $isOwner && ! $request->user()->hasPermission('exams.approve_reject')) {
             return response()->json(['message' => 'Forbidden. Missing approve permission.'], 403);
         }
 

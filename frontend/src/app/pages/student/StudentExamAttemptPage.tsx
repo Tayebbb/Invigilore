@@ -7,9 +7,8 @@ import { getServerNow, syncWithServer } from '../../utils/timeSync';
 
 type SubmissionResultSummary = {
   examName?: string;
-  score: number;
-  totalMarks: number;
-  percentage?: number;
+  isPublished?: boolean;
+  resultsAvailableAt?: string;
 };
 
 function formatTimer(seconds: number) {
@@ -118,9 +117,11 @@ export default function StudentExamAttemptPage() {
     
     setSavingStatus(prev => ({ ...prev, [questionId]: 'saving' }));
     try {
+      const normalized = value ?? '';
       await api.post(`/student/attempts/${attempt.attemptId}/answers`, {
         question_id: questionId,
-        selected_answer: value
+        selected_answer: normalized,
+        selected_option: normalized,
       });
       setSavingStatus(prev => ({ ...prev, [questionId]: 'saved' }));
     } catch (err) {
@@ -129,10 +130,27 @@ export default function StudentExamAttemptPage() {
     }
   };
 
+  const flushAnswersBeforeSubmit = async () => {
+    if (!attempt) return;
+
+    const pending = attempt.questions
+      .map((question) => ({
+        questionId: question.id,
+        value: answers[question.id] ?? '',
+      }))
+      .filter((entry) => entry.value.trim().length > 0);
+
+    if (pending.length === 0) return;
+
+    await Promise.all(pending.map((entry) => saveAnswerToServer(entry.questionId, entry.value)));
+  };
+
   const handleAutoSubmit = async () => {
     if (!attempt) return;
     setSubmitting(true);
     try {
+      await flushAnswersBeforeSubmit();
+
       const payload = {
         exam_id: attempt.examId,
         idempotency_key: submissionKeyRef.current,
@@ -146,9 +164,8 @@ export default function StudentExamAttemptPage() {
       const data = response?.data?.data ?? {};
       setSubmissionSummary({
         examName: data?.exam?.title ?? attempt.examName,
-        score: Number(data?.score ?? 0),
-        totalMarks: Number(data?.total_marks ?? 0),
-        percentage: Number(data?.percentage ?? 0),
+        isPublished: Boolean(data?.is_published ?? false),
+        resultsAvailableAt: data?.results_available_at ?? data?.resultsAvailableAt,
       });
       setShowSubmitSuccess(true);
     } catch {
@@ -204,15 +221,16 @@ export default function StudentExamAttemptPage() {
     setError('');
 
     try {
+      await flushAnswersBeforeSubmit();
+
       const response = await api.post(`/student/attempts/${attempt.attemptId}/submit`, {
         idempotency_key: submissionKeyRef.current,
       });
       const data = response?.data?.data ?? response?.data ?? {};
       setSubmissionSummary({
         examName: data?.exam?.title ?? attempt.examName,
-        score: Number(data?.summary?.score ?? data?.score ?? 0),
-        totalMarks: Number(data?.summary?.totalMarks ?? data?.summary?.total_marks ?? data?.totalMarks ?? 0),
-        percentage: Number(data?.summary?.percentage ?? data?.percentage ?? 0),
+        isPublished: Boolean(data?.summary?.isPublished ?? false),
+        resultsAvailableAt: data?.summary?.resultsAvailableAt,
       });
       setShowSubmitSuccess(true);
     } catch (e: any) {
@@ -238,21 +256,14 @@ export default function StudentExamAttemptPage() {
               : 'Thank you for completing your exam. Your responses have been recorded.'}
           </p>
           {submissionSummary && (
-            <div className="mb-8 w-full max-w-sm rounded-2xl border border-gray-800 bg-gray-900/50 p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm text-gray-400">Score</span>
-                <span className="text-xl font-bold text-emerald-400">
-                  {submissionSummary.score} / {submissionSummary.totalMarks}
-                </span>
+            <div className="mb-8 w-full max-w-xl rounded-2xl border border-gray-800 bg-gray-900/50 p-6 shadow-xl">
+              <div className="text-center text-sm text-gray-300">
+                Final marks are hidden until the exam window closes.
               </div>
-              <div className="w-full h-2 bg-gray-800 rounded-full mb-2">
-                <div 
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-1000" 
-                  style={{ width: `${submissionSummary.percentage}%` }} 
-                />
-              </div>
-              <div className="text-center text-xs text-gray-500">
-                Percentage: {submissionSummary.percentage?.toFixed(1)}%
+              <div className="mt-3 text-center text-xs text-gray-500">
+                {submissionSummary.resultsAvailableAt
+                  ? `Results will be available after ${new Date(submissionSummary.resultsAvailableAt).toLocaleString()}.`
+                  : 'Results will appear on the Published Results page once released by the system.'}
               </div>
             </div>
           )}

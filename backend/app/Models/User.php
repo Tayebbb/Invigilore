@@ -88,6 +88,11 @@ class User extends Authenticatable implements JWTSubject
 
         $this->loadMissing('role.permissions');
 
+        // Admin acts as a superuser for permission-gated routes.
+        if (strtolower((string) ($this->role?->name ?? '')) === 'admin') {
+            return true;
+        }
+
         $available = $this->role?->permissions
             ?->pluck('name')
             ->map(static fn (mixed $name) => (string) $name)

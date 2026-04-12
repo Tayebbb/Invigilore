@@ -200,11 +200,14 @@ class ExamController extends Controller
     public function update(Request $request, Exam $exam)
     {
         $actor = $request->user();
+        $isOwner = $actor && (int) $exam->teacher_id === (int) $actor->id;
 
         if (! $actor || ! $actor->hasAnyPermission(['exams.create', 'exams.approve_reject', 'exams.publish', 'exams.settings.manage'])) {
-            return response()->json([
-                'message' => 'Forbidden. You do not have permission to update this exam.',
-            ], 403);
+            if (! $isOwner) {
+                return response()->json([
+                    'message' => 'Forbidden. You do not have permission to update this exam.',
+                ], 403);
+            }
         }
 
         $validator = Validator::make($request->all(), [
@@ -227,7 +230,7 @@ class ExamController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $isControllerOrAdmin = $actor && ($actor->hasPermission('exams.view.all') || $exam->controller_id === $actor->id);
+        $isControllerOrAdmin = $actor && ($actor->hasPermission('exams.view.all') || $exam->controller_id === $actor->id || $isOwner);
 
         if (!$isControllerOrAdmin) {
             $isOtherRoleOnExam = $actor && (
@@ -249,7 +252,7 @@ class ExamController extends Controller
             $data = $validator->validated();
         }
 
-        if ((array_key_exists('exam_status', $data) || array_key_exists('status', $data)) && ! $actor->hasPermission('exams.publish')) {
+        if ((array_key_exists('exam_status', $data) || array_key_exists('status', $data)) && ! $isOwner && ! $actor->hasPermission('exams.publish')) {
             return response()->json([
                 'message' => 'Forbidden. You do not have permission to publish exams.',
             ], 403);
@@ -268,7 +271,7 @@ class ExamController extends Controller
             array_key_exists('moderator_email', $data) ||
             array_key_exists('invigilator_email', $data);
 
-        if ($isUpdatingAssignments && ! $actor->hasAnyPermission(['exams.manage.access', 'roles.assign'])) {
+        if ($isUpdatingAssignments && ! $isOwner && ! $actor->hasAnyPermission(['exams.manage.access', 'roles.assign'])) {
             return response()->json([
                 'message' => 'Forbidden. You do not have permission to update exam role assignments.',
             ], 403);

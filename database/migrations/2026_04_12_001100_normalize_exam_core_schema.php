@@ -121,9 +121,13 @@ return new class extends Migration
             ->where('type', '!=', 'descriptive')
             ->update(['type' => 'mcq']);
 
+        if (Schema::hasColumn('questions', 'exam_id')) {
+            $this->dropQuestionExamForeignKeys();
+        }
+
         Schema::table('questions', function (Blueprint $table) {
             if (Schema::hasColumn('questions', 'exam_id')) {
-                $table->foreignId('exam_id')->nullable(false)->change();
+                $table->unsignedBigInteger('exam_id')->nullable()->change();
             }
 
             if (Schema::hasColumn('questions', 'type')) {
@@ -133,6 +137,67 @@ return new class extends Migration
             $table->index(['exam_id', 'type'], 'questions_exam_type_idx');
             $table->index('marks', 'questions_marks_idx');
         });
+
+        if (Schema::hasTable('exams') && Schema::hasColumn('questions', 'exam_id')) {
+            Schema::table('questions', function (Blueprint $table) {
+                $table->foreign('exam_id', 'questions_exam_id_foreign')
+                    ->references('id')
+                    ->on('exams')
+                    ->cascadeOnDelete();
+            });
+        }
+    }
+
+    private function dropQuestionExamForeignKeys(): void
+    {
+        $driver = DB::connection()->getDriverName();
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            foreach (['questions_exam_id_foreign', 'questions_ibfk_1'] as $candidate) {
+                try {
+                    $escaped = str_replace('`', '``', $candidate);
+                    DB::statement("ALTER TABLE `questions` DROP FOREIGN KEY `{$escaped}`");
+                } catch (\Throwable) {
+                    // Ignore when candidate key does not exist.
+                }
+            }
+
+            $constraints = DB::select(
+                "SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = DATABASE() AND table_name = 'questions' AND column_name = 'exam_id' AND referenced_table_name IS NOT NULL"
+            );
+
+            foreach ($constraints as $constraint) {
+                $name = (string) ($constraint->constraint_name ?? '');
+                if ($name === '') {
+                    continue;
+                }
+
+                try {
+                    $escaped = str_replace('`', '``', $name);
+                    DB::statement("ALTER TABLE `questions` DROP FOREIGN KEY `{$escaped}`");
+                } catch (\Throwable) {
+                    // Ignore and continue dropping remaining keys.
+                }
+            }
+        }
+
+        try {
+            Schema::table('questions', function (Blueprint $table) {
+                $table->dropForeign(['exam_id']);
+            });
+        } catch (\Throwable) {
+            // Foreign key may already be absent or use a non-standard name.
+        }
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $remaining = DB::select(
+                "SELECT constraint_name FROM information_schema.key_column_usage WHERE table_schema = DATABASE() AND table_name = 'questions' AND column_name = 'exam_id' AND referenced_table_name IS NOT NULL"
+            );
+
+            if (! empty($remaining)) {
+                throw new \RuntimeException('Unable to drop existing foreign key(s) on questions.exam_id before NOT NULL migration.');
+            }
+        }
     }
 
     private function normalizeAttempts(): void
@@ -167,8 +232,13 @@ return new class extends Migration
         }
 
         Schema::table('attempt_answers', function (Blueprint $table) {
+            if (! Schema::hasColumn('attempt_answers', 'selected_answer')) {
+                $table->string('selected_answer')->nullable()->after('question_id');
+            }
+
             if (! Schema::hasColumn('attempt_answers', 'selected_option')) {
-                $table->string('selected_option')->nullable()->after('question_id');
+                $afterColumn = Schema::hasColumn('attempt_answers', 'selected_answer') ? 'selected_answer' : 'question_id';
+                $table->string('selected_option')->nullable()->after($afterColumn);
             }
 
             if (! Schema::hasColumn('attempt_answers', 'answer_text')) {
@@ -176,14 +246,14 @@ return new class extends Migration
             }
         });
 
-        if (Schema::hasColumn('attempt_answers', 'selected_answer')) {
+        if (Schema::hasColumn('attempt_answers', 'selected_answer') && Schema::hasColumn('attempt_answers', 'selected_option')) {
             DB::table('attempt_answers')->whereNull('selected_option')->update([
                 'selected_option' => DB::raw('selected_answer'),
             ]);
 
-            Schema::table('attempt_answers', function (Blueprint $table) {
-                $table->dropColumn('selected_answer');
-            });
+            DB::table('attempt_answers')->whereNull('selected_answer')->update([
+                'selected_answer' => DB::raw('selected_option'),
+            ]);
         }
 
         Schema::table('attempt_answers', function (Blueprint $table) {

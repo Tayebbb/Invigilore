@@ -9,13 +9,17 @@ use App\Models\Exam;
 use App\Models\ExamAccess;
 use App\Models\ExamAccessUser;
 use App\Models\ExamAttempt;
+use App\Models\Question;
+use App\Models\Result;
 use App\Models\Submission;
+use App\Models\User;
 use App\Services\AiService;
 use App\Services\AuditTrailService;
 use App\Services\IncidentService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -31,7 +35,7 @@ class StudentExamController extends Controller
             ->where(function ($query) use ($studentEmail) {
                 $query->whereDoesntHave('accessUsers')
                     ->orWhereHas('accessUsers', function ($userQuery) use ($studentEmail) {
-                        $userQuery->whereRaw('LOWER(email) = ?', [$studentEmail]);
+                        $userQuery->whereRaw('LOWER(TRIM(email)) = ?', [$studentEmail]);
                     });
             })
             ->orderBy('start_time')
@@ -61,9 +65,9 @@ class StudentExamController extends Controller
             'success' => true,
             'message' => 'Student exams fetched successfully',
             'data' => [
-                'upcoming' => $exams->where('status', 'upcoming')->values(),
-                'ongoing' => $exams->where('status', 'ongoing')->values(),
-                'completed' => $exams->where('status', 'completed')->values(),
+                'upcoming' => $exams->where('status', 'Scheduled')->values(),
+                'ongoing' => $exams->filter(fn (array $exam) => in_array($exam['status'] ?? '', ['Active', 'In Progress'], true))->values(),
+                'completed' => $exams->where('status', 'Completed')->values(),
             ],
         ]);
     }
@@ -262,13 +266,6 @@ class StudentExamController extends Controller
         }
 
         $selectedOption = trim((string) ($request->input('selected_option') ?? $request->input('selected_answer') ?? ''));
-        if ($selectedOption === '') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => ['selected_option' => ['The selected option field is required.']],
-            ], 400);
-        }
 
         if ($attempt->status !== 'in_progress') {
             return response()->json(['success' => false, 'message' => 'Attempt already finalized'], 409);
@@ -287,12 +284,28 @@ class StudentExamController extends Controller
             return response()->json(['success' => false, 'message' => 'Question does not belong to this exam'], 400);
         }
 
+        if ($selectedOption === '') {
+            AttemptAnswer::query()
+                ->where('attempt_id', $attempt->id)
+                ->where('question_id', $request->integer('question_id'))
+                ->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Answer cleared',
+                'data' => [
+                    'remainingSeconds' => $this->remainingSeconds($attempt->fresh()),
+                ],
+            ]);
+        }
+
         $answer = AttemptAnswer::updateOrCreate(
             [
                 'attempt_id' => $attempt->id,
                 'question_id' => $request->integer('question_id'),
             ],
             [
+                'selected_answer' => $selectedOption,
                 'selected_option' => $selectedOption,
                 'answer_text' => $selectedOption,
             ]
@@ -397,6 +410,8 @@ class StudentExamController extends Controller
 
     public function results(Request $request): JsonResponse
     {
+        $now = now();
+
         $results = Result::query()
             ->with(['attempt.exam.subject'])
             ->whereHas('attempt', function ($query) use ($request) {
@@ -404,10 +419,14 @@ class StudentExamController extends Controller
             })
             ->latest('published_at')
             ->get()
-            ->map(function (Result $result) {
+            ->map(function (Result $result) use ($now) {
                 $attempt = $result->attempt;
                 $exam = $attempt?->exam;
                 $percentage = 0.0;
+
+                // Exam end time is the authoritative release gate so schedule edits take effect immediately.
+                $releaseAt = $exam?->end_time ?? $result->published_at;
+                $isPublished = ! $releaseAt || $releaseAt->lessThanOrEqualTo($now);
 
                 if ($result->total_marks > 0) {
                     $percentage = round(((float) $result->score / (float) $result->total_marks) * 100, 2);
@@ -418,10 +437,11 @@ class StudentExamController extends Controller
                     'examId' => $exam?->id,
                     'examName' => $exam?->title,
                     'courseName' => $exam?->subject?->name,
-                    'score' => (int) $result->score,
+                    'score' => $isPublished ? (float) $result->score : null,
                     'totalMarks' => (int) $result->total_marks,
-                    'grade' => $result->grade ?? $this->gradeFromPercentage($percentage),
-                    'publishedAt' => $result->published_at?->toISOString() ?? $result->updated_at?->toISOString() ?? now()->toISOString(),
+                    'grade' => $isPublished ? ($result->grade ?? $this->gradeFromPercentage($percentage)) : null,
+                    'isPublished' => $isPublished,
+                    'publishedAt' => $releaseAt?->toISOString() ?? $result->updated_at?->toISOString() ?? now()->toISOString(),
                     'submittedAt' => $attempt?->submitted_at?->toISOString() ?? $attempt?->end_time?->toISOString() ?? $result->published_at?->toISOString() ?? now()->toISOString(),
                     'feedback' => $result->feedback,
                 ];
@@ -477,7 +497,7 @@ class StudentExamController extends Controller
         foreach ($attempt->exam->questions as $question) {
             $savedAnswer = $answersByQuestion->get($question->id);
 
-            if ($savedAnswer && (string) $savedAnswer->selected_answer === (string) $question->correct_answer) {
+            if ($savedAnswer && $this->isObjectiveAnswerCorrect($question, $savedAnswer->selected_answer ?? $savedAnswer->selected_option)) {
                 $obtainedMarks += (int) $question->marks;
             }
         }
@@ -498,7 +518,7 @@ class StudentExamController extends Controller
                 'questionText' => $question->question_text,
                 'options' => $question->options,
                 'marks' => $question->marks,
-                'selectedAnswer' => $savedAnswer?->selected_answer,
+                'selectedAnswer' => $savedAnswer?->selected_answer ?? $savedAnswer?->selected_option,
             ];
         })->values();
 
@@ -544,7 +564,7 @@ class StudentExamController extends Controller
 
         return ExamAccessUser::query()
             ->where('exam_id', $exam->id)
-            ->whereRaw('LOWER(email) = ?', [$studentEmail])
+            ->whereRaw('LOWER(TRIM(email)) = ?', [$studentEmail])
             ->exists();
     }
 
@@ -636,7 +656,7 @@ class StudentExamController extends Controller
                 if ($type === 'descriptive' || $type === 'short_answer') {
                     $eval = $ai->evaluateAnswer(
                         $question->question_text,
-                        $answer->selected_answer,
+                        $answer->selected_answer ?? $answer->selected_option,
                         $question->correct_answer,
                         (int) $question->marks
                     );
@@ -658,7 +678,7 @@ class StudentExamController extends Controller
                     continue;
                 }
 
-                $isCorrect = (string) $answer->selected_answer === (string) $question->correct_answer;
+                $isCorrect = $this->isObjectiveAnswerCorrect($question, $answer->selected_answer ?? $answer->selected_option);
                 $awarded = $isCorrect ? (float) $question->marks : 0.0;
 
                 $answer->update([
@@ -680,36 +700,49 @@ class StudentExamController extends Controller
                 'submitted_at' => $submittedAt,
             ]);
 
+            $releaseAt = $attempt->exam->end_time
+                ? Carbon::parse($attempt->exam->end_time)
+                : $submittedAt;
+            $isPublished = $releaseAt->lessThanOrEqualTo($submittedAt);
+
             $result = Result::firstOrNew(['attempt_id' => $attempt->id]);
             $result->score = $score;
             $result->total_marks = (int) $questions->sum('marks');
             $result->evaluated_at = $submittedAt;
             $result->grade = $this->gradeFromScore($score, (int) $questions->sum('marks'));
-            $result->published_at = $result->published_at ?? $submittedAt;
+            $result->published_at = $releaseAt;
             $result->save();
 
             // Notify Student
             $totalMarks = $result->total_marks;
             if ($attempt->user) {
+                $notificationMessage = $isPublished
+                    ? "Your exam has been graded. You scored {$score} out of {$totalMarks}."
+                    : 'Your exam has been evaluated. Marks will be visible after the exam window closes.';
+
                 $attempt->user->notify(new ExamNotification(
                     'Exam Graded: ' . $attempt->exam->title,
-                    "Your exam has been graded. You scored {$score} out of {$totalMarks}.",
+                    $notificationMessage,
                     'success',
                     '/student/attempts/' . $attempt->id
                 ));
             }
 
+            $this->notifyExamStaffOfSubmission($attempt, $status, $submittedAt);
+
             return [
-                'score' => $score,
+                'score' => $isPublished ? $score : null,
                 'totalMarks' => (int) $questions->sum('marks'),
                 'correctAnswers' => $correctCount,
                 'answeredQuestions' => $attempt->answers()->count(),
                 'totalQuestions' => $questions->count(),
+                'isPublished' => $isPublished,
+                'resultsAvailableAt' => $releaseAt->toISOString(),
             ];
         });
     }
 
-    private function gradeFromScore(int $score, int $total): string
+    private function gradeFromScore(float $score, int $total): string
     {
         if ($total <= 0) {
             return 'N/A';
@@ -725,6 +758,159 @@ class StudentExamController extends Controller
             $percent >= 50 => 'D',
             default => 'F',
         };
+    }
+
+    private function isObjectiveAnswerCorrect(Question $question, ?string $selectedAnswer): bool
+    {
+        $selectedTokens = $this->tokenizeAnswer($selectedAnswer);
+        $correctTokens = $this->tokenizeAnswer($question->correct_answer);
+
+        if ($selectedTokens === [] || $correctTokens === []) {
+            return false;
+        }
+
+        $optionMap = $this->normalizedOptionMap(is_array($question->options) ? $question->options : null);
+
+        $selectedResolved = array_map(fn (string $token) => $this->resolveTokenToCanonicalKey($token, $optionMap), $selectedTokens);
+        $correctResolved = array_map(fn (string $token) => $this->resolveTokenToCanonicalKey($token, $optionMap), $correctTokens);
+
+        sort($selectedResolved);
+        sort($correctResolved);
+
+        return $selectedResolved === $correctResolved;
+    }
+
+    private function normalizeAnswer(?string $value): string
+    {
+        $normalized = strtolower(trim((string) $value));
+
+        return preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
+    }
+
+    private function tokenizeAnswer(?string $value): array
+    {
+        $normalized = $this->normalizeAnswer($value);
+
+        if ($normalized === '') {
+            return [];
+        }
+
+        $parts = preg_split('/\s*[,;|]\s*/', $normalized) ?: [];
+        $tokens = array_values(array_filter(array_map(fn (string $part) => $this->normalizeAnswer($part), $parts), fn (string $part) => $part !== ''));
+
+        return $tokens === [] ? [$normalized] : $tokens;
+    }
+
+    private function normalizedOptionMap(?array $options): array
+    {
+        if (! is_array($options)) {
+            return [];
+        }
+
+        $map = [];
+        $letterIndex = 0;
+
+        foreach ($options as $rawKey => $rawValue) {
+            if (! is_scalar($rawValue)) {
+                continue;
+            }
+
+            $value = $this->normalizeAnswer((string) $rawValue);
+            if ($value === '') {
+                continue;
+            }
+
+            $key = is_int($rawKey) || ctype_digit((string) $rawKey)
+                ? strtolower(chr(65 + $letterIndex))
+                : $this->normalizeAnswer((string) $rawKey);
+
+            $map[$key] = $value;
+            $letterIndex++;
+        }
+
+        return $map;
+    }
+
+    private function resolveTokenToCanonicalKey(string $token, array $optionMap): string
+    {
+        if (array_key_exists($token, $optionMap)) {
+            return $token;
+        }
+
+        foreach ($optionMap as $key => $value) {
+            if ($value === $token) {
+                return $key;
+            }
+        }
+
+        return $token;
+    }
+
+    private function notifyExamStaffOfSubmission(ExamAttempt $attempt, string $status, Carbon $submittedAt): void
+    {
+        try {
+            $exam = $attempt->exam;
+            if (! $exam) {
+                return;
+            }
+
+            $recipientIds = array_values(array_unique(array_filter([
+                $exam->teacher_id,
+                $exam->controller_id,
+                $exam->question_setter_id,
+                $exam->moderator_id,
+                $exam->invigilator_id,
+            ], fn ($id) => ! is_null($id) && (int) $id > 0)));
+
+            $recipientIds = array_values(array_filter(
+                $recipientIds,
+                fn (int $id) => $id !== (int) $attempt->user_id
+            ));
+
+            if ($recipientIds === []) {
+                return;
+            }
+
+            $eventKey = 'exam_submission_' . $attempt->id;
+
+            $alreadyNotifiedIds = DatabaseNotification::query()
+                ->where('type', ExamNotification::class)
+                ->where('notifiable_type', User::class)
+                ->whereIn('notifiable_id', $recipientIds)
+                ->where('data->event_key', $eventKey)
+                ->pluck('notifiable_id')
+                ->map(fn ($value) => (int) $value)
+                ->all();
+
+            $pendingRecipientIds = array_values(array_diff($recipientIds, $alreadyNotifiedIds));
+
+            if ($pendingRecipientIds === []) {
+                return;
+            }
+
+            $studentName = trim((string) ($attempt->user?->name ?? 'A student'));
+            $statusLabel = $status === 'timeout' ? 'was auto-submitted (time expired)' : 'submitted';
+            $message = sprintf(
+                '%s %s the exam "%s" at %s.',
+                $studentName,
+                $statusLabel,
+                (string) $exam->title,
+                $submittedAt->format('Y-m-d H:i')
+            );
+
+            $recipients = User::query()->whereIn('id', $pendingRecipientIds)->get();
+
+            Notification::send($recipients, new ExamNotification(
+                'Exam Submission Received',
+                $message,
+                'info',
+                '/teacher/results',
+                $eventKey,
+                (int) $exam->id
+            ));
+        } catch (\Throwable) {
+            // Notifications should never block submission flow.
+        }
     }
 
     private function durationTakenMinutes(ExamAttempt $attempt): ?int

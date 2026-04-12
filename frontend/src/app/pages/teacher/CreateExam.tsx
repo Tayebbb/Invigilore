@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router';
 import { motion } from 'motion/react';
 import {
@@ -33,12 +33,12 @@ import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import useCurrentUser from '../../hooks/useCurrentUser';
 import { hasAnyPermission, normalizePermissionList } from '../../utils/permissions';
 
-const NAV_ITEMS: SidebarNavItem[] = [
+const BASE_NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'Question Bank', icon: FileText },
   { label: 'Create Exam', icon: Plus },
   { label: 'Student Results', icon: SlidersHorizontal },
-  { label: 'Notifications', icon: CircleHelp, badge: '2' },
+  { label: 'Notifications', icon: CircleHelp },
 ];
 
 const STEPS = [
@@ -93,6 +93,7 @@ const LANGUAGES = ['English', 'French', 'Spanish'];
 
 type ExamContext = {
   id: number;
+  teacher_id?: number | null;
   controller_id?: number | null;
   title?: string;
   description?: string | null;
@@ -213,6 +214,8 @@ export default function CreateExam() {
   const [language, setLanguage] = useState('English');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const startTimeInputRef = useRef<HTMLInputElement | null>(null);
+  const endTimeInputRef = useRef<HTMLInputElement | null>(null);
 
   const [questionSetterEmail, setQuestionSetterEmail] = useState('');
   const [moderatorEmail, setModeratorEmail] = useState('');
@@ -259,6 +262,45 @@ export default function CreateExam() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiQuestionCount, setAiQuestionCount] = useState(5);
   const [aiDifficulty, setAiDifficulty] = useState('medium');
+  const [teacherUnreadNotifications, setTeacherUnreadNotifications] = useState(0);
+
+  const navItems = useMemo(() => {
+    const badge = teacherUnreadNotifications > 0 ? String(Math.min(99, teacherUnreadNotifications)) : undefined;
+
+    return BASE_NAV_ITEMS.map((item) => {
+      if (item.label !== 'Notifications') {
+        return item;
+      }
+
+      return {
+        ...item,
+        badge,
+      };
+    });
+  }, [teacherUnreadNotifications]);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchUnreadNotifications = async () => {
+      try {
+        const response = await api.get('/notifications');
+        if (! active) return;
+        setTeacherUnreadNotifications(Number(response.data?.unread_count ?? 0));
+      } catch {
+        if (! active) return;
+        setTeacherUnreadNotifications(0);
+      }
+    };
+
+    fetchUnreadNotifications();
+    const timer = window.setInterval(fetchUnreadNotifications, 60000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   async function handleAiGenerate() {
     if (!targetExamId) {
@@ -327,7 +369,10 @@ export default function CreateExam() {
 
   const isTeacherOnCurrentExam =
     !!examContext &&
-    normalizeText(examContext.teacher?.email) === normalizedCurrentUserEmail;
+    (
+      normalizeText(examContext.teacher?.email) === normalizedCurrentUserEmail
+      || (Number.isFinite(currentUserId) && examContext.teacher_id === currentUserId)
+    );
 
   const isInvigilatorOnCurrentExam =
     !!examContext &&
@@ -340,13 +385,13 @@ export default function CreateExam() {
   const isGlobalAdminOrController = hasAnyPermission(currentPermissions, ['exams.view.all', 'exams.settings.manage']);
 
   // Read access (can see the tab in sidebar and navigate to it):
-  const canAccessQuestionsManager = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
-  const canAccessModeratorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
-  const canAccessInvigilatorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
-  const canAccessControllerOnly = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam));
+  const canAccessQuestionsManager = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam || isTeacherOnCurrentExam));
+  const canAccessModeratorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam || isTeacherOnCurrentExam));
+  const canAccessInvigilatorPanel = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam || isTeacherOnCurrentExam));
+  const canAccessControllerOnly = isPrivileged || (!!examId && (isAssignedQuestionSetterOnCurrentExam || isControllerOnCurrentExam || isModeratorOnCurrentExam || isInvigilatorOnCurrentExam || isTeacherOnCurrentExam));
 
   // Edit access (can make changes):
-  const canEditControllerOnly = isGlobalAdminOrController || (!examId && canCreateExam) || (!!examId && isControllerOnCurrentExam);
+  const canEditControllerOnly = isGlobalAdminOrController || (!examId && canCreateExam) || (!!examId && (isControllerOnCurrentExam || isTeacherOnCurrentExam));
   const canEditQuestionsManager = canEditControllerOnly || (!!examId && isAssignedQuestionSetterOnCurrentExam);
   const canEditModeratorPanel = canEditControllerOnly || (!!examId && isModeratorOnCurrentExam);
   const canEditInvigilatorPanel = canEditControllerOnly || (!!examId && isInvigilatorOnCurrentExam);
@@ -354,7 +399,8 @@ export default function CreateExam() {
 
   const activeExamContext = examContext ?? setterExams[0] ?? null;
   const targetExamId = activeExamContext?.id ?? ((examId && !Number.isNaN(examId)) ? examId : null);
-  const canActivateExam = hasAnyPermission(currentPermissions, ['exams.publish']) && (canEditControllerOnly || (!!examId && isModeratorOnCurrentExam && activeExamContext?.exam_status === 'completed'));
+  const canActivateExam = (isTeacherOnCurrentExam || hasAnyPermission(currentPermissions, ['exams.publish']))
+    && (canEditControllerOnly || (!!examId && isModeratorOnCurrentExam && activeExamContext?.exam_status === 'completed'));
 
   async function refreshExamQuestions(examIdToLoad: number) {
     setLoadingQuestions(true);
@@ -403,6 +449,7 @@ export default function CreateExam() {
           invigilator: exam.invigilator ?? null,
           teacher: exam.teacher ?? null,
           controller: exam.controller ?? null,
+          teacher_id: exam.teacher_id ?? null,
           controller_id: exam.controller_id ?? null,
           exam_status: exam.exam_status ?? 'draft',
         };
@@ -556,6 +603,10 @@ export default function CreateExam() {
       navigate('/teacher/results');
       return;
     }
+    if (label === 'Notifications') {
+      navigate('/teacher/notifications');
+      return;
+    }
   }
 
   function handleStepSelect(step: StepKey) {
@@ -579,6 +630,11 @@ export default function CreateExam() {
     setError('');
     setSuccess('');
     setActiveStep(step);
+  }
+
+  function openNativeDateTimePicker(input: HTMLInputElement | null) {
+    if (!input) return;
+    (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
   }
 
   function resetQuestionEditor() {
@@ -868,7 +924,7 @@ export default function CreateExam() {
   return (
     <DashboardLayout
       role="Teacher"
-      navItems={NAV_ITEMS}
+      navItems={navItems}
       activeItem="Create Exam"
       onNavChange={handleNavChange}
       user={teacherUser}
@@ -1086,18 +1142,26 @@ export default function CreateExam() {
                   <div>
                     <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">Start time</label>
                     <input
+                      ref={startTimeInputRef}
                       type="datetime-local"
+                      step={60}
                       value={startTime}
                       onChange={(e) => setStartTime(e.target.value)}
+                      onFocus={() => openNativeDateTimePicker(startTimeInputRef.current)}
+                      onClick={() => openNativeDateTimePicker(startTimeInputRef.current)}
                       className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                     />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1.5 uppercase tracking-wide">End time</label>
                     <input
+                      ref={endTimeInputRef}
                       type="datetime-local"
+                      step={60}
                       value={endTime}
                       onChange={(e) => setEndTime(e.target.value)}
+                      onFocus={() => openNativeDateTimePicker(endTimeInputRef.current)}
+                      onClick={() => openNativeDateTimePicker(endTimeInputRef.current)}
                       className="w-full px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                     />
                   </div>

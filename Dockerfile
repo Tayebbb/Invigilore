@@ -91,6 +91,9 @@ RUN cp -r frontend/dist/* public/
 # # Expose port 80 for Apache
 EXPOSE 80
 
+# Apply database migrations before Apache starts to keep the backend schema current.
+CMD ["sh", "-c", "php artisan migrate --force && apache2-foreground"]
+
 # FROM php:8.2-apache
 # # Start Apache server
 # CMD ["apache2-foreground"]

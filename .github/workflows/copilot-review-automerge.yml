@@ -42,22 +42,41 @@ jobs:
           # Attempt rebase
           git rebase origin/main || true
 
-          # Only resolve actual conflicts
-          CONFLICT_FILES=$(git diff --name-only --diff-filter=U || true)
+          # Resolve conflicts until rebase completes.
+          round=0
+          while [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; do
+            round=$((round + 1))
+            if [ "$round" -gt 50 ]; then
+              echo "❌ Too many rebase resolution rounds. Aborting."
+              exit 1
+            fi
 
-          if [ -z "$CONFLICT_FILES" ]; then
-            echo "✅ No merge conflicts detected — skipping auto-resolve."
-          else
-            echo "⚠️ Conflicts detected. Auto-resolving by keeping PR branch version:"
-            echo "$CONFLICT_FILES"
+            CONFLICT_FILES=$(git diff --name-only --diff-filter=U || true)
 
-            # Resolve conflicts by taking PR branch version
-            echo "$CONFLICT_FILES" | xargs -I{} git checkout --theirs {}
-            echo "$CONFLICT_FILES" | xargs git add
+            if [ -n "$CONFLICT_FILES" ]; then
+              echo "⚠️ Conflicts detected (round $round). Auto-resolving by keeping PR branch version:"
+              echo "$CONFLICT_FILES"
 
-            # Continue rebase with automatic commit message
-            git rebase --continue -m "Auto-resolved merge conflicts"
-          fi
+              # Resolve conflicts by taking PR branch version
+              echo "$CONFLICT_FILES" | xargs -I{} git checkout --ours {}
+              echo "$CONFLICT_FILES" | xargs -I{} git add {}
+            else
+              echo "ℹ️ Rebase paused without file conflicts (round $round)."
+            fi
+
+            if GIT_EDITOR=true git rebase --continue; then
+              continue
+            fi
+
+            CONFLICT_FILES=$(git diff --name-only --diff-filter=U || true)
+            if [ -z "$CONFLICT_FILES" ]; then
+              echo "❌ Rebase continue failed without unresolved conflict files."
+              git status --short
+              exit 1
+            fi
+          done
+
+          echo "✅ Rebase completed."
 
           # Push updated branch
           git push origin "$PR_BRANCH" --force-with-lease
@@ -81,6 +100,10 @@ jobs:
               });
               console.log(`PR #${pr_number} merged successfully.`);
             } catch (err) {
+              if (err.message && err.message.includes('Head branch is out of date')) {
+                core.info('PR head was updated during this run; merge will be retried on the next workflow trigger.');
+                return;
+              }
               core.setFailed(`Merge failed: ${err.message}`);
             }
-
+
