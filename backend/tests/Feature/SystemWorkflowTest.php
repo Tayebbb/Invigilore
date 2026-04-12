@@ -3,10 +3,10 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\Exam;
+use App\Models\Role;
 use App\Models\Subject;
 
 class SystemWorkflowTest extends TestCase
@@ -22,12 +22,43 @@ class SystemWorkflowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Seed database and create users/roles as needed
+
         $this->artisan('db:seed');
-        $this->subject = Subject::first();
-        $adminRoleId = \App\Models\Role::where('name', 'admin')->value('id');
-        $admin = User::where('role_id', $adminRoleId)->first();
-        $this->adminToken = $admin ? $admin->createToken('admin-token')->plainTextToken : null;
+
+        $this->subject = Subject::query()->first() ?? Subject::factory()->create();
+
+        $adminRole = Role::firstOrCreate(['name' => 'admin'], ['description' => 'Administrator role']);
+        $studentRole = Role::firstOrCreate(['name' => 'student'], ['description' => 'Student role']);
+        $setterRole = Role::firstOrCreate(['name' => 'question_setter'], ['description' => 'Question setter role']);
+        $moderatorRole = Role::firstOrCreate(['name' => 'moderator'], ['description' => 'Moderator role']);
+        $invigilatorRole = Role::firstOrCreate(['name' => 'invigilator'], ['description' => 'Invigilator role']);
+
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            ['name' => 'Admin', 'password' => bcrypt('password'), 'role_id' => $adminRole->id]
+        );
+
+        User::firstOrCreate(
+            ['email' => $this->setterEmail],
+            ['name' => 'Setter', 'password' => bcrypt('password'), 'role_id' => $setterRole->id]
+        );
+
+        User::firstOrCreate(
+            ['email' => $this->moderatorEmail],
+            ['name' => 'Moderator', 'password' => bcrypt('password'), 'role_id' => $moderatorRole->id]
+        );
+
+        User::firstOrCreate(
+            ['email' => $this->invigilatorEmail],
+            ['name' => 'Invigilator', 'password' => bcrypt('password'), 'role_id' => $invigilatorRole->id]
+        );
+
+        User::firstOrCreate(
+            ['email' => 'student@example.com'],
+            ['name' => 'Student', 'password' => bcrypt('password'), 'role_id' => $studentRole->id]
+        );
+
+        $this->adminToken = $admin->createToken('admin-token')->plainTextToken;
     }
 
     public function test_final_output_reporting()
