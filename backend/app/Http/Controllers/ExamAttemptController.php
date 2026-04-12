@@ -46,7 +46,7 @@ class ExamAttemptController extends Controller
         $user = $request->user();
 
         $validator = Validator::make($request->all(), [
-            'exam_id' => 'required|integer|exists:exams,id',
+            'exam_id' => 'required|integer',
         ]);
 
         if ($validator->fails()) {
@@ -119,6 +119,8 @@ class ExamAttemptController extends Controller
             ->get(['id', 'exam_id', 'question_text', 'type', 'options', 'marks']);
 
         return response()->json([
+            'id' => $attempt->id,
+            'exam_id' => $attempt->exam_id,
             'attempt' => [
                 'id' => $attempt->id,
                 'exam_id' => $attempt->exam_id,
@@ -269,6 +271,13 @@ class ExamAttemptController extends Controller
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
+        $this->autoSubmitIfExpired($attempt);
+        $attempt->refresh();
+
+        if ($this->attemptStatus($attempt) === 'timeout') {
+            return response()->json(['message' => 'Time expired. Attempt auto-submitted.'], 403);
+        }
+
         if (! $this->isAttemptInProgress($attempt)) {
             return response()->json([
                 'message' => 'Attempt already finalized',
@@ -293,6 +302,79 @@ class ExamAttemptController extends Controller
             'status' => 'submitted',
             'result' => $summary,
         ]);
+    }
+
+    public function saveAnswerFromPayload(Request $request): JsonResponse
+    {
+        $answerValue = trim((string) ($request->input('answer') ?? $request->input('selected_answer') ?? $request->input('selected_option') ?? ''));
+
+        $validator = Validator::make([
+            'attempt_id' => $request->input('attempt_id'),
+            'question_id' => $request->input('question_id'),
+            'answer' => $answerValue,
+        ], [
+            'attempt_id' => 'required|integer',
+            'question_id' => 'required|integer',
+            'answer' => 'required|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $attempt = ExamAttempt::with('exam')->findOrFail((int) $request->input('attempt_id'));
+
+        if ((int) $attempt->user_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $question = Question::query()->findOrFail((int) $request->input('question_id'));
+
+        $belongsToExam = $attempt->exam
+            ->questions()
+            ->where('id', (int) $question->id)
+            ->exists();
+
+        if (! $belongsToExam) {
+            return response()->json(['message' => 'Question does not belong to this exam'], 422);
+        }
+
+        if (! $this->isAttemptInProgress($attempt)) {
+            return response()->json(['message' => 'Attempt already submitted'], 409);
+        }
+
+        // Legacy table write for compatibility with existing workflow tests.
+        DB::table('answers')->updateOrInsert(
+            [
+                'attempt_id' => $attempt->id,
+                'question_id' => (int) $question->id,
+            ],
+            [
+                'answer' => $answerValue,
+                'updated_at' => now(),
+                'created_at' => now(),
+            ]
+        );
+
+        // Keep normalized answer storage in sync with modern attempt flow.
+        AttemptAnswer::updateOrCreate(
+            [
+                'attempt_id' => $attempt->id,
+                'question_id' => (int) $question->id,
+            ],
+            [
+                'selected_answer' => $answerValue,
+                'selected_option' => $answerValue,
+                'answer_text' => $answerValue,
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Answer saved',
+            'attempt_id' => $attempt->id,
+            'question_id' => (int) $question->id,
+            'answer' => $answerValue,
+        ], 201);
     }
 
     private function autoSubmitIfExpired(ExamAttempt $attempt): void
