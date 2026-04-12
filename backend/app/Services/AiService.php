@@ -32,9 +32,9 @@ class AiService
         $systemPrompt = "You are an expert exam question generator. Generate exactly $count $difficulty questions about the user's topic.
         Return ONLY a JSON array of objects. Each object MUST have these fields:
         - question_text: The full question
-        - type: One of [mcq, true_false, descriptive, short_answer]
-        - options: An object like {\"A\": \"Choice 1\", \"B\": \"Choice 2\"...} (required for mcq, use {\"A\": \"True\", \"B\": \"False\"} for true_false)
-        - correct_answer: The correct key like \"A\" or \"A,B\" for multiple choice, or a string for short_answer. Leave empty for descriptive.
+        - type: One of [mcq, descriptive]
+        - options: For mcq only, an object like {\"A\": \"Choice 1\", \"B\": \"Choice 2\", \"C\": \"Choice 3\", \"D\": \"Choice 4\"}
+        - correct_answer: For mcq, one of [\"A\", \"B\", \"C\", \"D\"]. Leave null for descriptive.
         - marks: A suggested integer mark
         
         Do not include any other text or markdown formatting. Just the raw JSON array.";
