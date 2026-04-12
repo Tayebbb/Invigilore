@@ -689,7 +689,7 @@ class ExamAttemptController extends Controller
 
     private function attemptStartTime(ExamAttempt $attempt)
     {
-        return $attempt->start_time ?? $attempt->started_at;
+        return $attempt->started_at ?? $attempt->start_time;
     }
 
     private function attemptEndTime(ExamAttempt $attempt)

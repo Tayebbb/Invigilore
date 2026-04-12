@@ -14,6 +14,8 @@ class SystemWorkflowTest extends TestCase
     use RefreshDatabase;
 
     protected $adminToken;
+    protected $student;
+    protected $studentToken;
     protected $subject;
     protected $setterEmail = 'setter@example.com';
     protected $moderatorEmail = 'moderator@example.com';
@@ -53,12 +55,13 @@ class SystemWorkflowTest extends TestCase
             ['name' => 'Invigilator', 'password' => bcrypt('password'), 'role_id' => $invigilatorRole->id]
         );
 
-        User::firstOrCreate(
+        $this->student = User::firstOrCreate(
             ['email' => 'student@example.com'],
             ['name' => 'Student', 'password' => bcrypt('password'), 'role_id' => $studentRole->id]
         );
 
         $this->adminToken = $admin->createToken('admin-token')->plainTextToken;
+        $this->studentToken = $this->student->createToken('student-token')->plainTextToken;
     }
 
     public function test_final_output_reporting()
@@ -103,8 +106,8 @@ class SystemWorkflowTest extends TestCase
                             $questionResponse->assertStatus(201);
                             $questionId = $questionResponse->json('id');
 
-                            $student = User::whereHas('role', function($q){ $q->where('name', 'student'); })->first();
-                            $studentToken = $student ? $student->createToken('student-token')->plainTextToken : null;
+                            $student = $this->student;
+                            $studentToken = $this->studentToken;
 
                             // Duplicate attempts
                             $attemptPayload = [ 'exam_id' => $examId ];
@@ -178,8 +181,8 @@ class SystemWorkflowTest extends TestCase
                         $questionResponse->assertStatus(201);
                         $questionId = $questionResponse->json('id');
 
-                        $student = User::whereHas('role', function($q){ $q->where('name', 'student'); })->first();
-                        $studentToken = $student ? $student->createToken('student-token')->plainTextToken : null;
+                        $student = $this->student;
+                        $studentToken = $this->studentToken;
                         $attemptPayload = [ 'exam_id' => $examId ];
                         $attemptResponse = $this->withToken($studentToken)
                             ->postJson('/api/attempts', $attemptPayload);
@@ -246,8 +249,8 @@ class SystemWorkflowTest extends TestCase
                     $examId = $examResponse->json('id') ?? Exam::where('title', 'Timing Security Exam')->value('id');
 
                     // Authenticate as student
-                    $student = User::whereHas('role', function($q){ $q->where('name', 'student'); })->first();
-                    $studentToken = $student ? $student->createToken('student-token')->plainTextToken : null;
+                    $student = $this->student;
+                    $studentToken = $this->studentToken;
 
                     // Start first attempt
                     $attemptPayload = [ 'exam_id' => $examId ];
@@ -272,8 +275,8 @@ class SystemWorkflowTest extends TestCase
             public function test_access_control_enforcement()
             {
                 // Authenticate as student
-                $student = User::whereHas('role', function($q){ $q->where('name', 'student'); })->first();
-                $studentToken = $student ? $student->createToken('student-token')->plainTextToken : null;
+                $student = $this->student;
+                $studentToken = $this->studentToken;
                 // Students cannot create exams
                 $examPayload = [
                     'title' => 'Unauthorized Exam',
@@ -364,8 +367,8 @@ class SystemWorkflowTest extends TestCase
             $questionId = $questionResponse->json('id');
 
             // Authenticate as student
-            $student = User::whereHas('role', function($q){ $q->where('name', 'student'); })->first();
-            $studentToken = $student ? $student->createToken('student-token')->plainTextToken : null;
+            $student = $this->student;
+            $studentToken = $this->studentToken;
 
             // Start exam attempt
             $attemptPayload = [ 'exam_id' => $examId ];
