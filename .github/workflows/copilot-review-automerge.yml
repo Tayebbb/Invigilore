@@ -55,8 +55,8 @@ jobs:
             echo "$CONFLICT_FILES" | xargs -I{} git checkout --ours {}
             echo "$CONFLICT_FILES" | xargs git add
 
-            # Continue rebase with automatic commit message
-            git rebase --continue -m "Auto-resolved merge conflicts"
+            # Continue rebase non-interactively after staging conflict resolutions.
+            GIT_EDITOR=true git rebase --continue
           fi
 
           # Push updated branch
