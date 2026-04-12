@@ -100,6 +100,10 @@ jobs:
               });
               console.log(`PR #${pr_number} merged successfully.`);
             } catch (err) {
+              if (err.message && err.message.includes('Head branch is out of date')) {
+                core.info('PR head was updated during this run; merge will be retried on the next workflow trigger.');
+                return;
+              }
               core.setFailed(`Merge failed: ${err.message}`);
             }
 
