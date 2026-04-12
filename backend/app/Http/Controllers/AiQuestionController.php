@@ -8,6 +8,7 @@ use App\Services\AiService;
 use App\Http\Resources\QuestionAdminResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class AiQuestionController extends Controller
 {
@@ -37,17 +38,36 @@ class AiQuestionController extends Controller
             );
 
             $savedQuestions = [];
+            $difficulty = $request->difficulty ?? 'medium';
 
             foreach ($generated as $qData) {
+                if (! is_array($qData) || empty(trim((string) ($qData['question_text'] ?? '')))) {
+                    continue;
+                }
+
+                $rawType = strtolower((string) ($qData['type'] ?? 'mcq'));
+                $type = in_array($rawType, ['mcq', 'descriptive'], true) ? $rawType : 'mcq';
+
+                $options = null;
+                if ($type === 'mcq') {
+                    $inputOptions = is_array($qData['options'] ?? null) ? $qData['options'] : [];
+                    $options = [
+                        'A' => $inputOptions['A'] ?? ($inputOptions[0] ?? 'Option A'),
+                        'B' => $inputOptions['B'] ?? ($inputOptions[1] ?? 'Option B'),
+                        'C' => $inputOptions['C'] ?? ($inputOptions[2] ?? 'Option C'),
+                        'D' => $inputOptions['D'] ?? ($inputOptions[3] ?? 'Option D'),
+                    ];
+                }
+
                 $question = Question::create([
                     'exam_id' => $exam->id,
                     'created_by' => Auth::id(),
-                    'question_text' => $qData['question_text'],
-                    'type' => $qData['type'] ?? 'mcq',
-                    'options' => $qData['options'] ?? null,
-                    'correct_answer' => $qData['correct_answer'] ?? null,
-                    'marks' => $qData['marks'] ?? 1,
-                    'difficulty' => $request->difficulty ?? 'medium',
+                    'question_text' => trim((string) $qData['question_text']),
+                    'type' => $type,
+                    'options' => $options,
+                    'correct_answer' => $type === 'mcq' ? (string) ($qData['correct_answer'] ?? 'A') : null,
+                    'marks' => max(1, (int) ($qData['marks'] ?? 1)),
+                    'difficulty' => $difficulty,
                     'status' => 'draft',
                 ]);
 
@@ -59,7 +79,7 @@ class AiQuestionController extends Controller
                 'questions' => QuestionAdminResource::collection($savedQuestions)
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Question generation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

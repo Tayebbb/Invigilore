@@ -37,6 +37,8 @@ return [
 
     'openrouter' => [
         'key' => env('OPENROUTER_API_KEY'),
+        'verify_ssl' => env('OPENROUTER_VERIFY_SSL', true),
+        'ca_bundle' => env('OPENROUTER_CA_BUNDLE', env('CURL_CA_BUNDLE')),
     ],
 
 ];
