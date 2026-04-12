@@ -9,13 +9,21 @@ class AiService
 {
     protected string $apiKey;
     protected string $baseUrl = 'https://openrouter.ai/api/v1/chat/completions';
+    protected bool $verifySsl = true;
+    protected ?string $caBundle = null;
 
     public function __construct()
     {
         $this->apiKey = config('services.openrouter.key') ?? env('OPENROUTER_API_KEY', '');
+        $this->verifySsl = filter_var(config('services.openrouter.verify_ssl', true), FILTER_VALIDATE_BOOL);
+        $this->caBundle = config('services.openrouter.ca_bundle');
         
         if (empty($this->apiKey)) {
             Log::warning('AiService: OPENROUTER_API_KEY is not set in .env or config.');
+        }
+
+        if (! $this->verifySsl) {
+            Log::warning('AiService: SSL verification for OpenRouter is disabled. Enable in production.');
         }
     }
 
@@ -40,12 +48,17 @@ class AiService
         Do not include any other text or markdown formatting. Just the raw JSON array.";
 
         try {
-            $response = Http::withHeaders([
+            $httpClient = Http::withOptions($this->httpOptions())
+                ->timeout(45)
+                ->connectTimeout(15)
+                ->withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'HTTP-Referer' => 'https://invigilore.test', // Optional
                 'X-Title' => 'Invigilore',
                 'Content-Type' => 'application/json',
-            ])->post($this->baseUrl, [
+            ]);
+
+            $response = $httpClient->post($this->baseUrl, [
                 'model' => 'google/gemini-2.0-flash-001', // High performance & fast
                 'messages' => [
                     ['role' => 'system', 'content' => $systemPrompt],
@@ -104,10 +117,15 @@ class AiService
         $userContent .= "\nMax Marks: $maxMarks";
 
         try {
-            $response = Http::withHeaders([
+            $httpClient = Http::withOptions($this->httpOptions())
+                ->timeout(45)
+                ->connectTimeout(15)
+                ->withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
-            ])->post($this->baseUrl, [
+            ]);
+
+            $response = $httpClient->post($this->baseUrl, [
                 'model' => 'google/gemini-2.0-flash-001',
                 'messages' => [
                     ['role' => 'system', 'content' => $systemPrompt],
@@ -129,5 +147,18 @@ class AiService
         } catch (\Exception $e) {
             return ['score' => 0, 'feedback' => 'Error during AI evaluation.', 'is_correct' => false];
         }
+    }
+
+    private function httpOptions(): array
+    {
+        $options = [
+            'verify' => $this->verifySsl,
+        ];
+
+        if ($this->verifySsl && is_string($this->caBundle) && trim($this->caBundle) !== '') {
+            $options['verify'] = trim($this->caBundle);
+        }
+
+        return $options;
     }
 }
