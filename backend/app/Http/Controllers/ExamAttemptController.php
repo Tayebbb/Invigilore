@@ -58,12 +58,6 @@ class ExamAttemptController extends Controller
         }
 
         $exam = Exam::findOrFail($request->integer('exam_id'));
-        $isStudent = strtolower((string) ($user?->role?->name ?? '')) === 'student';
-        if ($isStudent && ! $this->hasAssignedExamAccess($exam->id, strtolower((string) $user->email))) {
-            return response()->json([
-                'message' => 'You are not assigned to this exam.',
-            ], 403);
-        }
 
         $hasActiveAttempt = ExamAttempt::query()
             ->where('user_id', $user->id)
@@ -431,7 +425,7 @@ class ExamAttemptController extends Controller
 
             return [
                 'result_id' => $result->id,
-                'score' => $isPublished ? $score : null,
+                'score' => $score,
                 'correct_answers' => $correctCount,
                 'answered_questions' => $answeredCount,
                 'total_questions' => $questions->count(),
