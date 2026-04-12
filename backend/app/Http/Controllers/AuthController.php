@@ -315,7 +315,6 @@ class AuthController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|between:2,100',
-            'profile_picture' => 'sometimes|nullable|image|max:2048',
             'password' => 'sometimes|string|min:8',
         ]);
 
@@ -329,12 +328,6 @@ class AuthController extends Controller
 
         if ($request->filled('name')) {
             $user->name = trim((string) $request->input('name'));
-        }
-
-        if ($request->hasFile('profile_picture')) {
-            $file = $request->file('profile_picture');
-            $path = $file?->store('profile-pictures', 'public');
-            $user->profile_picture = $path;
         }
 
         if ($request->filled('password')) {

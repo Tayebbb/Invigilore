@@ -89,11 +89,7 @@ export default function ProtectedRoute({ allowedRoles, allowedPermissions = [], 
     return <Navigate to={getHomeRouteByRole(normalizedRole)} replace />;
   }
 
-  // Only enforce permission checks when the local permission list is available.
-  // Backend APIs remain the source of truth and still enforce authorization.
-  const shouldEnforcePermissionGuard = allowedPermissions.length > 0 && userPermissions.length > 0;
-
-  if (shouldEnforcePermissionGuard && !hasAnyPermission(userPermissions, allowedPermissions)) {
+  if (!hasAnyPermission(userPermissions, allowedPermissions)) {
     return <Navigate to={getHomeRouteByRole(normalizedRole)} replace />;
   }
 

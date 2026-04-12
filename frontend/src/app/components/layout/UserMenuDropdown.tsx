@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ChevronDown, Lock, LogOut, User } from 'lucide-react';
+import { ChevronDown, LogOut, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
-import { getHomeRouteByRole, isStudentRole, normalizeRole } from '../../navigation/roleRoutes';
+import { getHomeRouteByRole, isStudentRole } from '../../navigation/roleRoutes';
 import { getStudentAccountDropdownItems } from '../../navigation/studentNavigation';
 
 export interface UserMenuUser {
@@ -46,8 +46,7 @@ export default function UserMenuDropdown({ user, onSignOut }: UserMenuDropdownPr
     };
   }, []);
 
-  const normalizedRole = normalizeRole(user.role);
-  const profileTarget = student ? '/student/profile' : normalizedRole === 'teacher' ? '/teacher/profile' : getHomeRouteByRole(user.role);
+  const profileTarget = student ? '/student/profile' : getHomeRouteByRole(user.role);
 
   const menuItems = student
     ? [{ icon: User, label: 'View Profile', action: () => navigate(profileTarget) }, ...getStudentAccountDropdownItems().map((item) => ({
@@ -55,12 +54,7 @@ export default function UserMenuDropdown({ user, onSignOut }: UserMenuDropdownPr
         label: item.label,
         action: () => navigate(item.to),
       }))]
-    : normalizedRole === 'teacher'
-      ? [
-          { icon: User, label: 'View Profile', action: () => navigate('/teacher/profile') },
-          { icon: Lock, label: 'Account Settings', action: () => navigate('/teacher/account-settings') },
-        ]
-      : [{ icon: User, label: 'View Profile', action: () => navigate(profileTarget) }];
+    : [{ icon: User, label: 'View Profile', action: () => navigate(profileTarget) }];
 
   return (
     <div className="relative" ref={menuRef}>

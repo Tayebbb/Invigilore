@@ -6,8 +6,6 @@ import ForgotPassword         from "./pages/ForgotPassword";
 import ResetPassword          from "./pages/ResetPassword";
 import PublicExamLandingPage  from "./pages/student/PublicExamLandingPage";
 import TeacherDashboard       from "./pages/TeacherDashboard";
-import TeacherProfilePage     from "./pages/teacher/TeacherProfilePage";
-import TeacherAccountSettingsPage from "./pages/teacher/TeacherAccountSettingsPage";
 
 // Role-based dashboards
 import AdminDashboard         from "./pages/admin/AdminDashboard";
@@ -97,22 +95,6 @@ const routes = [
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
         <TeacherResultsPage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/teacher/profile",
-    element: (
-      <ProtectedRoute allowedRoles={["teacher"]}>
-        <TeacherProfilePage />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/teacher/account-settings",
-    element: (
-      <ProtectedRoute allowedRoles={["teacher"]}>
-        <TeacherAccountSettingsPage />
       </ProtectedRoute>
     ),
   },
