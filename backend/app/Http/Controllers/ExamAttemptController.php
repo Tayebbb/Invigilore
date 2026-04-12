@@ -53,10 +53,6 @@ class ExamAttemptController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        if (strtolower((string) ($user?->role?->name ?? '')) !== 'student') {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
         $exam = Exam::findOrFail($request->integer('exam_id'));
 
         $hasActiveAttempt = ExamAttempt::query()
