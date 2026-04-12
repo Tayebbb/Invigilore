@@ -166,6 +166,7 @@ export default function TeacherResultsPage() {
   function handleNavChange(label: string) {
     if (label === 'Dashboard') navigate('/teacher/dashboard');
     if (label === 'Create Exam') navigate('/teacher/exams/new');
+    if (label === 'Notifications') navigate('/teacher/notifications');
     if (label === 'Student Results') {
       setSearchParams({});
       setSearchTerm('');

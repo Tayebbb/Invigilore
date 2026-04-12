@@ -14,6 +14,7 @@ import AdminDashboard         from "./pages/admin/AdminDashboard";
 import MyExamsDashboard       from "./pages/teacher/MyExamsDashboard";
 import CreateExam             from "./pages/teacher/CreateExam";
 import TeacherResultsPage     from "./pages/teacher/TeacherResultsPage";
+import TeacherNotificationsPage from "./pages/teacher/TeacherNotificationsPage";
 import StudentDashboard       from "./pages/student/StudentDashboard";
 import StudentExamAttemptPage from "./pages/student/StudentExamAttemptPage";
 import StudentResultsPage     from "./pages/student/StudentResultsPage";
@@ -97,6 +98,14 @@ const routes = [
     element: (
       <ProtectedRoute allowedRoles={["teacher"]}>
         <TeacherResultsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/teacher/notifications",
+    element: (
+      <ProtectedRoute allowedRoles={["teacher"]}>
+        <TeacherNotificationsPage />
       </ProtectedRoute>
     ),
   },

@@ -17,7 +17,7 @@ function mapApiUser(apiUser: any): AuthUserRecord {
     name: apiUser?.name ?? 'User',
     email: apiUser?.email ?? '',
     role: apiUser?.role?.name ?? apiUser?.role ?? 'student',
-    profile_picture: apiUser?.profile_picture ?? null,
+    profile_picture: apiUser?.profile_picture ?? apiUser?.profile?.profile_picture ?? null,
   };
 }
 

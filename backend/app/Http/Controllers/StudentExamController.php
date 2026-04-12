@@ -12,12 +12,14 @@ use App\Models\ExamAttempt;
 use App\Models\Question;
 use App\Models\Result;
 use App\Models\Submission;
+use App\Models\User;
 use App\Services\AiService;
 use App\Services\AuditTrailService;
 use App\Services\IncidentService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -725,6 +727,8 @@ class StudentExamController extends Controller
                 ));
             }
 
+            $this->notifyExamStaffOfSubmission($attempt, $status, $submittedAt);
+
             return [
                 'score' => $isPublished ? $score : null,
                 'totalMarks' => (int) $questions->sum('marks'),
@@ -839,6 +843,73 @@ class StudentExamController extends Controller
         }
 
         return $token;
+    }
+
+    private function notifyExamStaffOfSubmission(ExamAttempt $attempt, string $status, Carbon $submittedAt): void
+    {
+        try {
+            $exam = $attempt->exam;
+            if (! $exam) {
+                return;
+            }
+
+            $recipientIds = array_values(array_unique(array_filter([
+                $exam->teacher_id,
+                $exam->controller_id,
+                $exam->question_setter_id,
+                $exam->moderator_id,
+                $exam->invigilator_id,
+            ], fn ($id) => ! is_null($id) && (int) $id > 0)));
+
+            $recipientIds = array_values(array_filter(
+                $recipientIds,
+                fn (int $id) => $id !== (int) $attempt->user_id
+            ));
+
+            if ($recipientIds === []) {
+                return;
+            }
+
+            $eventKey = 'exam_submission_' . $attempt->id;
+
+            $alreadyNotifiedIds = DatabaseNotification::query()
+                ->where('type', ExamNotification::class)
+                ->where('notifiable_type', User::class)
+                ->whereIn('notifiable_id', $recipientIds)
+                ->where('data->event_key', $eventKey)
+                ->pluck('notifiable_id')
+                ->map(fn ($value) => (int) $value)
+                ->all();
+
+            $pendingRecipientIds = array_values(array_diff($recipientIds, $alreadyNotifiedIds));
+
+            if ($pendingRecipientIds === []) {
+                return;
+            }
+
+            $studentName = trim((string) ($attempt->user?->name ?? 'A student'));
+            $statusLabel = $status === 'timeout' ? 'was auto-submitted (time expired)' : 'submitted';
+            $message = sprintf(
+                '%s %s the exam "%s" at %s.',
+                $studentName,
+                $statusLabel,
+                (string) $exam->title,
+                $submittedAt->format('Y-m-d H:i')
+            );
+
+            $recipients = User::query()->whereIn('id', $pendingRecipientIds)->get();
+
+            Notification::send($recipients, new ExamNotification(
+                'Exam Submission Received',
+                $message,
+                'info',
+                '/teacher/results',
+                $eventKey,
+                (int) $exam->id
+            ));
+        } catch (\Throwable) {
+            // Notifications should never block submission flow.
+        }
     }
 
     private function durationTakenMinutes(ExamAttempt $attempt): ?int

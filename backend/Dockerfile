@@ -104,4 +104,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD sh -c "curl -fsS http://localhost:${PORT:-8000}/api/health || exit 1"
 
 # Apply pending migrations before serving so schema drift does not break sign-up flows.
-CMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]
+CMD ["sh", "-c", "php artisan storage:link || true; php artisan migrate --force; php artisan serve --host=0.0.0.0 --port=${PORT:-8000}"]

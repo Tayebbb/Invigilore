@@ -305,6 +305,10 @@ export default function MyExamsDashboard() {
           navigate('/teacher/results');
           return;
         }
+        if (label === 'Notifications') {
+          navigate('/teacher/notifications');
+          return;
+        }
         setActiveItem(label);
       }}
       user={teacherUser}

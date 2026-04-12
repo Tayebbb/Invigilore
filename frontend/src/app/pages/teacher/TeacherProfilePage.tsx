@@ -8,6 +8,10 @@ import { TEACHER_NAV_ITEMS, getTeacherSidebarRoute } from '../../navigation/teac
 import { resolveProfileImageUrl } from '../../utils/profileImage';
 import { writeStoredAuthUser } from '../../utils/authUser';
 
+function pickProfilePicture(user: any): string | null {
+  return user?.profile_picture ?? user?.profile?.profile_picture ?? null;
+}
+
 export default function TeacherProfilePage() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -26,7 +30,7 @@ export default function TeacherProfilePage() {
         setName(user?.name ?? '');
         setEmail(user?.email ?? '');
         setRole(user?.role?.name ?? 'teacher');
-        setProfilePicture(user?.profile_picture ?? null);
+        setProfilePicture(pickProfilePicture(user));
       } catch {
         setStatus('Unable to load profile');
       }
@@ -74,7 +78,7 @@ export default function TeacherProfilePage() {
       const nextName = updatedUser?.name ?? trimmedName;
       const nextEmail = updatedUser?.email ?? email;
       const nextRole = updatedUser?.role?.name ?? updatedUser?.role ?? role;
-      const nextPicture = updatedUser?.profile_picture ?? profilePicture;
+      const nextPicture = pickProfilePicture(updatedUser) ?? profilePicture;
 
       setName(nextName);
       setEmail(nextEmail);

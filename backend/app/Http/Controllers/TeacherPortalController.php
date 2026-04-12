@@ -10,12 +10,15 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Notifications\ExamNotification;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Notification;
 
 class TeacherPortalController extends Controller
 {
     public function tests(Request $request): JsonResponse
     {
+        $this->dispatchExamEndedNotifications();
+
         $search = trim((string) $request->query('search', ''));
         $status = trim((string) $request->query('status', 'all'));
 
@@ -94,6 +97,8 @@ class TeacherPortalController extends Controller
 
     public function testInfo(Request $request, Exam $exam): JsonResponse
     {
+        $this->dispatchExamEndedNotifications();
+
         $now = now();
 
         $activeRespondents = ExamAttempt::query()
@@ -171,6 +176,8 @@ class TeacherPortalController extends Controller
         $exam->end_time = now();
         $exam->save();
 
+        $this->notifyExamEndedOnce($exam);
+
         return response()->json([
             'success' => true,
             'message' => 'Test ended successfully',
@@ -183,6 +190,8 @@ class TeacherPortalController extends Controller
 
     public function resultsDatabase(Request $request): JsonResponse
     {
+        $this->dispatchExamEndedNotifications();
+
         $search = trim((string) $request->query('search', ''));
         $perPage = max(1, min(100, (int) $request->query('perPage', 20)));
 
@@ -372,6 +381,61 @@ class TeacherPortalController extends Controller
         $last = implode(' ', $parts);
 
         return [$first, $last];
+    }
+
+    private function dispatchExamEndedNotifications(): void
+    {
+        $endedExams = Exam::query()
+            ->whereNotNull('end_time')
+            ->where('end_time', '<=', now())
+            ->get(['id', 'title', 'end_time', 'teacher_id', 'controller_id', 'question_setter_id', 'moderator_id', 'invigilator_id']);
+
+        foreach ($endedExams as $exam) {
+            $this->notifyExamEndedOnce($exam);
+        }
+    }
+
+    private function notifyExamEndedOnce(Exam $exam): void
+    {
+        $recipientIds = array_values(array_unique(array_filter([
+            $exam->teacher_id,
+            $exam->controller_id,
+            $exam->question_setter_id,
+            $exam->moderator_id,
+            $exam->invigilator_id,
+        ], fn ($id) => ! is_null($id) && (int) $id > 0)));
+
+        if ($recipientIds === []) {
+            return;
+        }
+
+        $eventKey = 'exam_ended_' . $exam->id;
+
+        $alreadyNotifiedIds = DatabaseNotification::query()
+            ->where('type', ExamNotification::class)
+            ->where('notifiable_type', User::class)
+            ->whereIn('notifiable_id', $recipientIds)
+            ->where('data->event_key', $eventKey)
+            ->pluck('notifiable_id')
+            ->map(fn ($value) => (int) $value)
+            ->all();
+
+        $pendingRecipientIds = array_values(array_diff($recipientIds, $alreadyNotifiedIds));
+
+        if ($pendingRecipientIds === []) {
+            return;
+        }
+
+        $recipients = User::query()->whereIn('id', $pendingRecipientIds)->get();
+
+        Notification::send($recipients, new ExamNotification(
+            'Exam Time Over: ' . $exam->title,
+            sprintf('The exam "%s" has ended at %s.', (string) $exam->title, optional($exam->end_time)->format('Y-m-d H:i')),
+            'warning',
+            '/teacher/dashboard',
+            $eventKey,
+            (int) $exam->id
+        ));
     }
 
     private function formatDuration(int $seconds): string

@@ -8,6 +8,10 @@ import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/stud
 import { resolveProfileImageUrl } from '../../utils/profileImage';
 import { writeStoredAuthUser } from '../../utils/authUser';
 
+function pickProfilePicture(user: any): string | null {
+  return user?.profile_picture ?? user?.profile?.profile_picture ?? null;
+}
+
 export default function StudentProfilePage() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
@@ -24,7 +28,7 @@ export default function StudentProfilePage() {
         setName(user?.name ?? '');
         setEmail(user?.email ?? '');
         setRole(user?.role?.name ?? 'student');
-        setProfilePicture(user?.profile_picture ?? null);
+        setProfilePicture(pickProfilePicture(user));
       } catch {
         setStatus('Unable to load profile');
       }
@@ -54,7 +58,7 @@ export default function StudentProfilePage() {
       const nextName = meData?.name ?? name.trim();
       const nextEmail = meData?.email ?? email;
       const nextRole = meData?.role?.name ?? meData?.role ?? role;
-      const nextPicture = meData?.profile_picture ?? profilePicture;
+      const nextPicture = pickProfilePicture(meData) ?? profilePicture;
 
       setName(nextName);
       setEmail(nextEmail);

@@ -33,12 +33,12 @@ import type { SidebarNavItem } from '../../components/layout/DashboardSidebar';
 import useCurrentUser from '../../hooks/useCurrentUser';
 import { hasAnyPermission, normalizePermissionList } from '../../utils/permissions';
 
-const NAV_ITEMS: SidebarNavItem[] = [
+const BASE_NAV_ITEMS: SidebarNavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard },
   { label: 'Question Bank', icon: FileText },
   { label: 'Create Exam', icon: Plus },
   { label: 'Student Results', icon: SlidersHorizontal },
-  { label: 'Notifications', icon: CircleHelp, badge: '2' },
+  { label: 'Notifications', icon: CircleHelp },
 ];
 
 const STEPS = [
@@ -262,6 +262,45 @@ export default function CreateExam() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiQuestionCount, setAiQuestionCount] = useState(5);
   const [aiDifficulty, setAiDifficulty] = useState('medium');
+  const [teacherUnreadNotifications, setTeacherUnreadNotifications] = useState(0);
+
+  const navItems = useMemo(() => {
+    const badge = teacherUnreadNotifications > 0 ? String(Math.min(99, teacherUnreadNotifications)) : undefined;
+
+    return BASE_NAV_ITEMS.map((item) => {
+      if (item.label !== 'Notifications') {
+        return item;
+      }
+
+      return {
+        ...item,
+        badge,
+      };
+    });
+  }, [teacherUnreadNotifications]);
+
+  useEffect(() => {
+    let active = true;
+
+    const fetchUnreadNotifications = async () => {
+      try {
+        const response = await api.get('/notifications');
+        if (! active) return;
+        setTeacherUnreadNotifications(Number(response.data?.unread_count ?? 0));
+      } catch {
+        if (! active) return;
+        setTeacherUnreadNotifications(0);
+      }
+    };
+
+    fetchUnreadNotifications();
+    const timer = window.setInterval(fetchUnreadNotifications, 60000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   async function handleAiGenerate() {
     if (!targetExamId) {
@@ -562,6 +601,10 @@ export default function CreateExam() {
     }
     if (label === 'Student Results') {
       navigate('/teacher/results');
+      return;
+    }
+    if (label === 'Notifications') {
+      navigate('/teacher/notifications');
       return;
     }
   }
@@ -881,7 +924,7 @@ export default function CreateExam() {
   return (
     <DashboardLayout
       role="Teacher"
-      navItems={NAV_ITEMS}
+      navItems={navItems}
       activeItem="Create Exam"
       onNavChange={handleNavChange}
       user={teacherUser}

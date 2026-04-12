@@ -6,6 +6,11 @@ import api from '../../api';
 import { extractApiData, extractApiError } from '../../utils/apiHelpers';
 import { STUDENT_NAV_ITEMS, getStudentSidebarRoute } from '../../navigation/studentNavigation';
 import { writeStoredAuthUser } from '../../utils/authUser';
+import { resolveProfileImageUrl } from '../../utils/profileImage';
+
+function pickProfilePicture(user: any): string | null {
+  return user?.profile_picture ?? user?.profile?.profile_picture ?? null;
+}
 
 export default function StudentAccountSettingsPage() {
   const navigate = useNavigate();
@@ -22,6 +27,7 @@ export default function StudentAccountSettingsPage() {
   const [role, setRole] = useState('student');
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [profileFile, setProfileFile] = useState<File | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -42,7 +48,7 @@ export default function StudentAccountSettingsPage() {
         setFullName(data?.profile?.name ?? '');
         setEmail(data?.profile?.email ?? '');
         setRole(data?.profile?.role ?? 'student');
-        setProfilePicture(data?.profile?.profile_picture ?? null);
+        setProfilePicture(pickProfilePicture(data));
         setRestrictLoginToOneDevice(Boolean(data?.security?.restrict_login_to_one_device));
         setNotificationEmail(Boolean(data?.preferences?.notification_preferences?.email ?? true));
         setNotificationSms(Boolean(data?.preferences?.notification_preferences?.sms ?? false));
@@ -57,7 +63,13 @@ export default function StudentAccountSettingsPage() {
     load();
   }, []);
 
-  const canSaveProfile = useMemo(() => fullName.trim().length >= 2, [fullName]);
+  const canSaveProfile = useMemo(() => {
+    if (profileFile) {
+      return true;
+    }
+
+    return fullName.trim().length >= 2;
+  }, [fullName, profileFile]);
 
   const handleNav = (label: string) => {
     const route = getStudentSidebarRoute(label);
@@ -108,15 +120,16 @@ export default function StudentAccountSettingsPage() {
       });
 
       const meResponse = await api.get('/me');
-      const meData = meResponse.data;
+      const meData = extractApiData(meResponse) ?? meResponse.data;
       writeStoredAuthUser({
         name: meData?.name ?? fullName,
         email: meData?.email ?? email,
         role: meData?.role?.name ?? meData?.role ?? role,
-        profile_picture: meData?.profile_picture ?? null,
+        profile_picture: pickProfilePicture(meData),
       });
-      setProfilePicture(meData?.profile_picture ?? null);
+      setProfilePicture(pickProfilePicture(meData));
       setFullName(meData?.name ?? fullName);
+      setLastSavedAt(Date.now());
 
       setMessage('Profile updated successfully');
       setProfileFile(null);
@@ -126,6 +139,9 @@ export default function StudentAccountSettingsPage() {
       setProfileSaving(false);
     }
   };
+
+  const pictureUrl = resolveProfileImageUrl(profilePicture, api.defaults.baseURL?.toString());
+  const avatarLetter = (fullName?.trim()?.[0] ?? 'S').toUpperCase();
 
   const savePassword = async () => {
     setPasswordSaving(true);
@@ -218,6 +234,33 @@ export default function StudentAccountSettingsPage() {
                 <Save className="h-4 w-4" />
                 {profileSaving ? 'Saving...' : 'Save Profile'}
               </button>
+            </div>
+
+            <div className="mb-4 flex items-center gap-4 rounded-xl border border-gray-800 bg-gray-950 p-4">
+              {pictureUrl ? (
+                <img
+                  src={pictureUrl}
+                  alt={`${fullName || 'Student'} profile`}
+                  className="h-14 w-14 rounded-2xl border border-gray-700 object-cover"
+                />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-500 text-lg font-bold text-white">
+                  {avatarLetter}
+                </div>
+              )}
+              <div>
+                <p className="text-sm font-semibold text-white">{fullName || 'Student'}</p>
+                <p className="text-xs text-gray-400">{email || 'student@invigilore.com'}</p>
+                <p className="mt-1 text-xs text-gray-500">Upload a square image for best results.</p>
+              </div>
+            </div>
+
+            <div className="mb-4 min-h-5">
+              {profileSaving ? (
+                <p className="text-xs text-teal-300">Saving your profile changes...</p>
+              ) : lastSavedAt ? (
+                <p className="text-xs text-emerald-300">Saved just now</p>
+              ) : null}
             </div>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
