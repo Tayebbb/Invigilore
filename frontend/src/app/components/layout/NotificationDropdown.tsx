@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Trash2, ExternalLink, Clock, BellOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router';
-import api from '../../api';
+import api, { clearApiCacheForPath } from '../../api';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Notification {
@@ -26,15 +26,26 @@ export default function NotificationDropdown() {
   const [loading, setLoading] = useState(true);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
     try {
       const res = await api.get('/notifications');
-      setNotifications(res.data.notifications.data);
-      setUnreadCount(res.data.unread_count);
+      const payload = res.data ?? {};
+      const list = Array.isArray(payload?.notifications?.data)
+        ? payload.notifications.data
+        : [];
+
+      setNotifications(list);
+      setUnreadCount(Number(payload?.unread_count ?? 0));
     } catch (err) {
       console.error('Failed to fetch notifications:', err);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -58,10 +69,8 @@ export default function NotificationDropdown() {
   const markAsRead = async (id: string) => {
     try {
       await api.patch(`/notifications/${id}/read`);
-      setNotifications(prev => 
-        prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n)
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      clearApiCacheForPath('/notifications');
+      await fetchNotifications(true);
     } catch (err) {
       console.error('Failed to mark as read:', err);
     }
@@ -85,8 +94,8 @@ export default function NotificationDropdown() {
   const markAllAsRead = async () => {
     try {
       await api.patch('/notifications/read-all');
-      setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
-      setUnreadCount(0);
+      clearApiCacheForPath('/notifications');
+      await fetchNotifications(true);
     } catch (err) {
       console.error('Failed to mark all as read:', err);
     }
@@ -95,8 +104,8 @@ export default function NotificationDropdown() {
   const clearAll = async () => {
     try {
       await api.delete('/notifications');
-      setNotifications([]);
-      setUnreadCount(0);
+      clearApiCacheForPath('/notifications');
+      await fetchNotifications(true);
     } catch (err) {
       console.error('Failed to clear all:', err);
     }

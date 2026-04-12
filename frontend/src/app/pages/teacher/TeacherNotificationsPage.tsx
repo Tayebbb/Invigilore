@@ -5,7 +5,7 @@ import { formatDistanceToNow } from 'date-fns';
 import DashboardLayout from '../../components/layout/DashboardLayout';
 import { TEACHER_NAV_ITEMS, getTeacherSidebarRoute } from '../../navigation/teacherNavigation';
 import useCurrentUser from '../../hooks/useCurrentUser';
-import api from '../../api';
+import api, { clearApiCacheForPath } from '../../api';
 
 type NotificationItem = {
   id: string;
@@ -84,8 +84,8 @@ export default function TeacherNotificationsPage() {
 
     try {
       await api.patch(`/notifications/${item.id}/read`);
-      setItems((previous) => previous.map((n) => n.id === item.id ? { ...n, read_at: new Date().toISOString() } : n));
-      setUnreadCount((previous) => Math.max(0, previous - 1));
+      clearApiCacheForPath('/notifications');
+      await loadNotifications(page);
       if (item.data?.action_url) {
         navigate(item.data.action_url);
       }
@@ -97,8 +97,8 @@ export default function TeacherNotificationsPage() {
   const markAllAsRead = async () => {
     try {
       await api.patch('/notifications/read-all');
-      setItems((previous) => previous.map((n) => ({ ...n, read_at: new Date().toISOString() })));
-      setUnreadCount(0);
+      clearApiCacheForPath('/notifications');
+      await loadNotifications(page);
     } catch {
       setError('Unable to mark all notifications as read.');
     }
@@ -107,10 +107,8 @@ export default function TeacherNotificationsPage() {
   const clearAll = async () => {
     try {
       await api.delete('/notifications');
-      setItems([]);
-      setUnreadCount(0);
-      setPage(1);
-      setLastPage(1);
+      clearApiCacheForPath('/notifications');
+      await loadNotifications(1);
     } catch {
       setError('Unable to clear notifications.');
     }

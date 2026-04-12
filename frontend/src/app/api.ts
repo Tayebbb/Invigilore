@@ -11,6 +11,10 @@ const getCacheKey = (url: string, params?: Record<string, any>) => {
   return `${url}${queryStr}`;
 };
 
+const isNotificationRequest = (url: string) => {
+  return /\/notifications(\/|$|\?)/.test(url);
+};
+
 const normalizeApiBaseUrl = (rawUrl?: string): string => {
   const trimmed = (rawUrl || '').trim();
 
@@ -61,7 +65,7 @@ api.interceptors.request.use(
     }
 
     // Check cache for GET requests
-    if (config.method === 'get' && config.url) {
+    if (config.method === 'get' && config.url && !isNotificationRequest(config.url)) {
       const cacheKey = getCacheKey(config.url, config.params);
       const cached = requestCache.get(cacheKey);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -80,7 +84,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response: AxiosResponse) => {
     // Cache successful GET responses
-    if (response.config.method === 'get' && response.config.url) {
+    if (response.config.method === 'get' && response.config.url && !isNotificationRequest(response.config.url)) {
       const cacheKey = getCacheKey(response.config.url, response.config.params);
       requestCache.set(cacheKey, { data: response.data, timestamp: Date.now() });
     }
@@ -105,5 +109,13 @@ api.interceptors.response.use(
 
 // Utility to clear cache
 export const clearApiCache = () => requestCache.clear();
+
+export const clearApiCacheForPath = (pathFragment: string) => {
+  for (const key of requestCache.keys()) {
+    if (key.includes(pathFragment)) {
+      requestCache.delete(key);
+    }
+  }
+};
 
 export default api;
