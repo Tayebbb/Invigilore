@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ExamAssignedMail;
 use App\Models\Exam;
 use App\Models\ExamAccess;
 use App\Models\ExamAccessUser;
 use App\Models\User;
+use App\Notifications\ExamNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class ExamAccessController extends Controller
@@ -143,14 +146,25 @@ class ExamAccessController extends Controller
             ]
         );
 
-        $registeredStudentEmails = User::query()
+        $registeredStudents = User::query()
             ->whereIn('email', $normalizedEmails->all())
             ->whereHas('role', function ($query) {
                 $query->where('name', 'student');
             })
+            ->get(['id', 'name', 'email']);
+
+        $registeredStudentEmails = $registeredStudents
             ->pluck('email')
             ->map(fn ($email) => strtolower((string) $email))
             ->all();
+
+        $studentsByEmail = $registeredStudents
+            ->keyBy(fn (User $student) => strtolower((string) $student->email));
+
+        $frontendUrl = rtrim(env('FRONTEND_URL', 'http://localhost:5173'), '/');
+        $emailsSent = 0;
+        $inAppNotifications = 0;
+        $failedEmails = [];
 
         $assigned = 0;
         foreach ($normalizedEmails as $email) {
@@ -165,12 +179,42 @@ class ExamAccessController extends Controller
                     'expires_at' => $exam->end_time,
                 ]
             );
+
+            $accessLink = "{$frontendUrl}/test/{$exam->id}?token={$plainToken}&email=" . rawurlencode($email);
+
+            try {
+                Mail::to($email)->send(new ExamAssignedMail($exam, $email, $accessLink));
+                $emailsSent++;
+            } catch (\Throwable) {
+                $failedEmails[] = $email;
+            }
+
+            $student = $studentsByEmail->get($email);
+            if ($student instanceof User) {
+                try {
+                    $student->notify(new ExamNotification(
+                        'Exam Assigned: ' . $exam->title,
+                        'You have been assigned to a new exam. Check your email for your private access link.',
+                        'info',
+                        '/student/dashboard',
+                        'exam_assigned_' . $exam->id . '_' . $email,
+                        (int) $exam->id,
+                    ));
+                    $inAppNotifications++;
+                } catch (\Throwable) {
+                    // In-app notification failures should not block assignment.
+                }
+            }
+
             $assigned++;
         }
 
         return response()->json([
             'message' => 'Private exam access assigned successfully.',
             'assigned' => $assigned,
+            'emails_sent' => $emailsSent,
+            'failed_emails' => $failedEmails,
+            'in_app_notifications' => $inAppNotifications,
             'registered_students' => $registeredStudentEmails,
             'pending_registration' => array_values(array_diff($normalizedEmails->all(), $registeredStudentEmails)),
         ]);
