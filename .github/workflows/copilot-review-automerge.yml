@@ -52,7 +52,7 @@ jobs:
             echo "$CONFLICT_FILES"
 
             # Resolve conflicts by taking PR branch version
-            echo "$CONFLICT_FILES" | xargs -I{} git checkout --theirs {}
+            echo "$CONFLICT_FILES" | xargs -I{} git checkout --ours {}
             echo "$CONFLICT_FILES" | xargs git add
 
             # Continue rebase with automatic commit message
@@ -83,4 +83,4 @@ jobs:
             } catch (err) {
               core.setFailed(`Merge failed: ${err.message}`);
             }
-
+
