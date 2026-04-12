@@ -26,6 +26,11 @@ class ExamAttemptController extends Controller
         return $this->start($request);
     }
 
+    public function storeFromExamId(Request $request): JsonResponse
+    {
+        return $this->start($request);
+    }
+
     /**
      * Contract-compliant endpoint: POST /api/attempts
      * Starts a new exam attempt for the authenticated student.
@@ -225,6 +230,7 @@ class ExamAttemptController extends Controller
                 'question_id' => $request->integer('question_id'),
             ],
             [
+                'selected_answer' => $request->string('selected_option')->trim()->toString(),
                 'selected_option' => $request->string('selected_option')->trim()->toString(),
                 'answer_text' => $request->string('selected_option')->trim()->toString(),
             ]
@@ -245,6 +251,7 @@ class ExamAttemptController extends Controller
                 'id' => $answer->id,
                 'attempt_id' => $answer->attempt_id,
                 'question_id' => $answer->question_id,
+                'selected_answer' => $answer->selected_answer,
                 'selected_option' => $answer->selected_option,
             ],
             'remaining_time' => $this->remainingSeconds($attempt),
@@ -337,7 +344,7 @@ class ExamAttemptController extends Controller
 
             foreach ($questions as $question) {
                 $answer = $answers->get($question->id);
-                $selectedAnswer = $answer?->selected_answer;
+                $selectedAnswer = $answer?->selected_answer ?? $answer?->selected_option;
 
                 if ($answer) {
                     $answeredCount++;

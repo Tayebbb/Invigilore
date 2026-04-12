@@ -305,6 +305,7 @@ class StudentExamController extends Controller
                 'question_id' => $request->integer('question_id'),
             ],
             [
+                'selected_answer' => $selectedOption,
                 'selected_option' => $selectedOption,
                 'answer_text' => $selectedOption,
             ]
@@ -496,7 +497,7 @@ class StudentExamController extends Controller
         foreach ($attempt->exam->questions as $question) {
             $savedAnswer = $answersByQuestion->get($question->id);
 
-            if ($savedAnswer && $this->isObjectiveAnswerCorrect($question, $savedAnswer->selected_answer)) {
+            if ($savedAnswer && $this->isObjectiveAnswerCorrect($question, $savedAnswer->selected_answer ?? $savedAnswer->selected_option)) {
                 $obtainedMarks += (int) $question->marks;
             }
         }
@@ -517,7 +518,7 @@ class StudentExamController extends Controller
                 'questionText' => $question->question_text,
                 'options' => $question->options,
                 'marks' => $question->marks,
-                'selectedAnswer' => $savedAnswer?->selected_answer,
+                'selectedAnswer' => $savedAnswer?->selected_answer ?? $savedAnswer?->selected_option,
             ];
         })->values();
 
@@ -655,7 +656,7 @@ class StudentExamController extends Controller
                 if ($type === 'descriptive' || $type === 'short_answer') {
                     $eval = $ai->evaluateAnswer(
                         $question->question_text,
-                        $answer->selected_answer,
+                        $answer->selected_answer ?? $answer->selected_option,
                         $question->correct_answer,
                         (int) $question->marks
                     );
@@ -677,7 +678,7 @@ class StudentExamController extends Controller
                     continue;
                 }
 
-                $isCorrect = $this->isObjectiveAnswerCorrect($question, $answer->selected_answer);
+                $isCorrect = $this->isObjectiveAnswerCorrect($question, $answer->selected_answer ?? $answer->selected_option);
                 $awarded = $isCorrect ? (float) $question->marks : 0.0;
 
                 $answer->update([

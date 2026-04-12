@@ -127,7 +127,7 @@ return new class extends Migration
 
         Schema::table('questions', function (Blueprint $table) {
             if (Schema::hasColumn('questions', 'exam_id')) {
-                $table->unsignedBigInteger('exam_id')->nullable(false)->change();
+                $table->unsignedBigInteger('exam_id')->nullable()->change();
             }
 
             if (Schema::hasColumn('questions', 'type')) {
@@ -232,8 +232,13 @@ return new class extends Migration
         }
 
         Schema::table('attempt_answers', function (Blueprint $table) {
+            if (! Schema::hasColumn('attempt_answers', 'selected_answer')) {
+                $table->string('selected_answer')->nullable()->after('question_id');
+            }
+
             if (! Schema::hasColumn('attempt_answers', 'selected_option')) {
-                $table->string('selected_option')->nullable()->after('question_id');
+                $afterColumn = Schema::hasColumn('attempt_answers', 'selected_answer') ? 'selected_answer' : 'question_id';
+                $table->string('selected_option')->nullable()->after($afterColumn);
             }
 
             if (! Schema::hasColumn('attempt_answers', 'answer_text')) {
@@ -241,14 +246,14 @@ return new class extends Migration
             }
         });
 
-        if (Schema::hasColumn('attempt_answers', 'selected_answer')) {
+        if (Schema::hasColumn('attempt_answers', 'selected_answer') && Schema::hasColumn('attempt_answers', 'selected_option')) {
             DB::table('attempt_answers')->whereNull('selected_option')->update([
                 'selected_option' => DB::raw('selected_answer'),
             ]);
 
-            Schema::table('attempt_answers', function (Blueprint $table) {
-                $table->dropColumn('selected_answer');
-            });
+            DB::table('attempt_answers')->whereNull('selected_answer')->update([
+                'selected_answer' => DB::raw('selected_option'),
+            ]);
         }
 
         Schema::table('attempt_answers', function (Blueprint $table) {

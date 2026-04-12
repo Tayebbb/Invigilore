@@ -15,6 +15,7 @@ class AttemptAnswer extends Model
     protected $fillable = [
         'attempt_id',
         'question_id',
+        'selected_answer',
         'selected_option',
         'answer_text',
         'is_correct',
@@ -34,12 +35,24 @@ class AttemptAnswer extends Model
 
     public function getSelectedAnswerAttribute(): ?string
     {
-        return $this->attributes['selected_option'] ?? null;
+        return $this->attributes['selected_answer'] ?? $this->attributes['selected_option'] ?? null;
     }
 
     public function setSelectedAnswerAttribute(?string $value): void
     {
+        $this->attributes['selected_answer'] = $value;
         $this->attributes['selected_option'] = $value;
+    }
+
+    public function getSelectedOptionAttribute(): ?string
+    {
+        return $this->attributes['selected_option'] ?? $this->attributes['selected_answer'] ?? null;
+    }
+
+    public function setSelectedOptionAttribute(?string $value): void
+    {
+        $this->attributes['selected_option'] = $value;
+        $this->attributes['selected_answer'] = $value;
     }
 
     public function attempt(): BelongsTo

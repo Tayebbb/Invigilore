@@ -79,9 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/support-tickets', [SupportTicketController::class, 'store']);
     });
 
-    Route::middleware('permission:answers.submit')->group(function () {
-        Route::post('/submissions', [SubmissionController::class, 'store']);
-    });
+    Route::post('/submissions', [SubmissionController::class, 'store']);
 
     Route::get('/submissions/{submission}', [SubmissionController::class, 'show']);
     Route::get('/users/{user}/results', [SubmissionController::class, 'userResults']);
